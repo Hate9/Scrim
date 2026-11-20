@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="660" viewBox="0 0 640 660" font-family="sans-serif" font-size="13">
+  <title>Preferences → Customize, Snippets &amp; Tags tab</title>
+  <rect width="640" height="660" fill="#f7f7f7"/>
+  <text x="20" y="40" font-size="26">Customize</text>
+  <line x1="20" y1="88" x2="620" y2="88" stroke="#ccc"/>
+  <rect x="20" y="60" width="120" height="28" fill="#fff" stroke="#ccc"/>
+  <text x="32" y="79">Snippets &amp; Tags</text>
+  <text x="156" y="79" fill="#555">base.user.css</text>
+  <text x="262" y="79" fill="#555">config.jsonc</text>
+  <text x="560" y="79" fill="#888" font-size="12">Saved</text>
+  <text x="20" y="120" font-weight="bold">Snippets</text>
+  <text x="90" y="120" font-size="12" fill="#666">$0 = cursor, or where selected text goes. $$ = literal $.</text>
+  <rect x="20" y="132" width="600" height="104" fill="none" stroke="#ccc" rx="4"/>
+  <rect x="28" y="140" width="380" height="26" fill="#fff" stroke="#bbb"/><text x="36" y="158">Bottom</text>
+  <rect x="414" y="140" width="170" height="26" fill="#fff" stroke="#bbb"/><text x="470" y="158">Ctrl+Alt+B</text>
+  <rect x="590" y="140" width="24" height="26" fill="#fff" stroke="#bbb"/><text x="597" y="158">✕</text>
+  <rect x="28" y="174" width="584" height="54" fill="#fff" stroke="#bbb"/>
+  <text x="36" y="192" font-family="monospace" font-size="12">&lt;bottom&gt;$0&lt;/bottom&gt;</text>
+  <rect x="20" y="244" width="600" height="122" fill="none" stroke="#ccc" rx="4"/>
+  <rect x="28" y="252" width="380" height="26" fill="#fff" stroke="#bbb"/><text x="36" y="270">Yuki</text>
+  <rect x="414" y="252" width="170" height="26" fill="#fff" stroke="#bbb"/><text x="430" y="270" fill="#999">Click, then press keys</text>
+  <rect x="590" y="252" width="24" height="26" fill="#fff" stroke="#bbb"/><text x="597" y="270">✕</text>
+  <rect x="28" y="286" width="584" height="44" fill="#fff" stroke="#bbb"/>
+  <text x="36" y="304" font-family="monospace" font-size="12">&lt;yuki&gt;$0&lt;/yuki&gt;</text>
+  <text x="28" y="350" fill="#c80" font-size="12">&lt;yuki&gt; isn't a registered custom tag, so it will show as text.</text>
+  <rect x="420" y="337" width="90" height="20" fill="#fff" stroke="#bbb"/><text x="428" y="351" font-size="12">Add as inline</text>
+  <rect x="516" y="337" width="90" height="20" fill="#fff" stroke="#bbb"/><text x="524" y="351" font-size="12">Add as block</text>
+  <rect x="36" y="378" width="90" height="26" fill="#fff" stroke="#bbb"/><text x="46" y="396">Add Snippet</text>
+  <text x="20" y="440" font-weight="bold">Snippet Picker Shortcut</text>
+  <text x="190" y="440" font-size="12" fill="#666">(filter snippets by name)</text>
+  <rect x="36" y="450" width="170" height="30" fill="#fff" stroke="#bbb"/><text x="66" y="470">Ctrl+Alt+Space</text>
+  <text x="20" y="516" font-weight="bold">Custom HTML Tags</text>
+  <text x="150" y="516" font-size="12" fill="#666">Rendered as real elements. Style them in base.user.css.</text>
+  <text x="40" y="548">Inline</text>
+  <rect x="100" y="532" width="520" height="26" fill="#fff" stroke="#bbb"/><text x="108" y="550" font-family="monospace" font-size="12">bottom, yuki</text>
+  <text x="40" y="582">Block</text>
+  <rect x="100" y="566" width="520" height="26" fill="#fff" stroke="#bbb"/><text x="108" y="584" font-family="monospace" font-size="12">callout</text>
+  <text x="20" y="616" font-size="12" fill="#888">Inline tags work like &lt;span&gt; inside paragraphs. A line starting with a block tag</text>
+  <text x="20" y="632" font-size="12" fill="#888">becomes an HTML block (no Markdown inside).</text>
+</svg>
