@@ -8,7 +8,10 @@
   "Open files in" (Preferences → General): **current window when possible** (default:
   reuse the current window if its document is untitled and unmodified, or saved and
   unmodified; otherwise open a new window) or **always new window**.
-- Window title: `<file name> - Scrim`; a `•` before the name when unsaved;
+- Paths handed over by a second launch (file manager, command line while running) never
+  replace an open document (Q-007): an already-open file focuses its window; otherwise a
+  new window opens, except that a fresh untitled, unmodified, empty window is reused.
+- Window title: `<file name with extension> - Scrim` (e.g. `notes.md - Scrim`, Q-008); a `•` before the name when unsaved;
   `Untitled` for new documents (title from front matter `title` if present).
 - Closing a window with unsaved changes asks: Save / Don't Save / Cancel. With autosave
   on (7.6), saved files close silently; untitled documents still ask.
@@ -123,7 +126,10 @@ Toggle: Mod+Shift+L. Width default 240 px, resizable by dragging its right edge
 
 ## 7.8 Command-line interface
 
-`scrim [paths…]`: each path that is a file opens in its own window; a folder opens as
+`scrim [paths…]`: each path that is a file opens in its own window (a path that does not
+exist opens an empty document bound to it, created on first save; if its folder is
+missing too, the first save asks to create it; unreadable paths show an error and open an
+untitled document; Q-003); a folder opens as
 the sidebar folder of a new window. `--new-window` forces a new window. Paths relative to
 the shell's working directory.
 
