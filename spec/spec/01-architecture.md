@@ -10,7 +10,8 @@ why in your repo's `DESIGN.md`.
   it depending on the light, the way the editor hides or reveals Markdown syntax
   depending on where the cursor is.
 - Display name `Scrim`; package/binary name `scrim`; app id
-  `io.gitlab.sisters_vibecode.Scrim`. Keep each in one constant so a rename stays a
+  `io.gitlab.sistersvibecode.Scrim` (one id for Tauri, desktop file, AppStream, D-Bus;
+  QA-LOG Q-001). Keep each in one constant so a rename stays a
   three-line change.
 - Config directory: Linux `~/.config/scrim/`, Windows `%APPDATA%\scrim\`.
 - The spec says "the editor" in prose; it always means Scrim.
@@ -194,10 +195,15 @@ top).
   Windows), fall back to writing in place.
 - **Encoding**: read with BOM detection; files without BOM are decoded as UTF-8 if
   valid, otherwise with a detected legacy encoding (chardet-style detection in Rust, for
-  example `chardetng`). Save in the encoding the file was read with, keeping the BOM
+  example `chardetng`). A file detected as windows-1252 that contains no byte in
+  0x80–0x9F is treated as ISO-8859-1 (Q-004). Save in the encoding the file was read with, keeping the BOM
   if it had one. New files are UTF-8 without BOM. If the document contains characters
   the original encoding cannot represent, saving asks: "Save as UTF-8" (default) /
   Cancel; it never writes replacement characters silently.
+- **Undecodable bytes** (invalid sequences in the detected encoding, Q-005): shown as
+  U+FFFD with a notice bar on open. Saving without edits writes the original bytes
+  unchanged; saving after an edit asks "Some bytes in this file could not be read and
+  will be saved as �." (Save Anyway / Cancel).
 - **Line endings**: detect on load (majority wins), save with the same. New files use
   the platform default from settings (default LF on Linux, CRLF on Windows, user
   configurable). Mixed files: lines the user did not touch keep their original endings.
