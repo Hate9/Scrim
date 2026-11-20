@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="560" viewBox="0 0 940 560" font-family="sans-serif" font-size="14">
+  <title>Preferences overlay</title>
+  <rect width="940" height="560" fill="#f7f7f7" stroke="#999"/>
+  <rect width="940" height="56" fill="#fff"/>
+  <line x1="0" y1="56" x2="940" y2="56" stroke="#ddd"/>
+  <text x="34" y="34" font-size="18">Preferences</text>
+  <line x1="886" y1="14" x2="886" y2="42" stroke="#ccc"/>
+  <text x="906" y="36" font-size="22">×</text>
+  <rect x="34" y="116" width="200" height="26" fill="#fff" stroke="#bbb"/>
+  <text x="44" y="134" fill="#999" font-size="12">Search for…</text>
+  <g>
+    <text x="46" y="182">General</text>
+    <text x="46" y="216">Appearance</text>
+    <text x="46" y="250">Editor</text>
+    <text x="46" y="284">Image</text>
+    <text x="46" y="318">Markdown</text>
+    <text x="46" y="352">Export</text>
+    <rect x="34" y="366" width="200" height="32" fill="#999" rx="2"/>
+    <text x="46" y="387" fill="#fff">Customize</text>
+  </g>
+  <text x="294" y="138" font-size="26">General</text>
+  <text x="294" y="186" font-weight="bold">On Launch</text>
+  <rect x="310" y="196" width="230" height="24" fill="#fff" stroke="#bbb"/>
+  <text x="318" y="213" font-size="13">Open new file ▾</text>
+  <text x="294" y="252" font-weight="bold">Save &amp; Recover</text>
+  <rect x="310" y="264" width="12" height="12" fill="#fff" stroke="#888"/><text x="330" y="275" font-size="13">Auto Save</text>
+  <rect x="310" y="290" width="160" height="26" fill="#fff" stroke="#bbb"/><text x="320" y="308" font-size="13">Recover Unsaved Drafts</text>
+  <text x="294" y="352" font-weight="bold">Language</text><text x="370" y="352" font-size="12" fill="#888">(applied after restart)</text>
+</svg>
