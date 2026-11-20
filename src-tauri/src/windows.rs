@@ -72,8 +72,8 @@ fn focused_window(app: &AppHandle) -> Option<String> {
 }
 
 /// Open each path: focus the window that already has it, else reuse `prefer` (or the
-/// focused window) when it is reusable, else open a new window. Only the first path may
-/// reuse a window.
+/// focused window, SPEC-QUESTION Q-007) when it is reusable, else open a new window. Only
+/// the first path may reuse a window.
 pub fn open_paths(app: &AppHandle, paths: &[PathBuf], prefer: Option<&str>) {
     let state = app.state::<AppState>();
     let mut reuse = prefer.map(str::to_string).or_else(|| focused_window(app));

@@ -15,7 +15,8 @@ pub fn bundle_identifier() -> String {
 }
 
 /// Window title for a document (spec 07, 7.1): `<file name> - Scrim`, with a `•`
-/// before the name when the document has unsaved changes.
+/// before the name when the document has unsaved changes. The file name includes its
+/// extension (SPEC-QUESTION Q-008).
 pub fn window_title(file_name: Option<&str>, dirty: bool) -> String {
     let name = file_name.unwrap_or("Untitled");
     let mark = if dirty { "• " } else { "" };
