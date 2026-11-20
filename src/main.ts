@@ -37,6 +37,7 @@ async function init() {
   doc.savedDisplay = displayText(doc.lines);
   doc.dirty = false;
   editor.value = doc.savedDisplay;
+  document.title = d.title;
   editor.setSelectionRange(0, 0);
   editor.scrollTop = 0;
   editor.focus();
@@ -50,7 +51,7 @@ function updateDirty() {
   const dirty = editor.value !== doc.savedDisplay;
   if (dirty !== doc.dirty) {
     doc.dirty = dirty;
-    void ipc.setDirty(dirty);
+    void ipc.setDirty(dirty).then((title) => (document.title = title));
   }
 }
 editor.addEventListener("input", updateDirty);
@@ -73,6 +74,7 @@ async function save(saveAs = false): Promise<boolean> {
           doc.lines = splitLines(request.text);
           doc.savedDisplay = display;
           doc.fileName = r.fileName;
+          document.title = r.title;
           doc.dirty = false; // Rust marked the document clean; report if edited meanwhile
           updateDirty();
           return true;

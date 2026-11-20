@@ -36,6 +36,8 @@ pub struct DocInit {
     pub missing: bool,
     /// The file could not be read; the window shows an untitled document instead.
     pub error: Option<String>,
+    /// Window title.
+    pub title: String,
 }
 
 #[tauri::command]
@@ -53,6 +55,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         malformed: false,
         missing: false,
         error: None,
+        title: String::new(),
     };
     let mut doc = DocState { initialized: true, ..Default::default() };
     if let Some(path) = path {
@@ -103,24 +106,17 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         }
     }
     state.docs().insert(label.clone(), doc);
-    windows::update_title(window.app_handle(), &label);
+    init.title = windows::update_title(window.app_handle(), &label);
     Ok(init)
 }
 
 #[tauri::command]
-pub async fn doc_set_dirty(window: WebviewWindow, state: State<'_, AppState>, dirty: bool) -> Result<(), String> {
+pub async fn doc_set_dirty(window: WebviewWindow, state: State<'_, AppState>, dirty: bool) -> Result<String, String> {
     let label = window.label().to_string();
-    let changed = match state.docs().get_mut(&label) {
-        Some(doc) if doc.dirty != dirty => {
-            doc.dirty = dirty;
-            true
-        }
-        _ => false,
-    };
-    if changed {
-        windows::update_title(window.app_handle(), &label);
+    if let Some(doc) = state.docs().get_mut(&label) {
+        doc.dirty = dirty;
     }
-    Ok(())
+    Ok(windows::update_title(window.app_handle(), &label))
 }
 
 #[derive(Deserialize)]
@@ -145,7 +141,7 @@ pub struct SaveRequest {
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum SaveResult {
     #[serde(rename_all = "camelCase")]
-    Saved { path: String, file_name: Option<String>, encoding: TextEncoding },
+    Saved { path: String, file_name: Option<String>, encoding: TextEncoding, title: String },
     Cancelled,
     /// The text has characters the file's encoding cannot represent.
     #[serde(rename_all = "camelCase")]
@@ -243,11 +239,12 @@ pub async fn doc_save(
                 doc.malformed = malformed && unchanged;
                 doc.dirty = false;
             }
-            windows::update_title(window.app_handle(), &label);
+            let title = windows::update_title(window.app_handle(), &label);
             Ok(SaveResult::Saved {
                 path: path.to_string_lossy().into_owned(),
                 file_name: windows::display_name(Some(&path)),
                 encoding: target_enc,
+                title,
             })
         }
         Err(e) => {

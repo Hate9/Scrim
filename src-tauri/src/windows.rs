@@ -41,16 +41,21 @@ pub fn display_name(path: Option<&Path>) -> Option<String> {
     path.and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned())
 }
 
-pub fn update_title(app: &AppHandle, label: &str) {
+/// Set the window title from the document state and return it. The frontend mirrors it
+/// into `document.title`, so WebDriver tests can read it.
+pub fn update_title(app: &AppHandle, label: &str) -> String {
     let state = app.state::<AppState>();
     let title = {
         let docs = state.docs();
-        let Some(doc) = docs.get(label) else { return };
-        window_title(display_name(doc.path.as_deref()).as_deref(), doc.dirty)
+        match docs.get(label) {
+            Some(doc) => window_title(display_name(doc.path.as_deref()).as_deref(), doc.dirty),
+            None => window_title(None, false),
+        }
     };
     if let Some(w) = app.get_webview_window(label) {
         let _ = w.set_title(&title);
     }
+    title
 }
 
 /// A window can take over another document if its document is untitled and unmodified,
