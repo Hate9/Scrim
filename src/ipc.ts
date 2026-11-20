@@ -18,10 +18,11 @@ export interface DocInit {
   malformed: boolean;
   missing: boolean;
   error: string | null;
+  title: string;
 }
 
 export type SaveResult =
-  | { status: "saved"; path: string; fileName: string | null; encoding: TextEncoding }
+  | { status: "saved"; path: string; fileName: string | null; encoding: TextEncoding; title: string }
   | { status: "cancelled" }
   | { status: "unrepresentable"; encoding: string; first: string; count: number }
   | { status: "lossy"; encoding: string }
@@ -37,7 +38,7 @@ export interface SaveRequest {
 
 export const ipc = {
   docInit: () => invoke<DocInit>("doc_init"),
-  setDirty: (dirty: boolean) => invoke<void>("doc_set_dirty", { dirty }),
+  setDirty: (dirty: boolean) => invoke<string>("doc_set_dirty", { dirty }),
   save: (request: SaveRequest) => invoke<SaveResult>("doc_save", { request }),
   openDialog: () => invoke<void>("doc_open_dialog"),
   newDoc: (newWindow: boolean) => invoke<void>("doc_new", { newWindow }),

@@ -1,0 +1,3 @@
+# The round-trip corpus must reach the tests byte for byte.
+tests/corpus/** -text
+tests/fixtures/** -text
