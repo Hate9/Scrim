@@ -1,0 +1,19 @@
+{
+  "app": {
+    "security": {
+      "csp": {
+        "default-src": "'self' http://tauri.localhost",
+        "script-src": "'self' http://tauri.localhost",
+        "img-src": "* data: blob: http://scrim-file.localhost",
+        "media-src": "* data: blob: http://scrim-file.localhost",
+        "style-src": "'self' 'unsafe-inline' http://tauri.localhost http://scrim-file.localhost https:",
+        "font-src": "'self' data: http://scrim-file.localhost https:",
+        "connect-src": "'self' http://ipc.localhost",
+        "frame-src": "'none'",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'none'"
+      }
+    }
+  }
+}

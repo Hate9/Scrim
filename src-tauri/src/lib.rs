@@ -1,0 +1,80 @@
+//! Scrim's Tauri shell. Platform-independent logic lives in `scrim-core`; this crate
+//! wires it to windows, IPC commands, the `scrim-file` protocol, and the webviews.
+
+mod commands;
+mod hardening;
+mod protocol;
+mod state;
+mod windows;
+
+use std::path::PathBuf;
+
+use scrim_core::identity::DISPLAY_NAME;
+use tauri::Manager;
+
+use crate::state::AppState;
+
+pub fn run() {
+    let state = AppState::init();
+    state.logger.info(&format!(
+        "{DISPLAY_NAME} {} starting (pid {}, {})",
+        env!("CARGO_PKG_VERSION"),
+        std::process::id(),
+        std::env::consts::OS
+    ));
+
+    state.logger.info(&format!("config directory {}", state.config_dir.display()));
+
+    let result = tauri::Builder::default()
+        // Must be the first plugin: a second instance hands its arguments over here and
+        // exits before anything else starts (spec 01, "Single instance").
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            let state = app.state::<AppState>();
+            state.logger.info(&format!("second instance forwarded {} argument(s)", argv.len().saturating_sub(1)));
+            let paths = windows::paths_from_args(argv.iter().skip(1).cloned(), &PathBuf::from(cwd));
+            windows::open_paths(app, &paths, None);
+        }))
+        .plugin(tauri_plugin_dialog::init())
+        .manage(state)
+        .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
+        .invoke_handler(tauri::generate_handler![
+            commands::doc_init,
+            commands::doc_set_dirty,
+            commands::doc_save,
+            commands::doc_open_dialog,
+            commands::doc_new,
+            commands::log_csp_violation,
+            commands::log_frontend,
+        ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                let state = window.state::<AppState>();
+                state.docs().remove(window.label());
+                state.logger.info(&format!("window {} closed", window.label()));
+            }
+        })
+        .setup(|app| {
+            let cwd = std::env::current_dir().unwrap_or_default();
+            let paths = windows::paths_from_args(std::env::args().skip(1), &cwd);
+            let handle = app.handle().clone();
+            if paths.is_empty() {
+                windows::open_untitled(&handle)?;
+            } else {
+                windows::open_paths(&handle, &paths, None);
+            }
+            Ok(())
+        })
+        .build(tauri::generate_context!());
+
+    match result {
+        Ok(app) => app.run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                app.state::<AppState>().logger.info("exit");
+            }
+        }),
+        Err(e) => {
+            eprintln!("{DISPLAY_NAME}: failed to start: {e}");
+            std::process::exit(1);
+        }
+    }
+}

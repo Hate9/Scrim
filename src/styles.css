@@ -1,0 +1,72 @@
+/* P0 placeholder styling. The real themes come in P4 (spec 10, 22). All fonts are
+   system fonts; nothing is loaded from the network (spec 19). */
+:root {
+  --bg: #ffffff;
+  --fg: #333333;
+  --notice-bg: #fff6d6;
+  --notice-fg: #5c4a00;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1f2125;
+    --fg: #d8d8d8;
+    --notice-bg: #3a3320;
+    --notice-fg: #f0dc9a;
+  }
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+body {
+  display: flex;
+  flex-direction: column;
+}
+#write {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+}
+#editor {
+  width: 100%;
+  max-width: 860px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 40px 30px 30vh;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  font: 16px/1.6 system-ui, sans-serif;
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.scrim-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--notice-bg);
+  color: var(--notice-fg);
+  font: 13px/1.4 system-ui, sans-serif;
+}
+.scrim-notice[hidden] {
+  display: none;
+}
+.scrim-notice span {
+  flex: 1;
+}
+.scrim-notice button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
