@@ -9,7 +9,7 @@
 //! 5. If the temp file cannot be created or the replace fails, fall back to writing in
 //!    place.
 
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
@@ -207,7 +207,7 @@ fn replace(temp: &Path, target: &Path, exists: bool) -> io::Result<()> {
 
 #[cfg(unix)]
 fn sync_dir(dir: &Path) {
-    if let Ok(d) = File::open(dir) {
+    if let Ok(d) = fs::File::open(dir) {
         let _ = d.sync_all();
     }
 }

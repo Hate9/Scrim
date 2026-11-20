@@ -3,6 +3,7 @@
 
 mod commands;
 mod hardening;
+mod pdf_proto;
 mod protocol;
 mod state;
 mod windows;

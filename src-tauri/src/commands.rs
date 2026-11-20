@@ -107,6 +107,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
     }
     state.docs().insert(label.clone(), doc);
     init.title = windows::update_title(window.app_handle(), &label);
+    crate::pdf_proto::maybe_print(&window);
     Ok(init)
 }
 
@@ -205,6 +206,8 @@ pub async fn doc_save(
     let bytes = if unchanged {
         saved_bytes.expect("checked above")
     } else {
+        // SPEC-QUESTION Q-005: undecodable bytes are only written back as U+FFFD after the
+        // user confirms.
         if malformed && !request.accept_lossy && !request.convert_to_utf8 {
             return Ok(SaveResult::Lossy { encoding: target_enc.name });
         }
