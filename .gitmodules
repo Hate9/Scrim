@@ -1,0 +1,3 @@
+[submodule "whiteroom-markdown-editor-spec"]
+	path = whiteroom-markdown-editor-spec
+	url = git@gitlab.com:sisters-vibecode/whiteroom-markdown-editor-spec.git
