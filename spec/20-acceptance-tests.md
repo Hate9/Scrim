@@ -17,7 +17,7 @@ implementation team writes to contain at least one instance of every construct i
 - **N-1** Network: run the whole suite under a firewall that logs outbound connections;
   zero connections except to `127.0.0.1:<test-server>`.
 
-## Round trip (part of P1; R-1 parser-only form runs from P0)
+## Round trip (part of P1; in P0, R-1 runs as the file-layer round trip: decode → text → encode, Q-002)
 
 - **R-1** Corpus: open and save each file in `tests/corpus/` (the implementation team
   builds it: CommonMark spec examples, GFM spec examples, every construct in
