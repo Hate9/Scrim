@@ -21,3 +21,60 @@ prefixed selectors to the `scrim-*` equivalents when loading theme and user CSS
 (`spec/10-themes.md`, "Compatibility selector rewriting"), behind the build flag
 `THEME_COMPAT_REWRITE` (default on). The other editor's name appears only in that
 rewrite table and its tests (T-6), never in the DOM, UI, or docs.
+
+## Q-001: App id contains `_`, which the Tauri bundler rejects
+**Asked by:** implementation team, 2026-11-20 (summary: Tauri identifiers allow only
+letters, digits, `-`, `.`; D-Bus/desktop ids disallow `-`.)
+**Answer (spec team, 2026-11-20):** Option (b). Use one id everywhere:
+`io.gitlab.sistersvibecode.Scrim`. `01-architecture.md` "Identity" is updated. Drop the
+derived hyphen form.
+
+## Q-002: What is the "parser-only form" of R-1 that runs from P0?
+**Asked by:** implementation team, 2026-11-20
+**Answer (spec team, 2026-11-20):** Option (a). In P0, R-1 is the file-layer round trip
+(decode → editor text → encode is byte-identical for every corpus file). The
+parse/serialize round trip starts in P1 against the same corpus. `20-acceptance-tests.md`
+is updated.
+
+## Q-003: Launching with a path that does not exist
+**Asked by:** implementation team, 2026-11-20
+**Answer (spec team, 2026-11-20):** Option (a), as implemented: an empty document bound to
+that path, title `new.md - Scrim`, created on first save. If the parent folder does not
+exist either, the first save asks "Create folder <path>?" (Create / Cancel). Unreadable
+paths (permission denied, a directory, a device) show an error bar and open an untitled
+document, as implemented. `07-files-and-workspace.md` 7.8 is updated.
+
+## Q-004: "Latin-1" files and the euro sign (R-8)
+**Asked by:** implementation team, 2026-11-20
+**Answer (spec team, 2026-11-20):** Option (a). A file detected as windows-1252 with no
+byte in 0x80–0x9F is treated as ISO-8859-1; files that use 0x80–0x9F stay windows-1252.
+`01-architecture.md` "Persistence" is updated.
+
+## Q-005: Files with bytes that are invalid in their detected encoding
+**Asked by:** implementation team, 2026-11-20
+**Answer (spec team, 2026-11-20):** Option (a), as implemented. Prompt text on saving after
+an edit: "Some bytes in this file could not be read and will be saved as �." with
+**Save Anyway** / **Cancel**. (No "Save as UTF-8" choice here: converting would not
+recover the unreadable bytes.) Open-then-save without edits writes the original bytes. `01-architecture.md` "Persistence" is updated.
+
+## Q-006: WebView2 settings and arguments need verification on Windows
+**Asked by:** implementation team, 2026-11-20
+**Answer (spec team, 2026-11-20):** The argument list and settings are acceptable as
+implemented (keeping wry's defaults is correct). **Project owner, 2026-11-20:** no Windows
+machine for now; the GitHub Actions Windows job (build + unit tests) is sufficient until
+later. Manual Windows checks (S-1, S-3, N-1 on Windows) are deferred, not dropped:
+track them as an open item in the PR/README and revisit before P8.
+
+## Q-007: Which window is "current" for files passed from a second launch?
+**Asked by:** implementation team, 2026-11-20
+**Answer (spec team, 2026-11-20):** Option (c). Paths handed over by a second launch (file
+manager double-click, command line while running) never replace an open document: if
+the file is already open, focus that window; otherwise open a new window. The only
+reuse is a window whose document is untitled **and** unmodified and empty (a fresh
+"New" window), which is replaced instead of leaving an empty window behind.
+`07-files-and-workspace.md` 7.1 is updated.
+
+## Q-008: Does `<file name>` in the window title include the extension?
+**Asked by:** implementation team, 2026-11-20
+**Answer (spec team, 2026-11-20):** Yes, with the extension: `notes.md - Scrim`.
+`07-files-and-workspace.md` 7.1 is updated.
