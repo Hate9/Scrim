@@ -91,23 +91,16 @@ test("open then save without editing is byte-identical", async (s, file, origina
 
 test("S-3 second instance hands its path to the first and exits", async (s, file) => {
   await waitFor(async () => (await editorValue(s)) === "first\n", "first text");
-  // Unmodified document: the second file replaces it in the same window (spec 07, 7.1).
+  // A saved, unmodified document is never replaced by a handed-over path (Q-007).
   const b = fixture("b.md", "second file\n");
   const t0 = Date.now();
   const r = spawnSync(APP, [b], { timeout: 5000 });
   const ms = Date.now() - t0;
   if (r.status !== 0) throw new Error(`second instance exit ${r.status} ${r.signal}`);
   if (ms > 2000) throw new Error(`second instance took ${ms} ms`);
-  await waitFor(async () => (await editorValue(s)) === "second file\n", "forwarded file in first instance");
-  await waitFor(async () => (await s.title()) === "b.md - Scrim", "title of forwarded file");
-  // Dirty document: a third file opens in a new window.
-  await s.sendKeys(await s.find("#editor"), END + "x");
-  await waitFor(async () => (await s.title()) === "• b.md - Scrim", "dirty");
-  const c = fixture("c.md", "third\n");
-  const r2 = spawnSync(APP, [c], { timeout: 5000 });
-  if (r2.status !== 0) throw new Error(`third instance exit ${r2.status}`);
-  await waitFor(() => nativeTitles().includes("c.md - Scrim"), "new window for c.md");
-  if (!nativeTitles().includes("• b.md - Scrim")) throw new Error(`titles ${nativeTitles()}`);
+  await waitFor(() => nativeTitles().includes("b.md - Scrim"), "new window for b.md");
+  if ((await editorValue(s)) !== "first\n") throw new Error("first document was replaced");
+  if (!nativeTitles().includes("first.md - Scrim")) throw new Error(`titles ${nativeTitles()}`);
   // Already open: launching b.md again focuses its window, no new window.
   const before = nativeTitles().length;
   spawnSync(APP, [b], { timeout: 5000 });
@@ -115,6 +108,23 @@ test("S-3 second instance hands its path to the first and exits", async (s, file
   if (nativeTitles().length !== before) throw new Error(`window count changed: ${nativeTitles()}`);
   return file;
 }, () => fixture("first.md", "first\n"));
+
+test("Q-007 a fresh untitled window is reused; --new-window is not", async (s) => {
+  await waitFor(async () => (await s.title()) === "Untitled - Scrim", "untitled window");
+  const d = fixture("d.md", "dee\n");
+  spawnSync(APP, ["--new-window", d], { timeout: 5000 });
+  await waitFor(() => nativeTitles().includes("d.md - Scrim"), "new window for d.md");
+  if ((await s.title()) !== "Untitled - Scrim") throw new Error("fresh window replaced despite --new-window");
+  const c = fixture("c.md", "sea\n");
+  spawnSync(APP, [c], { timeout: 5000 });
+  await waitFor(async () => (await editorValue(s)) === "sea\n", "c.md in the fresh window");
+  await waitFor(async () => (await s.title()) === "c.md - Scrim", "title of c.md");
+});
+
+test("Q-003 a missing path opens an empty document bound to it", async (s) => {
+  await waitFor(async () => (await s.title()) === "new.md - Scrim", "title");
+  if ((await editorValue(s)) !== "") throw new Error("not empty");
+}, () => join(docs, "new.md"));
 
 test("CSP blocks network fetches from the frontend", async (s) => {
   await waitFor(async () => (await s.title()).endsWith("Scrim"), "loaded");

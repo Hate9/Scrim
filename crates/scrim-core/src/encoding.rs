@@ -34,7 +34,7 @@ impl TextEncoding {
 
     /// True ISO-8859-1. The WHATWG standard aliases this label to windows-1252, so it is
     /// handled separately: a file detected as windows-1252 that has no byte in
-    /// 0x80..=0x9F is valid Latin-1 and is kept as Latin-1 (SPEC-QUESTION Q-004).
+    /// 0x80..=0x9F is valid Latin-1 and is kept as Latin-1 (QA-LOG Q-004).
     fn is_latin1(&self) -> bool {
         self.name == LATIN1
     }

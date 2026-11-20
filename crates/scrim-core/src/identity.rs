@@ -5,18 +5,14 @@
 pub const DISPLAY_NAME: &str = "Scrim";
 /// Package, binary, and config-directory name.
 pub const PACKAGE_NAME: &str = "scrim";
-/// Reverse-DNS application id (desktop file, AppStream, D-Bus).
-pub const APP_ID: &str = "io.gitlab.sisters_vibecode.Scrim";
-
-/// The same id in the form Tauri's bundler accepts (no `_`). SPEC-QUESTION Q-001.
-/// `src-tauri/tauri.conf.json` `identifier` must equal this; a test checks it.
-pub fn bundle_identifier() -> String {
-    APP_ID.replace('_', "-")
-}
+/// Reverse-DNS application id, the same for Tauri, the desktop file, AppStream, and
+/// D-Bus (QA-LOG Q-001). `src-tauri/tauri.conf.json` `identifier` must equal it; a test
+/// checks that.
+pub const APP_ID: &str = "io.gitlab.sistersvibecode.Scrim";
 
 /// Window title for a document (spec 07, 7.1): `<file name> - Scrim`, with a `•`
 /// before the name when the document has unsaved changes. The file name includes its
-/// extension (SPEC-QUESTION Q-008).
+/// extension (QA-LOG Q-008).
 pub fn window_title(file_name: Option<&str>, dirty: bool) -> String {
     let name = file_name.unwrap_or("Untitled");
     let mark = if dirty { "• " } else { "" };
@@ -38,7 +34,7 @@ mod tests {
     fn tauri_config_matches_identity() {
         let conf = include_str!("../../../src-tauri/tauri.conf.json");
         let v: serde_json::Value = serde_json::from_str(conf).unwrap();
-        assert_eq!(v["identifier"], bundle_identifier());
+        assert_eq!(v["identifier"], APP_ID);
         assert_eq!(v["productName"], DISPLAY_NAME);
         assert_eq!(v["mainBinaryName"], PACKAGE_NAME);
     }

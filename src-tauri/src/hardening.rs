@@ -7,7 +7,7 @@ use tauri::{Runtime, WebviewWindow, WebviewWindowBuilder};
 
 /// WebView2 browser arguments. Setting them replaces wry's defaults, so wry's own
 /// defaults (`msWebOOUI`, `msPdfOOUI`, `msSmartScreenProtection`) are repeated here.
-/// SPEC-QUESTION Q-006: argument names not yet verified against a live WebView2 runtime.
+/// Accepted by the spec team (QA-LOG Q-006); manual Windows verification is an open item.
 #[cfg(windows)]
 pub const WEBVIEW2_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,Translate,SpareRendererForSitePerProcess \
 --disable-background-networking --disable-component-update --disable-domain-reliability --no-pings";

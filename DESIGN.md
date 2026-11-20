@@ -50,10 +50,17 @@ up on start.
 frontend, which mirrors it into `document.title` so WebDriver can read it. The e2e tests
 also check the native X11 title.
 
-**Opening files** follows "Open files in: current window when possible" with the default
-setting: a window whose document is unmodified (untitled or saved) is reused, otherwise
-a new window opens; a file that is already open focuses its window (Q-007 for
-handed-over paths).
+**Opening files.** A file that is already open focuses its window. Otherwise:
+- the Open dialog follows "Open files in: current window when possible" (default): the
+  window it was opened from is reused if its document is unmodified, untitled or saved;
+- paths from a launch (first launch, or handed over by a second launch) never replace an
+  open document (Q-007): only a fresh untitled, unmodified, empty window is reused (the
+  focused one if fresh, else the oldest fresh one); each further path gets its own
+  window. `--new-window` disables even that reuse.
+
+**Missing paths** (Q-003): open as an empty document bound to the path; if the parent
+folder is missing at save time, the frontend asks "Create folder <path>?" (Create /
+Cancel) and Rust creates it with `create_dir_all`.
 
 **Keyboard.** P0 has a minimal capturing keydown handler for Mod+S, Mod+Shift+S, Mod+O,
 Mod+N, Mod+Shift+N, and swallows Ctrl+R, F5, Ctrl+P, Ctrl+Shift+I. Clipboard and undo
@@ -78,7 +85,8 @@ test suites use it so they never touch the real profile.
 - **WebKitGTK**: DNS prefetching and the page cache are turned off per webview.
 - **WebView2**: browser arguments and `IsReputationCheckingRequired = false`,
   `AreBrowserAcceleratorKeysEnabled = false` (`src-tauri/src/hardening.rs`). Type-checked
-  for `x86_64-pc-windows-msvc`, not yet run (Q-006).
+  for `x86_64-pc-windows-msvc`, not yet run (Q-006: accepted; manual Windows checks are
+  an open item, see README).
 - **No HTTP client crates**: `scripts/check-no-http.sh` checks the resolved graph for the
   Linux and Windows targets. `tauri` 2 depends on `reqwest` only for Android/iOS (its dev
   server proxy), so the allowlist is empty.
@@ -86,7 +94,7 @@ test suites use it so they never touch the real profile.
   -f`, recording `connect`/`sendto`/`sendmsg` of the whole process tree including the
   WebKit helper processes, and fails on any non-loopback internet address (DNS lookups
   included). A positive control (`node -e "fetch('https://example.com')"`) is caught.
-  The Windows form (per-process firewall or ETW) is pending (Q-006).
+  The Windows form (per-process firewall or ETW) is deferred to before P8 (Q-006).
 
 ## `scrim-file` protocol
 

@@ -1,6 +1,6 @@
 //! R-1, file-layer form (runs from P0): every corpus file decodes and re-encodes to the
-//! identical bytes, and the detected encoding is the expected one. The parser/serializer
-//! form of R-1 is added in P1 (SPEC-QUESTION Q-002).
+//! identical bytes, and the detected encoding is the expected one. This is R-1's P0 form
+//! (QA-LOG Q-002); the parse/serialize form is in the frontend tests from P1.
 
 use std::path::PathBuf;
 

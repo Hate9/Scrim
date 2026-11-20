@@ -3,7 +3,7 @@
   "productName": "Scrim",
   "mainBinaryName": "scrim",
   "version": "0.1.0",
-  "identifier": "io.gitlab.sisters-vibecode.Scrim",
+  "identifier": "io.gitlab.sistersvibecode.Scrim",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

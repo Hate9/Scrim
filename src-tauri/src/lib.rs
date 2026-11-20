@@ -32,8 +32,16 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             let state = app.state::<AppState>();
             state.logger.info(&format!("second instance forwarded {} argument(s)", argv.len().saturating_sub(1)));
-            let paths = windows::paths_from_args(argv.iter().skip(1).cloned(), &PathBuf::from(cwd));
-            windows::open_paths(app, &paths, None);
+            let args: Vec<String> = argv.iter().skip(1).cloned().collect();
+            let paths = windows::paths_from_args(args.clone(), &PathBuf::from(cwd));
+            if paths.is_empty() {
+                // `scrim` with no file while running: a new untitled window.
+                if let Err(e) = windows::open_untitled(app) {
+                    state.logger.error(&format!("cannot open window: {e}"));
+                }
+            } else {
+                windows::open_paths(app, &paths, windows::reuse_for_args(&args));
+            }
         }))
         .plugin(tauri_plugin_dialog::init())
         .manage(state)
@@ -56,12 +64,13 @@ pub fn run() {
         })
         .setup(|app| {
             let cwd = std::env::current_dir().unwrap_or_default();
-            let paths = windows::paths_from_args(std::env::args().skip(1), &cwd);
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            let paths = windows::paths_from_args(args.clone(), &cwd);
             let handle = app.handle().clone();
             if paths.is_empty() {
                 windows::open_untitled(&handle)?;
             } else {
-                windows::open_paths(&handle, &paths, None);
+                windows::open_paths(&handle, &paths, windows::reuse_for_args(&args));
             }
             Ok(())
         })

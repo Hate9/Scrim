@@ -26,6 +26,7 @@ export type SaveResult =
   | { status: "cancelled" }
   | { status: "unrepresentable"; encoding: string; first: string; count: number }
   | { status: "lossy"; encoding: string }
+  | { status: "needsFolder"; folder: string }
   | { status: "error"; message: string };
 
 export interface SaveRequest {
@@ -34,6 +35,7 @@ export interface SaveRequest {
   suggestedName?: string;
   convertToUtf8?: boolean;
   acceptLossy?: boolean;
+  createFolder?: boolean;
 }
 
 export const ipc = {

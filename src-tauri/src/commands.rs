@@ -89,8 +89,8 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
                 doc.path = Some(path.clone());
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // SPEC-QUESTION Q-003: a path that does not exist opens as an empty
-                // document that will be created at that path on save.
+                // QA-LOG Q-003: a path that does not exist opens as an empty document
+                // that is created at that path on save.
                 state.logger.info(&format!("{} does not exist; new document", path.display()));
                 init.missing = true;
                 doc.path = Some(path.clone());
@@ -136,6 +136,9 @@ pub struct SaveRequest {
     /// The user confirmed saving a document that had undecodable bytes.
     #[serde(default)]
     pub accept_lossy: bool,
+    /// The user confirmed creating the missing parent folder (QA-LOG Q-003).
+    #[serde(default)]
+    pub create_folder: bool,
 }
 
 #[derive(Serialize)]
@@ -150,6 +153,9 @@ pub enum SaveResult {
     /// The file had undecodable bytes (shown as U+FFFD); saving would replace them.
     #[serde(rename_all = "camelCase")]
     Lossy { encoding: String },
+    /// The parent folder of the path does not exist (QA-LOG Q-003).
+    #[serde(rename_all = "camelCase")]
+    NeedsFolder { folder: String },
     Error { message: String },
 }
 
@@ -206,8 +212,8 @@ pub async fn doc_save(
     let bytes = if unchanged {
         saved_bytes.expect("checked above")
     } else {
-        // SPEC-QUESTION Q-005: undecodable bytes are only written back as U+FFFD after the
-        // user confirms.
+        // QA-LOG Q-005: undecodable bytes are only written back as U+FFFD after the user
+        // confirms.
         if malformed && !request.accept_lossy && !request.convert_to_utf8 {
             return Ok(SaveResult::Lossy { encoding: target_enc.name });
         }
@@ -218,6 +224,19 @@ pub async fn doc_save(
             }
         }
     };
+
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        if !parent.exists() {
+            if !request.create_folder {
+                return Ok(SaveResult::NeedsFolder { folder: parent.to_string_lossy().into_owned() });
+            }
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                state.logger.error(&format!("cannot create folder {}: {e}", parent.display()));
+                return Ok(SaveResult::Error { message: format!("Could not create folder {}: {e}", parent.display()) });
+            }
+            state.logger.info(&format!("created folder {}", parent.display()));
+        }
+    }
 
     let write_path = path.clone();
     let write_bytes = bytes.clone();
@@ -276,7 +295,7 @@ pub async fn doc_open_dialog(window: WebviewWindow, state: State<'_, AppState>) 
         .map_err(|e| e.to_string())?;
     if let Some(path) = picked.and_then(|p| p.into_path().ok()) {
         let app = window.app_handle().clone();
-        open_on_main(app, vec![path], Some(label));
+        open_on_main(app, vec![path], windows::Reuse::Current(label));
     }
     Ok(())
 }
@@ -305,9 +324,9 @@ pub async fn doc_new(window: WebviewWindow, state: State<'_, AppState>, new_wind
     Ok(())
 }
 
-fn open_on_main(app: AppHandle, paths: Vec<PathBuf>, prefer: Option<String>) {
+fn open_on_main(app: AppHandle, paths: Vec<PathBuf>, reuse: windows::Reuse) {
     let app2 = app.clone();
-    let _ = app.run_on_main_thread(move || windows::open_paths(&app2, &paths, prefer.as_deref()));
+    let _ = app.run_on_main_thread(move || windows::open_paths(&app2, &paths, reuse));
 }
 
 #[derive(Deserialize)]

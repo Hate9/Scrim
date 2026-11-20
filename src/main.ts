@@ -93,12 +93,25 @@ async function save(saveAs = false): Promise<boolean> {
           break;
         }
         case "lossy": {
-          const choice = await message(
-            `This file contained bytes that are not valid ${r.encoding}. They are shown as � and will be saved that way.`,
-            { title: "Save", kind: "warning", buttons: { ok: "Save Anyway", cancel: "Cancel" } },
-          );
+          // Wording from QA-LOG Q-005.
+          const choice = await message("Some bytes in this file could not be read and will be saved as \uFFFD.", {
+            title: "Save",
+            kind: "warning",
+            buttons: { ok: "Save Anyway", cancel: "Cancel" },
+          });
           if (choice !== "Save Anyway" && choice !== "Ok") return false;
           request.acceptLossy = true;
+          break;
+        }
+        case "needsFolder": {
+          // QA-LOG Q-003.
+          const choice = await message(`Create folder ${r.folder}?`, {
+            title: "Save",
+            kind: "info",
+            buttons: { ok: "Create", cancel: "Cancel" },
+          });
+          if (choice !== "Create" && choice !== "Ok") return false;
+          request.createFolder = true;
           break;
         }
       }

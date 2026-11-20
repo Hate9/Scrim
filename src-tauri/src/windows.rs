@@ -12,6 +12,31 @@ use crate::state::{canonical, AppState, DocState};
 /// Event telling a window to re-run `doc_init` because its document was replaced.
 pub const EVENT_RELOAD: &str = "scrim://doc-reload";
 
+/// Command-line flag that forces a new window (spec 07, 7.8).
+pub const NEW_WINDOW_FLAG: &str = "--new-window";
+
+/// How `open_paths` may reuse an existing window for a file that is not open yet.
+#[derive(Debug, Clone)]
+pub enum Reuse {
+    /// "Open files in: current window when possible" for an action in window `label`
+    /// (Open dialog): reuse it if its document is unmodified, untitled or saved.
+    Current(String),
+    /// Paths handed over by a launch (QA-LOG Q-007): never replace an open document;
+    /// only a fresh untitled, unmodified, empty window is reused.
+    FreshOnly,
+    /// Always open a new window (`--new-window`).
+    Never,
+}
+
+/// Reuse policy for paths given on a command line.
+pub fn reuse_for_args(args: &[String]) -> Reuse {
+    if args.iter().any(|a| a == NEW_WINDOW_FLAG) {
+        Reuse::Never
+    } else {
+        Reuse::FreshOnly
+    }
+}
+
 /// Turn command-line arguments into absolute paths. Options (leading `-`) are ignored;
 /// `file://` URIs (as passed by Linux desktop launchers) are converted to paths.
 pub fn paths_from_args(args: impl IntoIterator<Item = String>, cwd: &Path) -> Vec<PathBuf> {
@@ -64,6 +89,11 @@ fn reusable(doc: &DocState) -> bool {
     doc.initialized && !doc.dirty
 }
 
+/// A fresh "New" window: untitled, unmodified, and empty (QA-LOG Q-007).
+fn fresh(doc: &DocState) -> bool {
+    doc.initialized && !doc.dirty && doc.path.is_none() && doc.saved_text.is_empty()
+}
+
 fn focused_window(app: &AppHandle) -> Option<String> {
     app.webview_windows()
         .into_iter()
@@ -71,20 +101,38 @@ fn focused_window(app: &AppHandle) -> Option<String> {
         .map(|(label, _)| label)
 }
 
-/// Open each path: focus the window that already has it, else reuse `prefer` (or the
-/// focused window, SPEC-QUESTION Q-007) when it is reusable, else open a new window. Only
-/// the first path may reuse a window.
-pub fn open_paths(app: &AppHandle, paths: &[PathBuf], prefer: Option<&str>) {
+/// The window a not-yet-open file may replace under `reuse`, if any.
+fn reuse_target(app: &AppHandle, reuse: &Reuse) -> Option<String> {
     let state = app.state::<AppState>();
-    let mut reuse = prefer.map(str::to_string).or_else(|| focused_window(app));
+    match reuse {
+        Reuse::Never => None,
+        Reuse::Current(label) => state.docs().get(label).is_some_and(reusable).then(|| label.clone()),
+        Reuse::FreshOnly => {
+            let docs = state.docs();
+            if let Some(f) = focused_window(app).filter(|l| docs.get(l).is_some_and(fresh)) {
+                return Some(f);
+            }
+            let mut candidates: Vec<&String> =
+                docs.iter().filter(|(_, d)| fresh(d)).map(|(l, _)| l).collect();
+            candidates.sort_by_key(|l| l.trim_start_matches("doc-").parse::<u64>().unwrap_or(u64::MAX));
+            candidates.first().map(|l| (*l).clone())
+        }
+    }
+}
+
+/// Open each path: focus the window that already has it, else replace a window allowed
+/// by `reuse`, else open a new window. Only the first path may reuse a window (each
+/// further file gets its own window, spec 07, 7.8).
+pub fn open_paths(app: &AppHandle, paths: &[PathBuf], reuse: Reuse) {
+    let state = app.state::<AppState>();
+    let mut reuse = Some(reuse);
     for path in paths {
         if let Some(label) = state.window_for_path(path) {
             state.logger.info(&format!("focus window for {}", path.display()));
             focus(app, &label);
-            reuse = None;
             continue;
         }
-        let target = reuse.take().filter(|l| state.docs().get(l).is_some_and(reusable));
+        let target = reuse.take().and_then(|r| reuse_target(app, &r));
         match target {
             Some(label) => {
                 state.logger.info(&format!("open {} in {label}", path.display()));
