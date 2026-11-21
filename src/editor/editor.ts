@@ -1,6 +1,5 @@
 // The live-preview editor: ProseMirror view over the Markdown document model.
 
-import { createFocusPlugin } from "./focus";
 import { createFindPlugin } from "./find";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { closeHistory, history, redo, undo } from "prosemirror-history";
@@ -112,7 +111,8 @@ export function createEditor(
   onChange: (dirty: boolean) => void,
 ): Editor {
   const options: EditorOptions = { ...defaultOptions, ...opts };
-  let savedDoc: Node | null = null;
+  /** The Markdown as last loaded or saved (presentation marks do not count as edits). */
+  let savedText: string | null = null;
   let dirty = false;
   let cleanCheck = 0;
   const groups = typingGroups();
@@ -163,7 +163,6 @@ export function createEditor(
     }),
     createBlocksPlugin({ onFrontMatter: hooks.onFrontMatter, numberFootnotes: () => options.numberFootnotes }),
     createCodeSelectionPlugin(),
-    createFocusPlugin(),
     createFindPlugin(),
   ];
 
@@ -217,7 +216,7 @@ export function createEditor(
           }
           clearTimeout(cleanCheck);
           cleanCheck = window.setTimeout(() => {
-            if (dirty && savedDoc !== null && view.state.doc.eq(savedDoc)) {
+            if (dirty && savedText !== null && serialize(view.state.doc, { prettyTables: options.prettyTables }) === savedText) {
               dirty = false;
               onChange(false);
             }
@@ -271,12 +270,14 @@ export function createEditor(
       let { doc } = parseMarkdown(text, { inlineMath: options.inlineMath }, eol);
       if (newFile && !text) doc = schema.nodes.doc.create({ ...doc.attrs, finalNewline: true }, doc.content);
       view.updateState(makeState(doc));
-      savedDoc = doc;
+      // Applies the first presentation marks (spec 10.3); not an edit.
+      view.dispatch(view.state.tr.setMeta("scrim-pres-kick", true));
+      savedText = serialize(doc, { prettyTables: options.prettyTables });
       dirty = false;
     },
     isDirty: () => dirty,
     markSaved() {
-      savedDoc = view.state.doc;
+      savedText = serialize(view.state.doc, { prettyTables: options.prettyTables });
       dirty = false;
     },
     run(cmd: Command) {

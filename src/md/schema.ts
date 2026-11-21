@@ -102,7 +102,7 @@ const nodes: Record<string, NodeSpec> = {
     content: "inline*",
     attrs: { ...leafAttrs },
     parseDOM: [{ tag: "p" }],
-    toDOM: () => ["p", 0],
+    toDOM: () => ["p", { class: "md-p md-end-block" }, 0],
   },
   heading: {
     group: "block",
@@ -119,7 +119,7 @@ const nodes: Record<string, NodeSpec> = {
       id: { default: null as string | null },
     },
     parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({ tag: `h${level}`, attrs: { level } })),
-    toDOM: (node) => [`h${node.attrs.level}`, { class: "md-heading", id: node.attrs.id ?? undefined }, 0],
+    toDOM: (node) => [`h${node.attrs.level}`, { class: "md-heading md-end-block", id: node.attrs.id ?? undefined }, 0],
   },
   hr: {
     group: "block",
@@ -127,7 +127,7 @@ const nodes: Record<string, NodeSpec> = {
     selectable: true,
     attrs: { ...leafAttrs, text: { default: "---" } },
     parseDOM: [{ tag: "hr" }],
-    toDOM: () => ["hr"],
+    toDOM: () => ["div", { class: "md-hr md-end-block" }, ["hr"]],
   },
   /**
    * Fenced code (``` / ~~~) or indented code. Content is the code (line breaks as
@@ -141,7 +141,7 @@ const nodes: Record<string, NodeSpec> = {
     defining: true,
     attrs: { ...fencedAttrs(), indented: { default: false } },
     parseDOM: [{ tag: "pre.md-fences", preserveWhitespace: "full" }],
-    toDOM: (node) => ["pre", { class: "md-fences", lang: node.attrs.info.split(/\s/)[0] ?? "" }, 0],
+    toDOM: (node) => ["pre", { class: "md-fences md-end-block", lang: node.attrs.info.split(/\s/)[0] ?? "" }, 0],
   },
   /** `$$` … `$$` display math. */
   math_block: {
@@ -152,7 +152,7 @@ const nodes: Record<string, NodeSpec> = {
     defining: true,
     attrs: fencedAttrs("$$"),
     parseDOM: [{ tag: "div.md-math-block", preserveWhitespace: "full" }],
-    toDOM: () => ["div", { class: "md-math-block" }, 0],
+    toDOM: () => ["div", { class: "md-math-block md-rawblock md-end-block" }, 0],
   },
   /** YAML front matter at the very start of the file. */
   front_matter: {
@@ -163,7 +163,7 @@ const nodes: Record<string, NodeSpec> = {
     defining: true,
     attrs: fencedAttrs("---"),
     parseDOM: [{ tag: "pre.md-meta-block", preserveWhitespace: "full" }],
-    toDOM: () => ["pre", { class: "md-meta-block" }, 0],
+    toDOM: () => ["pre", { class: "md-meta-block md-end-block" }, 0],
   },
   /** An HTML block: every line is content. */
   html_block: {
@@ -174,7 +174,7 @@ const nodes: Record<string, NodeSpec> = {
     defining: true,
     attrs: { ...leafAttrs },
     parseDOM: [{ tag: "div.md-htmlblock", preserveWhitespace: "full" }],
-    toDOM: () => ["div", { class: "md-htmlblock" }, 0],
+    toDOM: () => ["div", { class: "md-htmlblock md-rawblock md-end-block" }, 0],
   },
   /** `[toc]`: a live table of contents (spec 04, 4.12). */
   toc: {
@@ -183,7 +183,7 @@ const nodes: Record<string, NodeSpec> = {
     selectable: true,
     attrs: { ...leafAttrs, text: { default: "[toc]" } },
     parseDOM: [{ tag: "div.md-toc" }],
-    toDOM: () => ["div", { class: "md-toc" }],
+    toDOM: () => ["div", { class: "md-toc md-end-block" }],
   },
   table: {
     group: "block",
@@ -198,7 +198,7 @@ const nodes: Record<string, NodeSpec> = {
       delim: { default: null as DelimRow | null },
     },
     parseDOM: [{ tag: "figure.md-table-fig" }],
-    toDOM: () => ["figure", { class: "md-table-fig" }, ["table", 0]],
+    toDOM: () => ["figure", { class: "md-table-fig" }, ["table", { class: "md-table" }, 0]],
   },
   table_head: {
     content: "table_row",
@@ -222,18 +222,18 @@ const nodes: Record<string, NodeSpec> = {
       prefix: { default: null as string | null },
     },
     parseDOM: [{ tag: "tr" }],
-    toDOM: () => ["tr", 0],
+    toDOM: () => ["tr", { class: "md-end-block" }, 0],
   },
   table_cell: {
     content: "inline*",
-    marks: "",
+    marks: "pres",
     isolating: true,
     attrs: { header: { default: false } },
     parseDOM: [
       { tag: "th", attrs: { header: true } },
       { tag: "td", attrs: { header: false } },
     ],
-    toDOM: (node) => [node.attrs.header ? "th" : "td", 0],
+    toDOM: (node) => [node.attrs.header ? "th" : "td", ["span", { class: "td-span" }, 0]],
   },
   /** `[^label]: …` footnote definition: a container (spec 04, 4.13). */
   footnote_def: {
@@ -242,7 +242,7 @@ const nodes: Record<string, NodeSpec> = {
     defining: true,
     attrs: { ...containerAttrs, label: { default: "1" } },
     parseDOM: [{ tag: "div.md-def-footnote" }],
-    toDOM: (node) => ["div", { class: "md-def-footnote", "data-label": node.attrs.label }, 0],
+    toDOM: (node) => ["div", { class: "footnotes md-def-footnote", "data-label": node.attrs.label }, 0],
   },
   /** Any block that is not edited structurally: kept as exact source, shown as text. */
   raw: {
@@ -255,8 +255,8 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: "pre.md-raw", preserveWhitespace: "full" }],
     toDOM: (node) =>
       node.attrs.kind === "definition"
-        ? ["div", { class: "md-def-url", spellcheck: "false" }, 0]
-        : ["pre", { class: `md-raw md-raw-${node.attrs.kind}`, spellcheck: "false" }, 0],
+        ? ["div", { class: "footnotes md-def-link md-end-block", spellcheck: "false" }, 0]
+        : ["pre", { class: `md-raw md-raw-${node.attrs.kind} md-end-block`, spellcheck: "false" }, 0],
   },
   blockquote: {
     group: "block",
@@ -277,7 +277,7 @@ const nodes: Record<string, NodeSpec> = {
       items: { default: null as number[] | null },
     },
     parseDOM: [{ tag: "ul" }],
-    toDOM: (node) => ["ul", node.attrs.tight ? {} : { class: "md-list-loose" }, 0],
+    toDOM: (node) => ["ul", { class: `ul-list${node.attrs.tight ? "" : " md-list-loose"}`, "data-mark": node.attrs.bullet }, 0],
   },
   ordered_list: {
     group: "block",
@@ -293,9 +293,8 @@ const nodes: Record<string, NodeSpec> = {
     },
     parseDOM: [{ tag: "ol" }],
     toDOM: (node) => {
-      const attrs: Record<string, string> = {};
-      if (node.attrs.start !== 1) attrs.start = String(node.attrs.start);
-      if (!node.attrs.tight) attrs.class = "md-list-loose";
+      // `start` is empty when 1 (10.3).
+      const attrs: Record<string, string> = { class: `ol-list${node.attrs.tight ? "" : " md-list-loose"}`, start: node.attrs.start === 1 ? "" : String(node.attrs.start) };
       return ["ol", attrs, 0];
     },
   },
@@ -311,8 +310,8 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: "li" }],
     toDOM: (node) =>
       node.attrs.task === null
-        ? ["li", 0]
-        : ["li", { class: `task-list-item${node.attrs.task === " " ? "" : " task-list-done"}` }, 0],
+        ? ["li", { class: "md-list-item" }, 0]
+        : ["li", { class: `md-list-item task-list-item md-task-list-item ${node.attrs.task === " " ? "task-list-not-done" : "task-list-done"}` }, 0],
   },
   text: { group: "inline" },
   line_break: {
@@ -335,6 +334,21 @@ const nodes: Record<string, NodeSpec> = {
 export const schema = new Schema({
   nodes,
   marks: {
+    /** Presentation structure for themes (spec 10.3, QA-LOG Q-018): wrappers, markers,
+     * plain runs. Computed by the editor from the inline analysis; never parsed from
+     * HTML, never serialized (the Markdown is the text). Ranked first so it stays the
+     * outermost structure. */
+    pres: {
+      attrs: { tag: { default: "span" }, cls: { default: "" }, attrs: { default: {} }, key: { default: "" } },
+      excludes: "",
+      inclusive: true,
+      parseDOM: [],
+      toDOM: (m) => {
+        const attrs: Record<string, string> = { ...(m.attrs.attrs as Record<string, string>) };
+        if (m.attrs.cls) attrs.class = m.attrs.cls;
+        return [m.attrs.tag as string, attrs, 0];
+      },
+    },
     /** A backslash inserted by the editor to keep a line from changing block type. */
     auto_escape: {
       inclusive: false,

@@ -26,12 +26,23 @@ They are created empty when you open the theme folder, and Scrim never overwrite
 |---|---|
 | The document column | `#write` |
 | The scrolling area | `content` |
+| Paragraphs, headings | `p.md-p`, `h1`…`h6` (`.md-heading`) |
+| Plain text runs | `span.md-plain` (also inside links: `a > span.md-plain`) |
+| Bold, italic, code, … | `span.md-pair-s[md-inline=strong] > strong` and so on; markers are `span.md-meta` |
+| Links | `span.md-link > a`, URL `span.md-url` |
+| Lists | `ul.ul-list`, `ol.ol-list`, `li.md-list-item` (text always in `p`) |
+| Task items | `li.task-list-item` with `task-list-done` / `task-list-not-done`, checkbox `input` |
+| Code blocks | `pre.md-fences`, editor `.CodeMirror.cm-s-inner`, tokens `.cm-s-inner .cm-keyword` and so on |
+| Source mode | `#scrim-source .cm-s-scrim-default` |
+| Tables | `table.md-table`, cells hold `span.td-span` |
+| Math, HTML blocks | `.md-math-block .md-math-container`, `.md-htmlblock .md-htmlblock-container` |
+| Front matter | `pre.md-meta-block` |
+| Block with the cursor | `.md-focus` (and its list item `.md-focus-container`) |
 | Sidebar | `#scrim-sidebar`, rows `.file-tree-node`, outline `.outline-item` |
 | Status bar | `footer`, `.footer-item` |
-| Code blocks | `pre.md-fences`, tokens `.cm-s-inner .cm-keyword` and so on |
-| Tables | `figure.md-table-fig table` |
-| Math | `.md-math-block` |
-| Revealed Markdown markers | `.md-meta` |
+
+The app's own styles for document content have zero specificity, so any rule in your
+theme wins.
 
 Colors the app's own panels use come from custom properties on `:root`, for example
 `--bg-color`, `--text-color`, `--primary-color`, `--side-bar-bg-color`,

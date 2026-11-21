@@ -178,8 +178,9 @@ export function recoveryDialog(
 
 export function toggleFocusMode(editor?: Editor) {
   document.body.classList.toggle("on-focus-mode");
-  // Re-run decorations so the focused block gets (or loses) `md-focus`.
-  if (editor) editor.view.dispatch(editor.view.state.tr.setMeta("scrim-focus-mode", true));
+  // `md-focus` / `md-focus-container` are always on the cursor's block (10.3); focus
+  // mode only adds the dimming (chrome.css).
+  void editor;
 }
 
 /** Typewriter mode: the cursor line stays centered while typing or moving with keys. */

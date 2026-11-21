@@ -312,3 +312,26 @@ Mod+/ always toggles source mode and never reaches CodeMirror's comment command)
 Document commands run only when the live document has focus; otherwise the key passes
 through to CodeMirror or the text field. `01-architecture.md` "Keyboard routing" rule 2
 is updated.
+
+## Q-018: T-1 candidates do not match the fixture themes
+**Asked by:** spec team (from reviewing the T-1 golden candidates), 2026-11-21
+**Question:** The 8 candidates on `goldens/2026-11-21` render, but many theme rules do
+not apply: list and quote spacing, code block backgrounds, table width and header
+backgrounds, front matter colors, link and inline-code colors, and orangeheart's H2
+badge. Cause: the 10.3 DOM contract was too coarse, and app base CSS rules outrank
+theme rules.
+**Answer (spec team, 2026-11-21):** `10-themes.md` 10.3 is rewritten with the exact
+structure themes select on, and a new "Base stylesheet" subsection:
+- text runs in `span.md-plain`; `li` and `blockquote` text always in `p.md-p`; inline
+  wrappers (`span.md-pair-s`, `span.md-link`, `md-inline` attributes, `md-meta`
+  markers); `ul.ul-list[data-mark]`, `ol.ol-list`, `li.md-list-item`, task-item classes;
+  `table.md-table`, `span.td-span`; `div.md-hr > hr`; `md-end-block`;
+  `md-focus-container`;
+- the heading level hint is a `::before` pseudo-element, never a span (it was picking
+  up `#write h2 span` rules);
+- CodeMirror 5 alias classes for all CM6 parts; the source editor uses
+  `cm-s-scrim-default` (new rewrite row for the other editor's equivalent);
+- front matter is plain text, no YAML highlighting (`04-blocks.md` 4.11);
+- base CSS for document content is wrapped in `:where()` and carries no colors,
+  borders, or backgrounds; Scrim's look lives only in its built-in theme files.
+Discard the current candidates; regenerate after these changes.

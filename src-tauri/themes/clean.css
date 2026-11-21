@@ -134,3 +134,33 @@ footer,
 #scrim-sidebar .file-list-item.active {
   border-left: 4px solid var(--active-file-border-color);
 }
+.cm-s-inner .cm-keyword {
+  color: #a626a4;
+}
+.cm-s-inner .cm-string {
+  color: #50a14f;
+}
+.cm-s-inner .cm-comment {
+  color: #a0a1a7;
+  font-style: italic;
+}
+.cm-s-inner .cm-number,
+.cm-s-inner .cm-atom {
+  color: #986801;
+}
+.cm-s-inner .cm-def {
+  color: #4078f2;
+}
+.cm-s-inner .cm-variable-2,
+.cm-s-inner .cm-variable-3 {
+  color: #c18401;
+}
+.cm-s-inner .cm-property,
+.cm-s-inner .cm-attribute,
+.cm-s-inner .cm-tag {
+  color: #e45649;
+}
+.cm-s-inner .cm-builtin,
+.cm-s-inner .cm-meta {
+  color: #0184bc;
+}

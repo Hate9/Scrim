@@ -1,14 +1,13 @@
-// Inline rendering (spec 03, 3.2; spec 05; theme contract spec 10.3).
+// Inline rendering (spec 03, 3.2; spec 05; theme contract spec 10.3, QA-LOG Q-018).
 //
-// Every inline element gets the same decorations whether or not it is expanded:
-//   span.md-inline.md-inline-<kind>[data-el]   around markers + content
-//   <nodeName> (strong, em, a, …)              around the content
-//   span.md-meta                               around each marker run
-//   span.md-widget[data-el]                    rendered image/emoji/entity/math
-// Expansion only toggles the `md-expand` class on those elements (reveal.ts), so cursor
-// movement never adds or removes decorations (spec 01, "Decorations must keep a stable
-// DOM structure"). Decorations are recomputed only for textblocks a transaction
-// touched, and are frozen during IME composition.
+// The structure themes select on (wrappers, markers, plain runs) is expressed as
+// presentation marks (pres.ts), which this plugin keeps in sync with the text: every
+// transaction's touched textblocks are re-marked in an appended transaction that is not
+// in the history and does not make the document dirty. Rendered replacements (images,
+// emoji, entities, inline math) are widget decorations placed inside their wrapper.
+// Expansion only toggles the `md-expand` class on wrappers (reveal.ts), so cursor
+// movement never changes the DOM structure (spec 01). Work is limited to touched
+// textblocks, done progressively for large documents, and frozen during IME composition.
 
 import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "prosemirror-state";
@@ -17,10 +16,17 @@ import { flatten, type InlineElement, type Widget, type Definitions } from "../m
 import { documentDefinitions, elementsOf, isProse, type EditorOptions } from "./context";
 import { isStructural } from "./normalize";
 import { sanitizeAttrs } from "./sanitize";
+import { schema } from "../md/schema";
+import { PRES_META, presSegments, type PresSegment, type PresSpec } from "./pres";
+
+export { PRES_META };
 
 export interface InlineDecoState {
   set: DecorationSet;
   defs: Definitions;
+  /** Ranges of textblocks whose presentation marks are due (consumed by the next
+   * appended presentation transaction). */
+  touched: [number, number][];
   /** Position from which blocks still need decorations (progressive load), or null. */
   pending: number | null;
 }
@@ -47,7 +53,7 @@ function widgetDom(w: Widget, index: number, hooks: RenderHooks, kind: string): 
   switch (w.type) {
     case "image": {
       const wrap = document.createElement("span");
-      wrap.className = "md-image";
+      wrap.className = "md-image-render";
       const img = document.createElement("img");
       hooks.setImageSource(img, w.src);
       img.alt = w.alt;
@@ -55,11 +61,16 @@ function widgetDom(w: Widget, index: number, hooks: RenderHooks, kind: string): 
       img.draggable = false;
       img.dataset.src = w.src;
       // Missing images: a placeholder with the alt text and the path (4.8).
+      // The element's wrapper (span.md-image) gets `md-img-error` (10.3).
       img.addEventListener("error", () => {
         wrap.classList.add("md-image-broken");
         wrap.dataset.label = `${w.alt ? w.alt + " — " : ""}${w.src}`;
+        span.closest(".md-image")?.classList.add("md-img-error");
       });
-      img.addEventListener("load", () => wrap.classList.remove("md-image-broken"));
+      img.addEventListener("load", () => {
+        wrap.classList.remove("md-image-broken");
+        span.closest(".md-image")?.classList.remove("md-img-error");
+      });
       wrap.appendChild(img);
       span.appendChild(wrap);
       break;
@@ -103,69 +114,80 @@ function widgetKey(w: Widget): string {
   }
 }
 
+const presType = schema.marks.pres;
+const presMark = (p: PresSpec) => presType.create({ tag: p.tag, cls: p.cls, attrs: p.attrs, key: p.key });
+
+/** The presentation segments of a prose textblock. */
+export function blockSegments(node: Node, defs: Definitions, opts: EditorOptions): PresSegment[] {
+  return presSegments(elementsOf(node, defs, opts), node.textBetween(0, node.content.size, undefined, "\n"), sanitizeAttrs);
+}
+
+/** Widget decorations of a textblock: rendered images, emoji, entities, inline math,
+ * each inside its element's wrapper. */
 export function decorationsForBlock(node: Node, pos: number, defs: Definitions, opts: EditorOptions, hooks: RenderHooks): Decoration[] {
   const els = flatten(elementsOf(node, defs, opts));
   const base = pos + 1;
   const out: Decoration[] = [];
+  let segments: PresSegment[] | null = null;
   els.forEach((e: InlineElement, i) => {
-    let cls = `md-inline md-inline-${e.kind}`;
-    if (e.replace) cls += " md-replace";
-    if (e.kind === "rawhtml") cls += " md-meta-text";
-    if (e.kind === "break" && e.attrs?.["data-spaces"]) cls += " md-break-spaces";
-    if (e.kind === "html" && (e.nodeName === "br" || e.nodeName === "wbr")) cls += " md-replace";
-    if (e.from < e.to) out.push(Decoration.inline(base + e.from, base + e.to, { nodeName: "span", class: cls, "data-el": String(i) }));
-    if (e.nodeName && e.contentFrom < e.contentTo && e.kind !== "break") {
-      const attrs = e.kind === "html" ? sanitizeAttrs(e.attrs) : { ...(e.attrs ?? {}) };
-      if (e.kind === "footnote") attrs["data-label"] = node.textBetween(e.contentFrom, e.contentTo);
-      if (e.nodeName === "a") {
-        // No real href (QA-LOG Q-012): WebKitGTK gives links inside contenteditable its
-        // own click handling and Scrim opens links itself (Mod+click, spec 03, 3.9). The
-        // URL is the hover tooltip.
-        const url = attrs.href ?? "";
-        attrs["data-href"] = url;
-        attrs.title = attrs.title ? `${attrs.title}\n${url}` : url;
-        delete attrs.href;
-      }
-      out.push(Decoration.inline(base + e.contentFrom, base + e.contentTo, { nodeName: e.nodeName, ...attrs }));
-    }
-    for (const [a, b] of e.hidden ?? []) if (a < b) out.push(Decoration.inline(base + a, base + b, { class: "md-hide" }));
-    for (const [a, b] of e.runs) if (a < b) out.push(Decoration.inline(base + a, base + b, { class: "md-meta" }));
     let widget = e.replace && e.replace.type !== "hidden" ? e.replace : null;
     if (e.kind === "html" && (e.nodeName === "br" || e.nodeName === "wbr")) widget = { type: "char", char: "" };
-    if (widget) {
-      const w = widget;
-      const brTag = e.kind === "html" && e.nodeName === "br";
-      out.push(
-        Decoration.widget(
-          base + e.from,
-          () => {
-            const dom = widgetDom(w, i, hooks, e.kind);
-            if (brTag) dom.appendChild(document.createElement("br"));
-            return dom;
-          },
-          { side: -1, key: `${i}:${e.kind}:${widgetKey(w)}`, ignoreSelection: true, marks: [] },
-        ),
-      );
-    }
+    if (!widget) return;
+    const w = widget;
+    const brTag = e.kind === "html" && e.nodeName === "br";
+    // Inside the wrapper: the marks of the element's first piece, up to its wrapper.
+    segments ??= blockSegments(node, defs, opts);
+    const seg = segments.find((sg) => sg.from === e.from);
+    const upTo = seg ? seg.marks.findIndex((m) => m.key === `w${i}`) : -1;
+    const marks = seg && upTo >= 0 ? seg.marks.slice(0, upTo + 1).map(presMark) : [];
+    out.push(
+      Decoration.widget(
+        base + e.from,
+        () => {
+          const dom = widgetDom(w, i, hooks, e.kind);
+          if (brTag) dom.appendChild(document.createElement("br"));
+          return dom;
+        },
+        { side: -1, key: `${i}:${e.kind}:${widgetKey(w)}:${marks.length}`, ignoreSelection: true, marks },
+      ),
+    );
   });
   return out;
 }
 
-function headingDecorations(node: Node, pos: number): Decoration[] {
-  const level = node.attrs.level;
-  return [
-    Decoration.widget(
-      pos + 1,
-      () => {
-        const s = document.createElement("span");
-        s.className = "md-heading-hint";
-        s.contentEditable = "false";
-        s.textContent = `H${level}`;
-        return s;
-      },
-      { side: -1, key: `hint${level}`, ignoreSelection: true, marks: [] },
-    ),
-  ];
+type Run = [number, number, string];
+const runSig = (marks: readonly { attrs: Record<string, unknown> }[]) => JSON.stringify(marks.map((m) => m.attrs));
+
+/** Merge adjacent equal runs and fill gaps with "no marks", over [0, size). */
+function normalizeRuns(list: Run[], size: number): Run[] {
+  const out: Run[] = [];
+  const add = (r: Run) => {
+    const last = out[out.length - 1];
+    if (last && last[1] === r[0] && last[2] === r[2]) last[1] = r[1];
+    else out.push([...r]);
+  };
+  let at = 0;
+  for (const r of list) {
+    if (r[0] > at) add([at, r[0], "[]"]);
+    add(r);
+    at = r[1];
+  }
+  if (at < size) add([at, size, "[]"]);
+  return out;
+}
+
+/** Bring a textblock's presentation marks in line with its text; false if they were. */
+function syncMarks(tr: Transaction, node: Node, pos: number, defs: Definitions, opts: EditorOptions): boolean {
+  const want = blockSegments(node, defs, opts);
+  const wanted: Run[] = want.map((sg) => [sg.from, sg.to, runSig(sg.marks.map((p) => presMark(p)))]);
+  const present: Run[] = [];
+  node.forEach((child, offset) => present.push([offset, offset + child.nodeSize, runSig(child.marks.filter((m) => m.type === presType))]));
+  const size = node.content.size;
+  if (JSON.stringify(normalizeRuns(wanted, size)) === JSON.stringify(normalizeRuns(present, size))) return false;
+  const start = pos + 1;
+  tr.removeMark(start, start + size, presType);
+  for (const sg of want) for (const p of sg.marks) tr.addMark(start + sg.from, start + sg.to, presMark(p));
+  return true;
 }
 
 /** Decorations for up to `limit` textblocks starting at `from`; returns where it stopped. */
@@ -186,7 +208,6 @@ function blocksFrom(doc: Node, from: number, limit: number, defs: Definitions, o
     ranges.push([pos, pos + node.nodeSize]);
     if (isProse(node)) {
       decos.push(...decorationsForBlock(node, pos, defs, opts, hooks));
-      if (node.type.name === "heading") decos.push(...headingDecorations(node, pos));
     }
     return false;
   });
@@ -194,8 +215,8 @@ function blocksFrom(doc: Node, from: number, limit: number, defs: Definitions, o
 }
 
 function initialState(doc: Node, defs: Definitions, opts: EditorOptions, hooks: RenderHooks): InlineDecoState {
-  const { decos, next } = blocksFrom(doc, 0, INITIAL_BLOCKS, defs, opts, hooks);
-  return { defs, set: DecorationSet.create(doc, decos), pending: next };
+  const { decos, ranges, next } = blocksFrom(doc, 0, INITIAL_BLOCKS, defs, opts, hooks);
+  return { defs, set: DecorationSet.create(doc, decos), pending: next, touched: ranges };
 }
 
 function touchesRawDefinitions(tr: Transaction, doc: Node): boolean {
@@ -243,12 +264,15 @@ export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plu
           const { decos, ranges, next } = blocksFrom(state.doc, value.pending, CHUNK_BLOCKS, value.defs, opts, hooks);
           let set = value.set;
           for (const [a, b] of ranges) set = set.remove(set.find(a, b));
-          return { defs: value.defs, set: set.add(state.doc, decos), pending: next };
+          return { defs: value.defs, set: set.add(state.doc, decos), pending: next, touched: [...value.touched, ...ranges] };
         }
+        // A presentation transaction: the marks are now current.
+        if (tr.getMeta(PRES_META)) return { ...value, set: value.set.map(tr.mapping, tr.doc), touched: [] };
         if (!tr.docChanged) return value;
         let set = value.set.map(tr.mapping, tr.doc);
         const pending = value.pending === null ? null : tr.mapping.map(value.pending, -1);
-        if (composing) return { defs: value.defs, set, pending };
+        const touched: [number, number][] = value.touched.map(([a, b]) => [tr.mapping.map(a, -1), tr.mapping.map(b, 1)]);
+        if (composing) return { defs: value.defs, set, pending, touched };
         // Definitions can only change if a definition block (or the structure) changed.
         let defs = value.defs;
         if (isStructural(tr) || touchesRawDefinitions(tr, state.doc)) {
@@ -257,6 +281,7 @@ export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plu
         }
         const done = new Set<number>();
         for (const [from, to] of changedRanges(tr)) {
+          touched.push([from, to]);
           const lo = Math.max(0, Math.min(from, state.doc.content.size));
           const hi = Math.max(lo, Math.min(to, state.doc.content.size));
           state.doc.nodesBetween(lo, hi, (node, pos) => {
@@ -264,16 +289,32 @@ export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plu
             if (done.has(pos)) return false;
             done.add(pos);
             set = set.remove(set.find(pos, pos + node.nodeSize));
-            if (isProse(node)) {
-              const add = decorationsForBlock(node, pos, defs, opts, hooks);
-              if (node.type.name === "heading") add.push(...headingDecorations(node, pos));
-              set = set.add(state.doc, add);
-            }
+            if (isProse(node)) set = set.add(state.doc, decorationsForBlock(node, pos, defs, opts, hooks));
             return false;
           });
         }
-        return { defs, set, pending };
+        return { defs, set, pending, touched };
       },
+    },
+    appendTransaction(_trs, _old, state) {
+      const st = inlineKey.getState(state);
+      if (!st || composing || !st.touched.length) return null;
+      const tr = state.tr;
+      const size = state.doc.content.size;
+      const done = new Set<number>();
+      for (const [from, to] of st.touched) {
+        const lo = Math.max(0, Math.min(from, size));
+        const hi = Math.max(lo, Math.min(to, size));
+        state.doc.nodesBetween(lo, hi, (node, pos) => {
+          if (!node.isTextblock) return true;
+          if (done.has(pos)) return false;
+          done.add(pos);
+          if (isProse(node) && node.type.allowsMarkType(presType)) syncMarks(tr, node, pos, st.defs, opts);
+          return false;
+        });
+      }
+      // Even without changes: the meta clears `touched`.
+      return tr.setMeta(PRES_META, true).setMeta("addToHistory", false);
     },
     view: (initialView) => {
       let scheduled = 0;

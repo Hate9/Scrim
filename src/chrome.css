@@ -624,13 +624,11 @@ footer .footer-left .footer-item {
   background: transparent;
   outline: none;
 }
-body.on-focus-mode #write > *:not(.md-focus):not(:has(.md-focus)),
-body.on-focus-mode #write li:not(.md-focus):not(:has(.md-focus)) > * {
-  color: var(--blur-text-color);
-}
-body.on-focus-mode #write li.md-focus > *,
-body.on-focus-mode #write .md-focus {
-  color: inherit;
+/* Focus mode (15): every leaf block but the cursor's is dimmed; inside lists the unit
+   is the list item (`md-focus-container`, 10.3). */
+body.on-focus-mode #write .md-end-block:not(.md-focus):not(li.md-focus-container .md-end-block),
+body.on-focus-mode #write .md-end-block:not(.md-focus):not(li.md-focus-container .md-end-block) * {
+  color: var(--blur-text-color) !important;
 }
 body.scrim-typewriter-mode #write {
   padding-top: 50vh;
@@ -750,9 +748,6 @@ body.dark .scrim-preferences {
   color: #888888;
 }
 
-body.scrim-no-heading-hint .md-heading-hint {
-  display: none !important;
-}
 body.scrim-no-word-count #footer-word-count {
   display: none;
 }

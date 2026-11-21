@@ -20,6 +20,7 @@ import { isHistoryTransaction } from "prosemirror-history";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { parseMdast } from "../md/mdast";
+import { PRES_META } from "./pres";
 import { schema } from "../md/schema";
 import { blockSource } from "./context";
 import { changedRanges } from "./decorations";
@@ -177,7 +178,7 @@ export function createEscapePlugin(opts: EscapeOptions): Plugin {
       const tr = state.tr;
       const blocks = new Set<number>();
       trs.forEach((t, i) => {
-        if (!t.docChanged) return;
+        if (!t.docChanged || t.getMeta(PRES_META)) return;
         for (const [from, to] of changedRanges(t)) {
           let a = from;
           let b = to;

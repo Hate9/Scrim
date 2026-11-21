@@ -9,7 +9,7 @@
 
 import type { Node } from "prosemirror-model";
 import { Plugin, type Transaction } from "prosemirror-state";
-import { ReplaceStep } from "prosemirror-transform";
+import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform";
 import { freshUid } from "../md/schema";
 
 const NEW_LEAF = { sep: null, prev: null, lead: null, marks: null, sig: null };
@@ -17,6 +17,8 @@ const NEW_LEAF = { sep: null, prev: null, lead: null, marks: null, sig: null };
 /** True if the transaction may have changed block structure (not just inline text). */
 export function isStructural(tr: Transaction): boolean {
   for (const step of tr.steps) {
+    // Mark steps (presentation marks, automatic escapes' marks) never change structure.
+    if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) continue;
     if (!(step instanceof ReplaceStep)) return true;
     const { from, to, slice } = step as unknown as { from: number; to: number; slice: { openStart: number; openEnd: number; content: { forEach(f: (n: Node) => void): void } } };
     if (slice.openStart || slice.openEnd) return true;

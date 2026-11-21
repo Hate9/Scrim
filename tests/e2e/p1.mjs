@@ -53,7 +53,7 @@ test("E-3/E-16 click on collapsed strong lands on the clicked boundary", async (
   // Coordinates of the boundary just left of "b" and between "o" and "l".
   const point = (offset) =>
     s.exec(
-      `const t = document.querySelector('#write strong').firstChild; const r = document.createRange(); r.setStart(t, ${offset}); r.setEnd(t, ${offset}); const b = r.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top + b.height / 2)]`,
+      `const t = document.querySelector('#write strong .md-plain').firstChild; const r = document.createRange(); r.setStart(t, ${offset}); r.setEnd(t, ${offset}); const b = r.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top + b.height / 2)]`,
     );
   const click = async ([x, y]) => {
     await s.cmd("POST", "/actions", {

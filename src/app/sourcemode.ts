@@ -5,6 +5,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting } from "@codemirror/language";
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { cmAliases } from "../editor/codeview";
 import { TextSelection } from "prosemirror-state";
 import { scrimHighlighter } from "../editor/codeview";
 import type { Editor } from "../editor/editor";
@@ -66,6 +67,7 @@ export class SourceMode implements SourceSearch {
           markdown(),
           syntaxHighlighting(scrimHighlighter),
           EditorView.lineWrapping,
+          cmAliases("cm-s-scrim-default", true),
           this.gutter.of(this.lineNumbersOn() ? lineNumbers() : []),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) this.onDirty();

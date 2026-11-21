@@ -19,6 +19,10 @@ body {
 }
 #write {
   max-width: 800px;
+  padding: 36px 30px 0;
+}
+#write a {
+  color: var(--primary-color);
 }
 #write blockquote {
   border-left: 3px solid #dddddd;

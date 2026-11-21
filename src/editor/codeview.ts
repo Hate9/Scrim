@@ -52,6 +52,63 @@ export const scrimHighlighter = tagHighlighter([
   { tag: tags.invalid, class: "cm-error" },
 ]);
 
+/**
+ * CodeMirror 5 alias classes on CodeMirror 6 elements (theme contract 10.3): themes
+ * target `.CodeMirror`, `.CodeMirror-lines`, `.CodeMirror-line`, and so on. `theme` is
+ * `cm-s-inner` in code blocks and `cm-s-scrim-default` in source mode.
+ */
+export function cmAliases(theme: string, wrapping: boolean): Extension {
+  return [
+    CMView.editorAttributes.of({ class: `CodeMirror ${theme}${wrapping ? " CodeMirror-wrap" : ""}` }),
+    CMView.contentAttributes.of({ class: "CodeMirror-code CodeMirror-lines" }),
+    lineAlias,
+    activeLineAlias,
+    ViewPlugin.fromClass(
+      class {
+        constructor(view: CMView) {
+          view.scrollDOM.classList.add("CodeMirror-scroll");
+          this.mark(view);
+        }
+        update(u: ViewUpdate) {
+          if (u.focusChanged) u.view.dom.classList.toggle("CodeMirror-focused", u.view.hasFocus);
+          this.mark(u.view);
+        }
+        /** Elements CodeMirror draws in layers and gutters, after it has drawn them. */
+        mark(view: CMView) {
+          view.requestMeasure({
+            read: () => null,
+            write: () => {
+              const add = (sel: string, cls: string) => view.dom.querySelectorAll(sel).forEach((e) => e.classList.add(cls));
+              add(".cm-cursor", "CodeMirror-cursor");
+              add(".cm-selectionBackground", "CodeMirror-selected");
+              add(".cm-gutters", "CodeMirror-gutters");
+              add(".cm-lineNumbers .cm-gutterElement", "CodeMirror-linenumber");
+            },
+          });
+        }
+      },
+    ),
+  ];
+}
+
+/** The line holding the main cursor: `CodeMirror-activeline`. */
+const activeLineAlias = ViewPlugin.fromClass(
+  class {
+    decorations: CMDecorationSet;
+    constructor(view: CMView) {
+      this.decorations = this.build(view);
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.selectionSet) this.decorations = this.build(u.view);
+    }
+    build(view: CMView) {
+      const line = view.state.doc.lineAt(view.state.selection.main.head);
+      return CMDecoration.set([CMDecoration.line({ class: "CodeMirror-activeline" }).range(line.from)]);
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
+
 /** `.cm-line` also gets the legacy `CodeMirror-line` class (theme contract 10.3). */
 const lineAlias = ViewPlugin.fromClass(
   class {
@@ -151,28 +208,32 @@ export class CodeBlockView implements NodeView {
     switch (kind) {
       case "code":
         this.dom = document.createElement("pre");
-        this.dom.className = "md-fences";
+        this.dom.className = "md-fences md-end-block";
         this.source = this.dom;
         break;
       case "math":
+        // 10.3: div.md-math-block.md-rawblock > div.md-rawblock-container.md-math-container
+        // > rendered math; while editing, the source in a pre.md-fences inside it.
         this.dom = document.createElement("div");
-        this.dom.className = "md-math-block";
-        this.source.className = "md-math-source";
+        this.dom.className = "md-math-block md-rawblock md-end-block";
+        this.source = document.createElement("pre");
+        this.source.className = "md-fences md-math-source";
+        this.source.setAttribute("lang", "latex");
         this.preview = document.createElement("div");
-        this.preview.className = "math-display";
+        this.preview.className = "md-rawblock-container md-math-container math-display";
         this.dom.append(this.source, this.preview);
         break;
       case "html":
         this.dom = document.createElement("div");
-        this.dom.className = "md-htmlblock";
+        this.dom.className = "md-htmlblock md-rawblock md-end-block";
         this.source.className = "md-htmlblock-source";
         this.preview = document.createElement("div");
-        this.preview.className = "md-htmlblock-container";
+        this.preview.className = "md-htmlblock-container md-rawblock-container";
         this.dom.append(this.source, this.preview);
         break;
       default:
         this.dom = document.createElement("pre");
-        this.dom.className = "md-meta-block";
+        this.dom.className = "md-meta-block md-end-block";
         this.source = this.dom;
     }
     if (this.preview) {
@@ -220,10 +281,9 @@ export class CodeBlockView implements NodeView {
     const exts: Extension[] = [
       cmKeymap.of([...this.escapeKeys(), ...defaultKeymap]),
       syntaxHighlighting(scrimHighlighter),
-      lineAlias,
       this.lang.of([]),
-      CMView.editorAttributes.of({ class: "CodeMirror cm-s-inner" }),
-      CMView.contentAttributes.of({ class: "CodeMirror-lines", spellcheck: "false" }),
+      cmAliases("cm-s-inner", this.kind !== "code" || this.opts.codeWrap),
+      CMView.contentAttributes.of({ spellcheck: "false" }),
       CMState.tabSize.of(4),
       CMView.updateListener.of((u) => {
         if (u.docChanged && this.preview) this.schedulePreview();
@@ -268,7 +328,7 @@ export class CodeBlockView implements NodeView {
       this.setLanguage(lang);
     } else if (this.kind === "math") this.setLanguage("latex");
     else if (this.kind === "html") this.setLanguage("html");
-    else this.setLanguage("yaml");
+    else this.setLanguage(""); // front matter is plain text, no YAML highlighting (4.11)
   }
 
   private setLanguage(name: string) {
@@ -293,7 +353,11 @@ export class CodeBlockView implements NodeView {
   private renderPreview() {
     if (!this.preview) return;
     const text = this.cm.state.doc.toString();
-    if (this.kind === "math") this.hooks.renderMath(text, this.preview, true);
+    if (this.kind === "math") {
+      this.hooks.renderMath(text, this.preview, true);
+      // The renderer's root carries `MathJax` for themes (10.3).
+      this.preview.firstElementChild?.classList.add("MathJax");
+    }
     else if (this.kind === "html") this.hooks.renderHtml(text, this.preview);
   }
 

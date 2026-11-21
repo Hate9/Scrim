@@ -72,7 +72,7 @@ class RevealView {
     const observer = (view as unknown as { domObserver: DomObserverLike }).domObserver;
     observer.stop();
     try {
-      for (const el of this.marked) el.classList.remove("md-expand", "md-focus");
+      for (const el of this.marked) el.classList.remove("md-expand", "md-focus", "md-focus-container");
       this.marked = [];
       const state = view.state;
       for (const [pos, set] of expandedElements(state, this.opts)) {
@@ -91,6 +91,16 @@ class RevealView {
         if (dom instanceof HTMLElement) {
           dom.classList.add("md-focus");
           this.marked.push(dom);
+        }
+        // The nearest enclosing list item is the focus container (10.3); quotes are not.
+        for (let d = $head.depth - 1; d > 0; d--) {
+          if ($head.node(d).type.name !== "list_item") continue;
+          const li = view.nodeDOM($head.before(d));
+          if (li instanceof HTMLElement) {
+            li.classList.add("md-focus-container");
+            this.marked.push(li);
+          }
+          break;
         }
       }
     } finally {

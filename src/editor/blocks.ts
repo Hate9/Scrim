@@ -69,7 +69,7 @@ class TocView implements NodeView {
 
   constructor(private node: Node, private view: EditorView, private getPos: () => number | undefined) {
     this.dom = document.createElement("div");
-    this.dom.className = "md-toc";
+    this.dom.className = "md-toc md-end-block";
     this.dom.contentEditable = "false";
     this.dom.addEventListener("mousedown", (e) => {
       const a = (e.target as HTMLElement).closest("a.md-toc-inner") as HTMLElement | null;
@@ -146,31 +146,42 @@ export const tocEnter: Command = (state, _dispatch, view) => {
 
 // ---- footnotes (4.13) ----------------------------------------------------------------------
 
+/** Footnote definition (10.3): div.footnotes.md-def-footnote > span.md-def-name (label),
+ * span.md-def-content (the definition's blocks), span.md-reverse-footnote-area >
+ * a.reversefootnote. The label is the `[^label]:` source, shown as a name. */
 class FootnoteDefView implements NodeView {
   dom: HTMLDivElement;
-  contentDOM: HTMLDivElement;
+  contentDOM: HTMLSpanElement;
+  private name: HTMLSpanElement;
   private back: HTMLSpanElement;
 
   constructor(private node: Node, private view: EditorView) {
     this.dom = document.createElement("div");
-    this.dom.className = "md-def-footnote";
-    this.contentDOM = document.createElement("div");
-    this.contentDOM.className = "md-def-footnote-content";
+    this.dom.className = "footnotes md-def-footnote";
+    this.name = document.createElement("span");
+    this.name.className = "md-def-name";
+    this.name.contentEditable = "false";
+    this.contentDOM = document.createElement("span");
+    this.contentDOM.className = "md-def-content md-def-footnote-content";
     this.back = document.createElement("span");
-    this.back.className = "md-def-footnote-back";
+    this.back.className = "md-reverse-footnote-area md-def-footnote-back";
     this.back.contentEditable = "false";
-    this.back.textContent = "↩";
-    this.back.title = "Back to reference";
+    const a = document.createElement("a");
+    a.className = "reversefootnote";
+    a.textContent = "↩";
+    a.title = "Back to reference";
+    this.back.appendChild(a);
     this.back.addEventListener("mousedown", (e) => {
       e.preventDefault();
       jumpToReference(this.view, this.node.attrs.label);
     });
-    this.dom.append(this.contentDOM, this.back);
+    this.dom.append(this.name, this.contentDOM, this.back);
     this.sync();
   }
 
   private sync() {
     this.dom.dataset.label = this.node.attrs.label;
+    this.name.textContent = this.node.attrs.label;
   }
 
   update(node: Node) {
@@ -181,7 +192,7 @@ class FootnoteDefView implements NodeView {
   }
 
   ignoreMutation(m: MutationRecord | { type: "selection"; target: globalThis.Node }) {
-    return m.type !== "selection" && (this.back.contains(m.target) || (m.target === this.dom && m.type === "attributes"));
+    return m.type !== "selection" && (this.back.contains(m.target) || this.name.contains(m.target) || (m.target === this.dom && m.type === "attributes"));
   }
 }
 
@@ -272,7 +283,7 @@ class FootnotePopover {
     this.timer = window.setTimeout(() => this.show(view, sup), 300);
   }
   show(view: EditorView, sup: HTMLElement) {
-    const label = sup.dataset.label ?? "";
+    const label = (sup.dataset.ref ?? sup.dataset.label) ?? "";
     let def: Node | null = null;
     view.state.doc.descendants((n) => {
       if (!def && n.type === S.footnote_def && n.attrs.label === label) def = n;
@@ -315,8 +326,35 @@ export function frontMatter(doc: Node): Record<string, string> {
 export const blocksKey = new PluginKey<DecorationSet>("scrim-blocks");
 
 /** Decorations for one textblock: image paragraph class, task checkbox before it. */
+/** Link definition parts (10.3): span.md-def-name, span.md-def-content.md-def-url,
+ * span.md-def-title, with the brackets and colon as markers. One per source line. */
+function definitionDecorations(node: Node, pos: number): Decoration[] {
+  const out: Decoration[] = [];
+  const src = blockSource(node);
+  const re = /^([ \t]*)(\[)((?:\\.|[^\]\\])+)(\]:)([ \t]*)(<[^>\n]*>|\S+)?(?:([ \t]+)(["'(].*["')]))?/gm;
+  let m: RegExpExecArray | null;
+  const span = (from: number, len: number, cls: string) => {
+    if (len > 0) out.push(Decoration.inline(pos + 1 + from, pos + 1 + from + len, { class: cls }));
+  };
+  while ((m = re.exec(src))) {
+    let at = m.index + m[1].length;
+    span(at, 1, "md-meta md-before");
+    at += 1;
+    span(at, m[3].length, "md-def-name");
+    at += m[3].length;
+    span(at, 2, "md-meta md-after");
+    at += 2 + m[5].length;
+    if (m[6]) span(at, m[6].length, "md-def-content md-def-url");
+    at += (m[6]?.length ?? 0) + (m[7]?.length ?? 0);
+    if (m[8]) span(at, m[8].length, "md-def-title");
+    if (m[0].length === 0) re.lastIndex++;
+  }
+  return out;
+}
+
 function textblockDecorations(doc: Node, node: Node, pos: number): Decoration[] {
   const out: Decoration[] = [];
+  if (node.type.name === "raw" && node.attrs.kind === "definition") return definitionDecorations(node, pos);
   if (node.type === S.paragraph && isImageParagraphSource(blockSource(node))) {
     out.push(Decoration.node(pos, pos + node.nodeSize, { class: "md-image-paragraph" }));
   }
@@ -324,7 +362,8 @@ function textblockDecorations(doc: Node, node: Node, pos: number): Decoration[] 
   const item = $p.depth > 0 ? $p.parent : null;
   if (item && item.type === S.list_item && item.attrs.task !== null && $p.index() === 0) {
     const checked = item.attrs.task !== " ";
-    out.push(Decoration.widget(pos + 1, () => taskCheckbox(checked), { side: -1, key: `task-${checked}`, ignoreSelection: true }));
+    // The checkbox is the list item's first child, before its paragraph (10.3).
+    out.push(Decoration.widget(pos, () => taskCheckbox(checked), { side: -1, key: `task-${checked}`, ignoreSelection: true }));
   }
   return out;
 }
@@ -415,7 +454,7 @@ export function createBlocksPlugin(hooks: BlockHooks): Plugin {
         observer.stop();
         try {
           v.dom.querySelectorAll<HTMLElement>("sup.md-footnote, .md-def-footnote").forEach((el) => {
-            const label = el.dataset.label ?? el.textContent ?? "";
+            const label = el.dataset.ref ?? el.dataset.label ?? el.textContent ?? "";
             const n = numbers.get(label);
             if (n === undefined) delete el.dataset.n;
             else el.dataset.n = String(n);
@@ -450,7 +489,7 @@ export function createBlocksPlugin(hooks: BlockHooks): Plugin {
       },
       handleClick(view, _pos, event) {
         const sup = (event.target as HTMLElement).closest?.("sup.md-footnote") as HTMLElement | null;
-        if (sup && (event.ctrlKey || event.metaKey) && sup.dataset.label) return jumpToDefinition(view, sup.dataset.label);
+        if (sup && (event.ctrlKey || event.metaKey) && (sup.dataset.ref ?? sup.dataset.label)) return jumpToDefinition(view, (sup.dataset.ref ?? sup.dataset.label)!);
         return false;
       },
       handleDOMEvents: {

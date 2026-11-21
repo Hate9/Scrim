@@ -2,29 +2,153 @@
    mechanics every theme relies on (syntax reveal, widgets) plus a neutral default look.
    Everything ships in the app; nothing is loaded from the network (spec 19). */
 
+/* App base CSS (spec 10.3, "Base stylesheet"; QA-LOG Q-018).
+   Document content: the small base that themes are written against, every rule
+   wrapped in :where() (zero specificity, so any theme rule wins), with no colors,
+   borders, or backgrounds. Scrim's own look lives in its built-in themes
+   (src-tauri/themes/). Editing mechanics (marker reveal, widgets, source editors) and
+   the app chrome follow. Nothing is loaded from the network (spec 19). */
+
 :root {
-  --bg-color: #ffffff;
-  --text-color: #333333;
+  --bg-color: #fff;
+  --text-color: #333;
+  --monospace: ui-monospace, "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace;
   --md-char-color: #b0b0b0;
   --meta-content-color: #8a8a8a;
   --heading-char-color: #c0c0c0;
   --primary-color: #4a7bd0;
-  --monospace: ui-monospace, "DejaVu Sans Mono", Consolas, monospace;
   --notice-bg: #fff6d6;
   --notice-fg: #5c4a00;
 }
 
+/* ---- base for document content (10.3) ---- */
+:where(html) {
+  font-size: 14px;
+  line-height: 1.42857;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+:where(*),
+:where(*)::before,
+:where(*)::after {
+  box-sizing: border-box;
+}
+:where(body) {
+  font-family: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+:where(#write) {
+  margin: 0 auto;
+  padding-top: 36px;
+  position: relative;
+  word-wrap: break-word;
+}
+:where(#write) :where(h1) { font-size: 2rem; }
+:where(#write) :where(h2) { font-size: 1.8rem; }
+:where(#write) :where(h3) { font-size: 1.6rem; }
+:where(#write) :where(h4) { font-size: 1.4rem; }
+:where(#write) :where(h5) { font-size: 1.2rem; }
+:where(#write) :where(h6) { font-size: 1rem; }
+:where(#write) :where(p, h1, h2, h3, h4, h5, h6, .md-math-block, .md-htmlblock) {
+  margin: 1rem 0;
+}
+:where(#write) :where(blockquote) {
+  margin: 1rem 0;
+}
+:where(#write) :where(li) {
+  margin: 0;
+  position: relative;
+}
+:where(#write) :where(li p, li .md-math-block) {
+  margin: 0.5rem 0;
+}
+:where(#write) :where(li > :first-child, blockquote > :first-child) {
+  margin-top: 0;
+}
+:where(#write) :where(blockquote > :last-child) {
+  margin-bottom: 0;
+}
+:where(#write) :where(li.task-list-item) {
+  list-style-type: none;
+}
+:where(#write) :where(li.task-list-item > input[type="checkbox"]) {
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  margin: 0 0 0 -1.2em;
+}
+:where(#write) :where(figure) {
+  margin: 1.2em 0;
+  overflow-x: auto;
+  max-width: calc(100% + 16px);
+}
+:where(#write) :where(table) {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+}
+:where(#write) :where(table.md-table td) {
+  min-width: 32px;
+}
+:where(#write) :where(code, pre) {
+  font-family: var(--monospace);
+}
+:where(#write) :where(.md-fences) {
+  font-size: 0.9rem;
+  display: block;
+  background: inherit;
+  position: relative;
+}
+:where(#write) :where(.CodeMirror-line) {
+  padding: 0 4px;
+}
+:where(#write) :where(pre.md-meta-block) {
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  background: #ccc;
+  display: block;
+}
+:where(#write) :where(.footnotes) {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+:where(#write) :where(sup.md-footnote) {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.15);
+  font-size: 0.75em;
+}
+:where(#write) :where(img) {
+  max-width: 100%;
+}
+:where(#write) :where(p.md-image-paragraph) {
+  display: block;
+  text-align: center;
+}
+:where(#write) :where(kbd) {
+  font-size: 0.9em;
+  padding: 1px 4px;
+  border: 1px solid #ccc;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: #f7f7f7;
+  color: #333;
+}
+:where(#write) :where(mark) {
+  background: #ff0;
+  color: #000;
+}
+
+/* ---- editor mechanics ---- */
 html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--bg-color);
-  color: var(--text-color);
 }
 body {
   display: flex;
   flex-direction: column;
-  font: 16px/1.6 system-ui, sans-serif;
 }
 content {
   display: block;
@@ -32,15 +156,17 @@ content {
   overflow-y: auto;
   min-height: 0;
 }
+/* Scroll past end (spec 03, 3.10): space after the last block that a theme's #write
+   padding cannot take away. */
+#write::after {
+  content: "";
+  display: block;
+  height: 40vh;
+  pointer-events: none;
+}
 #write {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 40px 30px 40vh; /* scroll past end (spec 03, 3.10) */
-  box-sizing: border-box;
   outline: none;
   white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-break: normal;
   tab-size: 4;
   caret-color: var(--text-color);
 }
@@ -57,52 +183,21 @@ content {
   position: relative;
 }
 #write p {
-  margin: 0.8em 0;
-  min-height: 1.6em;
+  min-height: 1em;
 }
-#write li > p {
-  margin: 0;
-}
-#write .md-list-loose li > p {
-  margin: 0.8em 0;
-}
-#write blockquote {
-  margin: 0.8em 0;
-  padding: 0 1em;
-  border-left: 4px solid #dfe2e5;
-  color: #666;
-}
-#write hr {
-  border: 0;
-  border-top: 2px solid #e7e7e7;
-  margin: 1.4em 0;
-}
-#write hr.ProseMirror-selectednode,
+#write .md-hr.ProseMirror-selectednode,
 #write .md-raw.ProseMirror-selectednode {
   outline: 2px solid var(--primary-color);
 }
 #write pre.md-raw {
   font-family: var(--monospace);
-  font-size: 0.9em;
-  background: rgba(127, 127, 127, 0.08);
-  padding: 8px 12px;
-  border-radius: 3px;
   white-space: pre-wrap;
 }
-#write code {
-  font-family: var(--monospace);
-  font-size: 0.9em;
-  background: rgba(127, 127, 127, 0.12);
-  padding: 0 2px;
-  border-radius: 2px;
-}
+/* Links: a text cursor, and a pointer while Mod is held or with single-click opening
+   (QA-LOG Q-012). */
 #write a {
-  color: var(--primary-color);
-  text-decoration: none;
   cursor: text;
 }
-/* QA-LOG Q-012: links look clickable while Mod is held (or always with single-click
-   opening). */
 body.scrim-mod-held #write a,
 body.scrim-links-single-click #write a {
   cursor: pointer;
@@ -117,12 +212,13 @@ body.scrim-links-single-click #write a {
 /* Collapsed markers take no space but stay in the layout (font-size 0, not display:
    none): WebKitGTK moves the caret out of display:none text, which would make the
    cursor drift across hidden markers. */
-.md-inline:not(.md-expand) .md-meta,
-.md-inline.md-meta:not(.md-expand),
-.md-inline:not(.md-expand) .md-hide,
-.md-inline.md-hide:not(.md-expand),
-.md-inline.md-replace:not(.md-expand),
-.md-inline.md-replace:not(.md-expand) * {
+/* Markers and hidden source are direct children of their element's wrapper (10.3).
+   A replaced element (image, emoji, inline math) keeps only its rendered widget. */
+.md-inline:not(.md-expand) > .md-meta,
+.md-inline:not(.md-expand) > .md-hide,
+.md-inline:not(.md-expand) > .md-meta *,
+.md-inline.md-replace:not(.md-expand) > :not(.md-widget),
+.md-inline.md-replace:not(.md-expand) > :not(.md-widget) * {
   font-size: 0;
   letter-spacing: 0;
   padding: 0;
@@ -187,21 +283,29 @@ body.md-soft-breaks .md-inline-break + .md-br br {
   display: inline;
 }
 
-/* Heading level hint (spec 04, 4.2). */
-.md-heading-hint {
-  display: none;
+/* Heading level hint (spec 04, 4.2; 10.3): a pseudo-element, never an element. */
+#write :is(h1, h2, h3, h4, h5, h6).md-focus::before {
   position: absolute;
-  left: -2.6em;
+  left: -30px;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate(-100%, -50%);
   font-size: 12px;
   font-weight: normal;
+  line-height: 1.4;
+  padding: 0 3px;
+  border: 1px solid var(--heading-char-color);
+  border-radius: 3px;
   color: var(--heading-char-color);
-  user-select: none;
   pointer-events: none;
 }
-.md-focus > .md-heading-hint {
-  display: inline;
+#write h1.md-focus::before { content: "h1"; }
+#write h2.md-focus::before { content: "h2"; }
+#write h3.md-focus::before { content: "h3"; }
+#write h4.md-focus::before { content: "h4"; }
+#write h5.md-focus::before { content: "h5"; }
+#write h6.md-focus::before { content: "h6"; }
+body.scrim-no-heading-hint #write :is(h1, h2, h3, h4, h5, h6).md-focus::before {
+  content: none;
 }
 
 .scrim-notice {
@@ -272,22 +376,7 @@ body.scrim-dragging-text * {
 
 
 
-/* ---- rich blocks (spec 04) ---- */
-#write pre.md-fences,
-#write pre.md-meta-block {
-  position: relative;
-  margin: 0.8em 0;
-  padding: 8px 12px;
-  background: rgba(127, 127, 127, 0.08);
-  border-radius: 3px;
-  font-family: var(--monospace);
-  font-size: 0.9em;
-  white-space: normal;
-}
-#write pre.md-meta-block {
-  font-size: 0.82em;
-  color: var(--meta-content-color);
-}
+/* ---- rich blocks (spec 04): mechanics only ---- */
 #write .cm-editor {
   background: transparent;
   font-family: var(--monospace);
@@ -298,9 +387,6 @@ body.scrim-dragging-text * {
 #write .cm-content {
   padding: 0;
   caret-color: var(--text-color);
-}
-#write .cm-line {
-  padding: 0;
 }
 /* Language box: bottom-right, visible on hover or while editing. */
 .md-lang-box {
@@ -362,23 +448,15 @@ body.scrim-dragging-text * {
 /* Math and HTML blocks: preview, with the source editor shown while editing. */
 #write .md-math-block,
 #write .md-htmlblock {
-  margin: 0.8em 0;
   position: relative;
 }
-#write .md-math-block .math-display {
-  text-align: center;
+#write .md-math-container {
   cursor: pointer;
-  min-height: 1.6em;
+  min-height: 1em;
 }
 #write .md-math-source,
 #write .md-htmlblock-source {
   display: none;
-  font-family: var(--monospace);
-  font-size: 0.9em;
-  padding: 6px 10px;
-  margin-bottom: 6px;
-  background: rgba(127, 127, 127, 0.08);
-  border-radius: 3px;
 }
 #write .md-math-block.md-editing .md-math-source,
 #write .md-htmlblock.md-editing .md-htmlblock-source {
@@ -388,101 +466,28 @@ body.scrim-dragging-text * {
   cursor: pointer;
   min-height: 1em;
 }
-#write .md-comment {
-  color: var(--meta-content-color);
-  font-style: italic;
-  opacity: 0.7;
-}
 #write .md-math-block.ProseMirror-selectednode,
 #write .md-htmlblock.ProseMirror-selectednode,
 #write pre.md-fences.ProseMirror-selectednode {
   outline: 2px solid var(--primary-color);
 }
-
-/* Tables (4.7) */
-#write figure.md-table-fig {
-  margin: 0.8em 0;
-  overflow-x: auto;
-}
-#write table {
-  border-collapse: collapse;
-}
-#write th,
-#write td {
-  border: 1px solid #dfe2e5;
-  padding: 4px 10px;
-  min-width: 2em;
-  vertical-align: top;
-}
-#write th {
-  font-weight: bold;
-}
-
-/* Link and footnote definitions, TOC (4.12–4.14) */
-#write .md-def-url {
-  font-size: 0.85em;
-  color: var(--meta-content-color);
-  font-family: var(--monospace);
-  white-space: pre-wrap;
-}
-#write .md-def-footnote {
-  position: relative;
-  font-size: 0.9em;
-  padding-left: 2.2em;
-  margin: 0.6em 0;
-}
-#write .md-def-footnote::before {
-  content: "[" attr(data-label) "]";
-  position: absolute;
-  left: 0;
-  color: var(--meta-content-color);
-}
-#write .md-toc {
-  margin: 0.8em 0;
-  padding: 6px 0;
-  border-left: 3px solid rgba(127, 127, 127, 0.25);
+#write .md-def-name {
+  user-select: none;
 }
 #write .md-toc-item {
   display: block;
-  line-height: 1.8;
 }
 #write .md-toc-h2 { padding-left: 1.2em; }
 #write .md-toc-h3 { padding-left: 2.4em; }
 #write .md-toc-h4 { padding-left: 3.6em; }
 #write .md-toc-h5 { padding-left: 4.8em; }
 #write .md-toc-h6 { padding-left: 6em; }
-#write a.md-toc-inner {
+#write a.md-toc-inner,
+#write .md-task-checkbox {
   cursor: pointer;
 }
 
-/* Task lists (4.4) */
-#write li.task-list-item {
-  list-style: none;
-  position: relative;
-}
-#write li.task-list-item input.md-task-checkbox {
-  position: absolute;
-  left: -1.5em;
-  top: 0.35em;
-  margin: 0;
-  cursor: pointer;
-}
-#write li.task-list-done > p {
-  color: var(--meta-content-color);
-}
-
-/* Default token colors (themes override them, spec 10). */
-:where(#write) .cm-keyword { color: #a626a4; }
-:where(#write) .cm-string { color: #50a14f; }
-:where(#write) .cm-comment { color: #a0a1a7; font-style: italic; }
-:where(#write) .cm-number, :where(#write) .cm-atom { color: #986801; }
-:where(#write) .cm-def { color: #4078f2; }
-:where(#write) .cm-variable-2, :where(#write) .cm-variable-3 { color: #c18401; }
-:where(#write) .cm-property, :where(#write) .cm-attribute { color: #e45649; }
-:where(#write) .cm-tag { color: #e45649; }
-:where(#write) .cm-meta, :where(#write) .cm-qualifier { color: #0184bc; }
-:where(#write) .cm-builtin { color: #0184bc; }
-:where(#write) .cm-error { color: #e45649; text-decoration: underline wavy; }
+/* Code tokens are uncolored unless the theme colors them (10.3). */
 
 /* Footnotes (4.13): numbered references; definition label and back link. */
 #write sup.md-footnote[data-n] {
@@ -492,21 +497,21 @@ body.scrim-dragging-text * {
   content: attr(data-n);
   font-size: 0.75rem;
 }
-#write .md-expand sup.md-footnote[data-n] {
+#write sup.md-footnote.md-expand[data-n] {
   font-size: 0.75em;
 }
-#write .md-expand sup.md-footnote[data-n]::after {
+#write sup.md-footnote.md-expand[data-n]::after {
   content: none;
 }
-#write .md-def-footnote[data-n]::before {
-  content: "[" attr(data-n) "]";
+#write .md-def-footnote[data-n] > .md-def-name {
+  font-size: 0;
 }
-#write .md-def-footnote-back {
-  position: absolute;
-  right: 0;
-  top: 0;
+#write .md-def-footnote[data-n] > .md-def-name::before {
+  content: attr(data-n);
+  font-size: 0.9rem;
+}
+#write .md-reverse-footnote-area {
   cursor: pointer;
-  color: var(--meta-content-color);
   user-select: none;
 }
 .md-footnote-popover {
@@ -623,23 +628,19 @@ body.scrim-dragging-text * {
   gap: 6px;
 }
 
-/* Images (4.8) */
-#write p.md-image-paragraph {
-  text-align: center;
-}
-#write .md-image.md-image-broken {
+/* Images (4.8): a placeholder for images that fail to load. */
+#write .md-image-render.md-image-broken {
   display: inline-block;
   min-width: 120px;
   min-height: 40px;
   padding: 6px 10px;
   border: 1px dashed rgba(127, 127, 127, 0.5);
-  color: var(--meta-content-color);
   font-size: 0.85em;
 }
-#write .md-image.md-image-broken img {
+#write .md-image-render.md-image-broken img {
   display: none;
 }
-#write .md-image.md-image-broken::after {
+#write .md-image-render.md-image-broken::after {
   content: "\1F5BC  " attr(data-label);
 }
 #write .md-widget-image.md-expand img {

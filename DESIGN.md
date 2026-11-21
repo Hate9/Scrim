@@ -49,6 +49,40 @@ Implementation decisions and deviations from the spec's "recommended" designs
   the theme. CodeMirror token defaults use `:where(#write)` so `.cm-s-inner .cm-*` in
   any theme wins (10.3, "Code block theme hooks").
 
+### Theme DOM contract (QA-LOG Q-018, 10.3)
+
+- **Inline structure as presentation marks** (`src/editor/pres.ts`). Themes select on
+  one wrapper per inline construct (`span.md-pair-s > span.md-meta.md-before + strong +
+  span.md-meta.md-after`), `span.md-plain` around every plain run, `a > span.md-plain`,
+  and so on. ProseMirror applies inline decorations per text piece, so a decoration
+  cannot wrap differently decorated pieces in one element; marks can (ProseMirror renders
+  adjacent text sharing a mark inside one element). The inline plugin computes the marks
+  from the inline analysis and re-marks touched textblocks in an appended transaction
+  (meta `scrim-pres`, `addToHistory: false`; progressive for large documents; frozen
+  during IME composition). Mark steps are not structural, are skipped by the escape
+  plugin, and never make the document dirty: the "back to the saved state" check compares
+  serialized Markdown. Rendered replacements (images, emoji, inline math) remain widget
+  decorations, placed inside their wrapper through the widget's `marks`.
+- **Blocks** follow the 10.3 table in their `toDOM`s and node views: `p.md-p`,
+  `md-end-block` on leaf blocks and table rows, `ul.ul-list[data-mark]`, `ol.ol-list`,
+  `li.md-list-item` (task items with the checkbox as the item's first child, before its
+  paragraph), `div.md-hr > hr`, `table.md-table` with `span.td-span` cells,
+  `md-rawblock` containers for math and HTML (the math source editor is a
+  `pre.md-fences` inside the block), footnote and link definitions with
+  `md-def-name` / `md-def-content` parts. `md-focus` is on the leaf block holding the
+  cursor and `md-focus-container` on its nearest list item (reveal plugin). The heading
+  level hint is `hN.md-focus::before`.
+- **CodeMirror 5 aliases** (`cmAliases` in `codeview.ts`): editor, scroller, content,
+  lines, active line, cursor, selection, gutters; `cm-s-inner` in code blocks and
+  `cm-s-scrim-default` in source mode (new rewrite-table row).
+- **Base stylesheet** (`src/styles.css`): the document-content base of 10.3 wrapped in
+  `:where()` with no colors, borders, or backgrounds; editing mechanics (marker reveal,
+  widgets, source editors, footnote numbering) keep normal specificity. Scroll past end
+  is `#write::after`, so a theme's `#write` padding cannot remove it. Links keep a text
+  cursor except while Mod is held (QA-LOG Q-012, which is more specific than the base
+  list's "cursor: pointer"). Scrim's look (colors, code tokens, borders) is in the
+  built-in themes only.
+
 ### Preferences (`src/app/preferences.ts`, `src/app/prefsections.ts`)
 
 An overlay over the editor area, generated from a table of sections, groups, and

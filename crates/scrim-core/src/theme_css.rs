@@ -21,6 +21,7 @@ fn rename(name: &str) -> Option<String> {
     match name {
         "typora-node" => Some("scrim".into()),
         "ty-on-typewriter-mode" => Some("scrim-typewriter-mode".into()),
+        "cm-s-typora-default" => Some("cm-s-scrim-default".into()),
         _ => name.strip_prefix(FOREIGN).map(|rest| format!("scrim-{rest}")),
     }
 }
@@ -570,6 +571,7 @@ mod tests {
         assert_eq!(rw(".typora-node #write{}"), ".scrim #write{}");
         assert_eq!(rw(".ty-on-typewriter-mode #write{}"), ".scrim-typewriter-mode #write{}");
         assert_eq!(rw(".typora-anything, #typora-y{}"), ".scrim-anything, #scrim-y{}");
+        assert_eq!(rw("#typora-source .cm-s-typora-default .cm-keyword{}"), "#scrim-source .cm-s-scrim-default .cm-keyword{}");
     }
 
     #[test]
