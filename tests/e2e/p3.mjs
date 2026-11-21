@@ -114,6 +114,8 @@ test("W-4 external edit while dirty shows Reload / Keep mine", async (s, file) =
 
 test("W-5 a killed app's dirty untitled draft is offered at the next launch", async (s) => {
   await ready(s);
+  // Drafts left by earlier tests' dirty windows would be offered too.
+  spawnSync("sh", ["-c", `rm -rf ${join(process.env.SCRIM_CONFIG_DIR, "recovery")}/*.md ${join(process.env.SCRIM_CONFIG_DIR, "recovery")}/*.json`]);
   await ed(s, "view.focus()");
   await typeText(s, "draft text survives");
   await waitFor(async () => (await md(s)) === "draft text survives\n", "typed");
