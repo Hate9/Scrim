@@ -140,7 +140,8 @@ implementation team writes to contain at least one instance of every construct i
 ## P4 Look and settings
 
 - **T-1** Copy each owner-provided fixture theme (`tests/fixtures/themes/`, local and
-  git-ignored, CLEAN-ROOM.md rule 7) into the theme folder → it appears in the Themes
+  git-ignored, CLEAN-ROOM.md rule 7; fetched from `fixtures/themes.lock.json` with
+  hashes verified, remote loads blocked during the test) into the theme folder → it appears in the Themes
   menu and renders the feature document; compare against owner-approved golden
   screenshots **of Scrim** (pixel diff ≤ 1% after the first approval).
 - **T-6** Selector rewrite: a theme with `#typora-sidebar { background: red }` and
