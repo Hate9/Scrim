@@ -48,8 +48,10 @@ Implementation decisions and deviations from the spec's "recommended" designs
 - **Sidebar** (`src/app/sidebar.ts`): tabs, tree with remembered expansion
   (localStorage per folder), list cards, context menu, inline rename, outline with
   collapse/filter/drag (a drag is one transaction, so one undo step; only top-level
-  headings move), search tab. Without a folder, the Files tab shows the document's own
-  folder (QA-LOG Q-016, interim).
+  headings move), search tab. Without an opened folder, the document's parent folder is
+  an implicit folder (QA-LOG Q-016): it scopes the Files tab, quick open, and search,
+  is watched like an opened folder (`folder_watch_implicit`), follows the document on
+  open, save, Save As, and move, and is never stored in recent folders or restored.
 - **Find bar** (`src/editor/find.ts`, `src/app/findbar.ts`): matches run over the
   *displayed* text of each prose block (markers removed, so `**bo**ld` matches "bold"),
   mapped back to source ranges per character; "Match Markdown source", code and math

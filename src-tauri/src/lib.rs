@@ -86,6 +86,7 @@ pub fn run() {
             workspace::recent_clear,
             workspace::folder_get,
             workspace::folder_open,
+            workspace::folder_watch_implicit,
             workspace::folder_dialog,
             workspace::doc_reload,
             workspace::search_start,

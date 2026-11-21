@@ -249,9 +249,8 @@ async function init() {
     selectSourceRange(pendingSelect);
     pendingSelect = null;
   }
-  // SPEC-QUESTION Q-016: without a folder, the Files tab shows the document's folder.
   if (d.folder) sidebar.setFolder(d.folder);
-  else if (!sidebar.folder || sidebar.implicitFolder) sidebar.setFolder(d.path ? dirname(d.path) : null, true);
+  else followDocumentFolder(d.path);
   if (d.recovered) document.title = await ipc.setDirty(true);
   const z = setting("zoom", 1);
   if (z !== 1) void getCurrentWebview().setZoom(z);
@@ -342,6 +341,7 @@ async function save(saveAs = false): Promise<boolean> {
           if (editor.view.state.doc === savedDoc) editor.markSaved();
           document.title = await ipc.setDirty(editor.isDirty());
           void ipc.recoveryRemove(false);
+          followDocumentFolder(r.path);
           return true;
         }
         case "cancelled":
@@ -458,6 +458,18 @@ function selectSourceRange(sel: { line: number; start: number; length: number })
   view.focus();
 }
 
+/** Without an opened folder, the document's parent folder is the window's implicit
+ * folder (QA-LOG Q-016): it scopes the Files tab, quick open, and search in files, and
+ * follows the document when it is opened, saved, or moved elsewhere. Untitled documents
+ * have none. */
+function followDocumentFolder(path: string | null) {
+  if (sidebar.folder && !sidebar.implicitFolder) return;
+  const dir = path ? dirname(path) : null;
+  if (dir === sidebar.folder && sidebar.implicitFolder) return;
+  sidebar.setFolder(dir, true);
+  if (dir) void ipc.folderWatchImplicit(dir).catch(() => {});
+}
+
 /** Open a file from the sidebar, quick open, or search results (7.4, 7.5, 7.7). */
 async function openFile(path: string, newWindow: boolean, select?: { line: number; start: number; length: number }) {
   if (!newWindow && path === state.path) {
@@ -551,7 +563,7 @@ void appWindow.listen<string>("scrim://doc-moved", async (e) => {
   state.path = e.payload;
   state.fileName = e.payload.split(/[\\/]/).pop() ?? null;
   editor.options.docDir = dirname(e.payload);
-  if (sidebar.implicitFolder) sidebar.setFolder(dirname(e.payload), true);
+  followDocumentFolder(e.payload);
   document.title = await ipc.setDirty(editor.isDirty());
   void sidebar.refreshFiles();
 });

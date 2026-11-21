@@ -326,3 +326,23 @@ test("D-7 Save As to another folder offers image choices; Update rewrites the pa
   const root = mkFolder("d7", { "doc.md": "![a](img/pic.png)\n\n![b](https://example.invalid/x.png)\n", "img/pic.png": "png" });
   return join(root, "doc.md");
 });
+
+test("Q-016 the implicit folder follows the document and is not a recent folder", async (s) => {
+  await ready(s);
+  await js(s, "window.__scrim.sidebar.toggle(true); return true");
+  await waitFor(() => js(s, "return !!document.querySelector('.scrim-sidebar-empty')"), "untitled: No folder open");
+  await ed(s, "view.focus()");
+  await typeText(s, "hello");
+  const target = join(docs, "q016", "saved.md");
+  spawnSync("mkdir", ["-p", join(docs, "q016")]);
+  writeFileSync(join(docs, "q016", "other.md"), "other\n");
+  writeFileSync(saveAsFile, target);
+  await press(s, CTRL, "s");
+  await waitFor(() => existsSync(target), "saved");
+  await waitFor(() => js(s, `return window.__scrim.sidebar.folder === ${JSON.stringify(join(docs, "q016"))}`), "save sets the implicit folder");
+  await waitFor(() => js(s, "return [...document.querySelectorAll('#file-library .file-tree-node')].some((r) => r.textContent.includes('other.md'))"), "tree lists the folder");
+  writeFileSync(join(docs, "q016", "new-on-disk.md"), "n\n");
+  await waitFor(() => js(s, "return [...document.querySelectorAll('#file-library .file-tree-node')].some((r) => r.textContent.includes('new-on-disk.md'))"), "watched live");
+  const recent = await js(s, "return window.__TAURI_INTERNALS__.invoke('recent_get')");
+  if (recent.folders.some((f) => f.includes("q016"))) throw new Error(`implicit folder in recent folders: ${recent.folders}`);
+});

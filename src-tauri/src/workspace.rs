@@ -393,6 +393,22 @@ pub async fn folder_open(window: WebviewWindow, state: State<'_, AppState>, path
     Ok(())
 }
 
+/// Watch the document's own folder (the implicit folder, QA-LOG Q-016): like an opened
+/// folder for the tree, but not stored as the window's folder, not remembered in recent
+/// folders, and not restored on launch.
+#[tauri::command]
+pub async fn folder_watch_implicit(window: WebviewWindow, state: State<'_, AppState>, path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.is_dir() {
+        return Err(format!("{path} is not a folder"));
+    }
+    if state.docs().get(window.label()).is_some_and(|d| d.folder.is_some()) {
+        return Ok(()); // an opened folder wins
+    }
+    watch_folder(window.app_handle(), window.label(), &p);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn folder_dialog(window: WebviewWindow) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;

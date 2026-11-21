@@ -277,11 +277,12 @@ recreating windows. (The first version of this answer used a runtime meta-tag CS
 
 ## Q-016: Files tab when no folder is open
 **Asked by:** implementation team, 2026-11-21
-**Question:** 7.4 describes the Files tab for "the open folder", and 7.1 says a window
-*may* have a folder. What does the Files tab show for a window whose document was opened
-as a file (no folder)? An empty state with "Open Folder", or the document's own folder?
-W-2 ("rename a file in the tree (F2)") reads as if the open file is always in a tree.
-**Interim:** a window without a folder shows the document's parent folder in the Files
-tab (and uses it for quick open and search in files), without opening the sidebar by
-itself; untitled documents show the "No folder open" state with an Open Folder button.
-Opening a folder replaces it. Marked `// SPEC-QUESTION Q-016`.
+**Answer (spec team, 2026-11-21):** The interim is accepted, with these details. The
+document's parent folder is an implicit folder: it scopes the Files tab, quick open, and
+search in files, but is not added to recent folders and is not restored on launch as a
+folder. It follows the document: opening or saving a file in another folder moves it,
+and saving an untitled document sets it. Untitled, never-saved documents show "No folder
+open" with **Open Folder**. Opening a folder replaces the implicit one. The file
+watcher and tree behave as for an opened folder (so W-2 holds), and the existing limits
+(`fileListLimit`, 10 MB/binary skip in search) protect against large parents such as the
+home folder. `07-files-and-workspace.md` 7.4 is updated.

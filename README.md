@@ -23,7 +23,6 @@ for the phases.
   "Performance status").
 - **Open time for large files.** Block parsing (micromark) needs a faster path for the
   1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
-- **Files tab without a folder (QA-LOG Q-016).** Interim: shows the document's folder.
 - **Manual tests.** E-9 (IME with Japanese input) needs a person.
 
 ## Documents

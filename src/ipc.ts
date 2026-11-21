@@ -89,6 +89,7 @@ export const ipc = {
   recentClear: () => invoke<void>("recent_clear"),
   folderGet: () => invoke<string | null>("folder_get"),
   folderOpen: (path: string) => invoke<void>("folder_open", { path }),
+  folderWatchImplicit: (path: string) => invoke<void>("folder_watch_implicit", { path }),
   folderDialog: () => invoke<string | null>("folder_dialog"),
   reload: () => invoke<string>("doc_reload"),
   readText: (path: string) => invoke<string>("fs_read_text", { path }),
