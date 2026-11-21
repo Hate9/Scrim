@@ -31,6 +31,8 @@ pub struct DocState {
     pub initialized: bool,
     /// Front matter `title`, shown instead of the file name (spec 04, 4.11).
     pub title_override: Option<String>,
+    /// Images saved for this untitled document, moved on its first save (6.4).
+    pub temp_images: Vec<PathBuf>,
 }
 
 pub struct AppState {
@@ -71,7 +73,7 @@ impl AppState {
             logger.warn(&format!("settings ignored: {err}"));
         }
         let mut scope = FileScope::default();
-        for sub in ["themes", "recovery"] {
+        for sub in ["themes", "recovery", "tmp-images"] {
             let d = config_dir.join(sub);
             scope.dirs.insert(std::fs::canonicalize(&d).unwrap_or(d));
         }

@@ -15,6 +15,7 @@ import { isUrl } from "./commands";
 import { blockSource, elementsOf, isProse, type EditorOptions } from "./context";
 import { inlineKey } from "./decorations";
 import { parseTsv, pasteGrid, pasteIntoCell } from "./tables";
+import { pasteFilesOrImages, type ImageHooks } from "./images";
 
 // ---- copy ------------------------------------------------------------------------------
 
@@ -194,9 +195,16 @@ export function insertLiteral(view: EditorView, text: string, opts: EditorOption
 }
 
 /** Read a paste event's flavors in priority order (6.2) and insert. */
-export function handlePaste(view: EditorView, event: ClipboardEvent, opts: EditorOptions, plain: boolean): boolean {
+export function handlePaste(
+  view: EditorView,
+  event: ClipboardEvent,
+  opts: EditorOptions,
+  plain: boolean,
+  images?: ImageHooks,
+): boolean {
   const data = event.clipboardData;
   if (!data) return false;
+  if (!plain && images && pasteFilesOrImages(view, event, images)) return true;
   const html = data.getData("text/html");
   const text = data.getData("text/plain");
   if (plain) {

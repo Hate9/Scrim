@@ -2,7 +2,9 @@
 
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { message } from "@tauri-apps/plugin-dialog";
+import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { insertFiles } from "./editor/images";
 import { createCommands } from "./app/commands";
 import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
@@ -62,10 +64,7 @@ function resolveLocal(src: string): string | null {
 /** Local files already granted to the `scrim-file` protocol. */
 const allowed = new Set<string>();
 
-const editor = createEditor(
-  write,
-  { pathSep: isWindows ? "\\" : "/" },
-  {
+const editorHooks: Parameters<typeof createEditor>[2] = {
     setImageSource(img, src) {
       if (/^(https?:|data:|blob:)/i.test(src)) {
         img.src = src;
@@ -94,6 +93,23 @@ const editor = createEditor(
     copyText(text) {
       void ipc.clipboardWrite(text);
     },
+    images: {
+      async insertImage(source) {
+        const r = await ipc.imageInsert(source, state.imageFolder);
+        if (r.path) allowed.add(r.path);
+        return r.src;
+      },
+      linkTarget: (path) => ipc.linkTarget(path),
+      pathKind: (path) => ipc.pathKind(path),
+      openMarkdown(path) {
+        // Dropped .md files: a new window if this one has unsaved changes (6.3).
+        void ipc.openPath(path, editor.isDirty() ? "new" : "current");
+      },
+      openFolder() {
+        showNotice("Opening folders arrives with the sidebar.");
+      },
+      notify: (m) => showNotice(m),
+    },
     onFrontMatter(fm) {
       // 4.11: title → window title (SPEC-QUESTION Q-013), root-url → image base.
       state.rootUrl = fm["root-url"] ?? null;
@@ -103,8 +119,11 @@ const editor = createEditor(
     openLink(href, newWindow) {
       void openLink(href, newWindow);
     },
-  },
-  (dirty) => void ipc.setDirty(dirty).then((title) => (document.title = title)),
+};
+const imageHooks = editorHooks.images;
+
+const editor = createEditor(write, { pathSep: isWindows ? "\\" : "/" }, editorHooks, (dirty) =>
+  void ipc.setDirty(dirty).then((title) => (document.title = title)),
 );
 
 const MARKDOWN_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdwn|mdtxt|mdtext|text|txt|rmd)$/i;
@@ -177,6 +196,42 @@ async function init() {
   else showNotice(null);
 }
 
+/** After an untitled document's first save, move its images out of the temporary
+ * folder and rewrite their paths (6.4). True if the document changed. */
+async function moveTempImages(): Promise<boolean> {
+  const moved = await ipc.imageFinalize(state.imageFolder);
+  if (!moved.length) return false;
+  const view = editor.view;
+  const tr = view.state.tr;
+  view.state.doc.descendants((node, pos) => {
+    if (!node.isText) return true;
+    for (const m of moved) {
+      let i = node.text!.indexOf(m.oldSrc);
+      while (i >= 0) {
+        const from = tr.mapping.map(pos + i);
+        tr.insertText(m.newSrc, from, from + m.oldSrc.length);
+        i = node.text!.indexOf(m.oldSrc, i + m.oldSrc.length);
+      }
+    }
+    return false;
+  });
+  if (!tr.docChanged) return false;
+  view.dispatch(tr);
+  return true;
+}
+
+/** Insert Image (Mod+Shift+I, 4.8). */
+async function insertImageDialog() {
+  const picked = await openDialog({
+    multiple: true,
+    filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif"] }],
+  });
+  if (!picked) return;
+  const paths = Array.isArray(picked) ? picked : [picked];
+  await insertFiles(editor.view, paths, imageHooks, "paste");
+  editor.view.focus();
+}
+
 /** Save; resolves to true when the document ended up saved. */
 async function save(saveAs = false): Promise<boolean> {
   if (state.saving) return false;
@@ -188,13 +243,20 @@ async function save(saveAs = false): Promise<boolean> {
     for (;;) {
       const r = await ipc.save(request);
       switch (r.status) {
-        case "saved":
+        case "saved": {
+          const wasUntitled = state.path === null;
           state.fileName = r.fileName;
           state.path = r.path;
           editor.options.docDir = dirname(r.path);
+          if (wasUntitled && (await moveTempImages())) {
+            // Paths changed: write the file again with the final image paths (6.4).
+            state.saving = false;
+            return save(false);
+          }
           if (editor.view.state.doc === savedDoc) editor.markSaved();
           document.title = await ipc.setDirty(editor.isDirty());
           return true;
+        }
         case "cancelled":
           return false;
         case "error":
@@ -267,8 +329,17 @@ function askTableSize(): Promise<{ rows: number; cols: number } | null> {
   });
 }
 
+// Files dropped from the file manager (6.3). Tauri delivers native drops with paths.
+void getCurrentWebview().onDragDropEvent((event) => {
+  if (event.payload.type !== "drop") return;
+  const { x, y } = event.payload.position;
+  const scale = window.devicePixelRatio || 1;
+  const at = editor.view.posAtCoords({ left: x / scale, top: y / scale });
+  void insertFiles(editor.view, event.payload.paths, imageHooks, "drop", at?.pos);
+});
+
 const dispatcher = new Dispatcher(
-  createCommands(editor, { save, isWindows, askTableSize }),
+  createCommands(editor, { save, isWindows, askTableSize, insertImage: insertImageDialog }),
   () => editor.view.hasFocus(),
 );
 dispatcher.attach(window);

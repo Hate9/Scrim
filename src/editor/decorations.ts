@@ -51,8 +51,15 @@ function widgetDom(w: Widget, index: number, hooks: RenderHooks, kind: string): 
       const img = document.createElement("img");
       hooks.setImageSource(img, w.src);
       img.alt = w.alt;
-      if (w.title) img.title = w.title;
+      img.title = w.title ? `${w.title}\n${w.src}` : w.src; // path tooltip (4.8)
       img.draggable = false;
+      img.dataset.src = w.src;
+      // Missing images: a placeholder with the alt text and the path (4.8).
+      img.addEventListener("error", () => {
+        wrap.classList.add("md-image-broken");
+        wrap.dataset.label = `${w.alt ? w.alt + " — " : ""}${w.src}`;
+      });
+      img.addEventListener("load", () => wrap.classList.remove("md-image-broken"));
       wrap.appendChild(img);
       span.appendChild(wrap);
       break;

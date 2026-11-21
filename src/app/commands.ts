@@ -21,12 +21,15 @@ import {
 import { insertFootnote, toggleTask } from "../editor/blocks";
 import { chainCommands } from "prosemirror-commands";
 import { insertTable, moveColumn, moveRow } from "../editor/tables";
+import { zoomImage } from "../editor/images";
 import type { Editor } from "../editor/editor";
 import type { CommandDef } from "../editor/keys";
 import { ipc } from "../ipc";
 
 export interface AppHooks {
   save(saveAs: boolean): Promise<boolean>;
+  /** Insert Image (Mod+Shift+I). */
+  insertImage(): Promise<void>;
   /** Mod+T dialog (4.7): rows (including the header) and columns, or null. */
   askTableSize(): Promise<{ rows: number; cols: number } | null>;
   isWindows: boolean;
@@ -52,6 +55,9 @@ export function createCommands(editor: Editor, app: AppHooks): CommandDef[] {
     doc("format.code", "Ctrl+Shift+`", toggleFormat("code", o)),
     doc("format.strike", "Alt+Shift+5", toggleFormat("strike", o)),
     doc("format.clear", "Ctrl+\\", clearFormat(o)),
+    { id: "format.image.insert", key: "Ctrl+Shift+I", scope: "document", run: () => app.insertImage() },
+    ...[25, 33, 50, 67, 80, 100, 150, 200].map((n) => doc(`format.image.zoom${n}`, "", zoomImage(n, o))),
+    doc("format.image.originalSize", "", zoomImage(null, o)),
     {
       id: "format.link",
       key: "Ctrl+K",

@@ -50,6 +50,12 @@ export const ipc = {
     invoke<void>("log_csp_violation", { violation }),
   openPath: (path: string, mode: "current" | "new") => invoke<void>("doc_open_path", { path, mode }),
   openExternal: (target: string, isPath: boolean) => invoke<void>("open_external", { target, isPath }),
+  imageInsert: (source: { path?: string; dataBase64?: string; ext?: string }, frontMatterFolder: string | null) =>
+    invoke<{ src: string; path: string | null }>("image_insert", { source, frontMatterFolder }),
+  imageFinalize: (frontMatterFolder: string | null) =>
+    invoke<{ oldSrc: string; newSrc: string }[]>("image_finalize", { frontMatterFolder }),
+  linkTarget: (path: string) => invoke<string>("link_target", { path }),
+  pathKind: (path: string) => invoke<"dir" | "image" | "file">("path_kind", { path }),
   allowFiles: (paths: string[]) => invoke<void>("scope_allow_files", { paths }),
   clipboardText: () => invoke<string | null>("clipboard_read_text"),
   clipboardWrite: (text: string) => invoke<void>("clipboard_write_text", { text }),

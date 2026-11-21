@@ -3,6 +3,7 @@
 
 mod commands;
 mod hardening;
+mod images;
 mod pdf_proto;
 mod protocol;
 mod state;
@@ -61,6 +62,10 @@ pub fn run() {
             commands::clipboard_write_text,
             commands::doc_open_path,
             commands::open_external,
+            images::image_insert,
+            images::image_finalize,
+            images::link_target,
+            images::path_kind,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

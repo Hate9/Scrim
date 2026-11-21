@@ -622,3 +622,26 @@ body.md-soft-breaks .md-inline-break + .md-br br {
   justify-content: flex-end;
   gap: 6px;
 }
+
+/* Images (4.8) */
+#write p.md-image-paragraph {
+  text-align: center;
+}
+#write .md-image.md-image-broken {
+  display: inline-block;
+  min-width: 120px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px dashed rgba(127, 127, 127, 0.5);
+  color: var(--meta-content-color);
+  font-size: 0.85em;
+}
+#write .md-image.md-image-broken img {
+  display: none;
+}
+#write .md-image.md-image-broken::after {
+  content: "\1F5BC  " attr(data-label);
+}
+#write .md-widget-image.md-expand img {
+  outline: 2px solid var(--primary-color);
+}

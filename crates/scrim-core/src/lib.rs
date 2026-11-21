@@ -5,6 +5,7 @@
 
 pub mod encoding;
 pub mod identity;
+pub mod images;
 pub mod line_endings;
 pub mod logging;
 pub mod paths;

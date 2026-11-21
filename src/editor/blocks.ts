@@ -8,6 +8,7 @@ import { markdownToHtml } from "../md/html";
 import { freshUid, schema } from "../md/schema";
 import { blockSource } from "./context";
 import { headingKey, type HeadingInfo } from "./headings";
+import { isImageParagraphSource } from "./images";
 import { jumpToAnchor } from "./links";
 
 const S = schema.nodes;
@@ -316,6 +317,9 @@ function listDecorations(doc: Node): DecorationSet {
   doc.descendants((node, pos) => {
     if ((node.type === S.bullet_list || node.type === S.ordered_list) && someTask(node)) {
       decos.push(Decoration.node(pos, pos + node.nodeSize, { class: "contains-task-list" }));
+    }
+    if (node.type === S.paragraph && isImageParagraphSource(blockSource(node))) {
+      decos.push(Decoration.node(pos, pos + node.nodeSize, { class: "md-image-paragraph" }));
     }
     if (node.type === S.list_item && node.attrs.task !== null && node.firstChild?.isTextblock) {
       const checked = node.attrs.task !== " ";

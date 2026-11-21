@@ -36,6 +36,7 @@ import { codeNodeViews, type CodeViewHooks } from "./codeview";
 import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
 import { renderHtmlBlock } from "./htmlblock";
+import type { ImageHooks } from "./images";
 
 export interface Editor {
   view: EditorView;
@@ -75,7 +76,7 @@ export function createEditor(
   mount: HTMLElement,
   opts: Partial<EditorOptions>,
   hooks: RenderHooks &
-    LinkHooks & { copyText(text: string): void; onFrontMatter(fm: Record<string, string>): void },
+    LinkHooks & { copyText(text: string): void; onFrontMatter(fm: Record<string, string>): void; images: ImageHooks },
   onChange: (dirty: boolean) => void,
 ): Editor {
   const options: EditorOptions = { ...defaultOptions, ...opts };
@@ -194,9 +195,18 @@ export function createEditor(
       handlePaste(v, event) {
         const plain = plainPaste;
         plainPaste = false;
-        return handlePaste(v, event, options, plain);
+        return handlePaste(v, event, options, plain, hooks.images);
       },
       handleDOMEvents: {
+        dblclick(_v, event) {
+          // Double-click on an image opens it in the system viewer (4.8).
+          const img = (event.target as HTMLElement).closest?.(".md-image img") as HTMLImageElement | null;
+          if (img?.dataset.src) {
+            hooks.openLink(img.dataset.src, false);
+            return true;
+          }
+          return false;
+        },
         copy(v, event) {
           return writeClipboard(v, event as ClipboardEvent, false);
         },
