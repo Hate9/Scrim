@@ -423,3 +423,14 @@ pub async fn clipboard_write_text(text: String) -> Result<(), String> {
     .await
     .map_err(|e| e.to_string())?
 }
+
+/// Front matter `title` (spec 04, 4.11): shown in the window title instead of the file
+/// name; `None` restores the file name. SPEC-QUESTION Q-013.
+#[tauri::command]
+pub async fn doc_set_title_override(window: WebviewWindow, state: State<'_, AppState>, title: Option<String>) -> Result<String, String> {
+    let label = window.label().to_string();
+    if let Some(doc) = state.docs().get_mut(&label) {
+        doc.title_override = title.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+    }
+    Ok(windows::update_title(window.app_handle(), &label))
+}

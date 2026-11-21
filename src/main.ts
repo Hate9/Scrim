@@ -19,7 +19,14 @@ const appWindow = getCurrentWebviewWindow();
 const isWindows = navigator.userAgent.includes("Windows");
 document.body.classList.add(isWindows ? "os-windows" : "os-linux");
 
-const state = { fileName: null as string | null, path: null as string | null, saving: false };
+const state = {
+  fileName: null as string | null,
+  path: null as string | null,
+  saving: false,
+  /** front matter `root-url` (4.8) and `image-folder` (6.4) */
+  rootUrl: null as string | null,
+  imageFolder: null as string | null,
+};
 
 function showNotice(text: string | null) {
   notice.hidden = !text;
@@ -46,7 +53,7 @@ function resolveLocal(src: string): string | null {
   path = path.replace(/[?#].*$/, "");
   const absolute = path.startsWith("/") || /^[a-z]:[\\/]/i.test(path) || path.startsWith("\\\\");
   if (absolute) return path;
-  const dir = editor.options.docDir;
+  const dir = state.rootUrl && !/^[a-z][a-z0-9+.-]*:/i.test(state.rootUrl) ? state.rootUrl : editor.options.docDir;
   if (!dir) return null;
   const sep = isWindows ? "\\" : "/";
   return dir + sep + path.replace(/^\.\//, "").replace(/\//g, sep);
@@ -86,6 +93,12 @@ const editor = createEditor(
     },
     copyText(text) {
       void ipc.clipboardWrite(text);
+    },
+    onFrontMatter(fm) {
+      // 4.11: title → window title (SPEC-QUESTION Q-013), root-url → image base.
+      state.rootUrl = fm["root-url"] ?? null;
+      state.imageFolder = fm["image-folder"] ?? null;
+      void ipc.setTitleOverride(fm.title ?? null).then((t) => (document.title = t));
     },
     openLink(href, newWindow) {
       void openLink(href, newWindow);
@@ -140,6 +153,7 @@ function applySettings(settings: Record<string, unknown>) {
   o.mathAutoNumber = bool("mathAutoNumber", false);
   o.allowIframes = bool("allowIframes", false);
   o.prettyTables = bool("prettyPrintTables", true);
+  o.numberFootnotes = bool("numberFootnotes", true);
   document.body.classList.toggle("md-soft-breaks", !o.preserveLineBreaks);
 }
 

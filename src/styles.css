@@ -460,11 +460,12 @@ body.md-soft-breaks .md-inline-break + .md-br br {
   list-style: none;
   position: relative;
 }
-#write li.task-list-item > input[type="checkbox"] {
+#write li.task-list-item input.md-task-checkbox {
   position: absolute;
   left: -1.5em;
-  top: 0.3em;
+  top: 0.35em;
   margin: 0;
+  cursor: pointer;
 }
 #write li.task-list-done > p {
   color: var(--meta-content-color);
@@ -482,3 +483,47 @@ body.md-soft-breaks .md-inline-break + .md-br br {
 #write .cm-meta, #write .cm-qualifier { color: #0184bc; }
 #write .cm-builtin { color: #0184bc; }
 #write .cm-error { color: #e45649; text-decoration: underline wavy; }
+
+/* Footnotes (4.13): numbered references; definition label and back link. */
+#write sup.md-footnote[data-n] {
+  font-size: 0;
+}
+#write sup.md-footnote[data-n]::after {
+  content: attr(data-n);
+  font-size: 0.75rem;
+}
+#write .md-expand sup.md-footnote[data-n] {
+  font-size: 0.75em;
+}
+#write .md-expand sup.md-footnote[data-n]::after {
+  content: none;
+}
+#write .md-def-footnote[data-n]::before {
+  content: "[" attr(data-n) "]";
+}
+#write .md-def-footnote-back {
+  position: absolute;
+  right: 0;
+  top: 0;
+  cursor: pointer;
+  color: var(--meta-content-color);
+  user-select: none;
+}
+.md-footnote-popover {
+  position: fixed;
+  z-index: 20;
+  max-width: 420px;
+  padding: 6px 10px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  font-size: 0.9em;
+}
+.md-footnote-popover[hidden] {
+  display: none;
+}
+.md-footnote-popover p {
+  margin: 0.3em 0;
+}

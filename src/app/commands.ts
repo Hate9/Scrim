@@ -18,6 +18,7 @@ import {
   toggleOrderedList,
   toggleQuote,
 } from "../editor/commands";
+import { insertFootnote, toggleTask } from "../editor/blocks";
 import type { Editor } from "../editor/editor";
 import type { CommandDef } from "../editor/keys";
 import { ipc } from "../ipc";
@@ -70,6 +71,8 @@ export function createCommands(editor: Editor, app: AppHooks): CommandDef[] {
     doc("para.quote", "Ctrl+Shift+Q", toggleQuote),
     doc("para.orderedList", "Ctrl+Shift+[", toggleOrderedList),
     doc("para.bulletList", "Ctrl+Shift+]", toggleBulletList),
+    doc("para.taskList", "Ctrl+Shift+X", toggleTask),
+    doc("format.footnote", "", insertFootnote),
     doc("para.indent", "Ctrl+]", indent),
     doc("para.outdent", "Ctrl+[", outdent),
     doc("para.moveUp", "Alt+Up", moveBlock(-1)),

@@ -50,6 +50,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::doc_init,
             commands::doc_set_dirty,
+            commands::doc_set_title_override,
             commands::doc_save,
             commands::doc_open_dialog,
             commands::doc_new,

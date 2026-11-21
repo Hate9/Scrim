@@ -33,6 +33,7 @@ import { createLinkPlugin, type LinkHooks } from "./links";
 import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
 import { codeNodeViews, type CodeViewHooks } from "./codeview";
+import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { renderHtmlBlock } from "./htmlblock";
 
 export interface Editor {
@@ -72,7 +73,8 @@ function typingGroups() {
 export function createEditor(
   mount: HTMLElement,
   opts: Partial<EditorOptions>,
-  hooks: RenderHooks & LinkHooks & { copyText(text: string): void },
+  hooks: RenderHooks &
+    LinkHooks & { copyText(text: string): void; onFrontMatter(fm: Record<string, string>): void },
   onChange: (dirty: boolean) => void,
 ): Editor {
   const options: EditorOptions = { ...defaultOptions, ...opts };
@@ -86,7 +88,8 @@ export function createEditor(
   let copyPlain = false;
 
   const keys = keymap({
-    Enter: enter(options),
+    Enter: chainCommands(tocEnter, enter(options)),
+    Escape: escapeFootnote,
     "Shift-Enter": shiftEnter(options),
     Backspace: backspace(options),
     Delete: del,
@@ -116,6 +119,7 @@ export function createEditor(
     createRevealPlugin(options),
     createNormalizePlugin(),
     createEscapePlugin(options),
+    createBlocksPlugin({ onFrontMatter: hooks.onFrontMatter, numberFootnotes: () => options.numberFootnotes }),
     dropCursor({ class: "scrim-drop-cursor", width: 2 }),
   ];
 

@@ -109,6 +109,7 @@ export function decorationsForBlock(node: Node, pos: number, defs: Definitions, 
     if (e.from < e.to) out.push(Decoration.inline(base + e.from, base + e.to, { nodeName: "span", class: cls, "data-el": String(i) }));
     if (e.nodeName && e.contentFrom < e.contentTo && e.kind !== "break") {
       const attrs = e.kind === "html" ? sanitizeAttrs(e.attrs) : { ...(e.attrs ?? {}) };
+      if (e.kind === "footnote") attrs["data-label"] = node.textBetween(e.contentFrom, e.contentTo);
       if (e.nodeName === "a") {
         // No real href (QA-LOG Q-012): WebKitGTK gives links inside contenteditable its
         // own click handling and Scrim opens links itself (Mod+click, spec 03, 3.9). The

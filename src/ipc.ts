@@ -42,6 +42,7 @@ export interface SaveRequest {
 export const ipc = {
   docInit: () => invoke<DocInit>("doc_init"),
   setDirty: (dirty: boolean) => invoke<string>("doc_set_dirty", { dirty }),
+  setTitleOverride: (title: string | null) => invoke<string>("doc_set_title_override", { title }),
   save: (request: SaveRequest) => invoke<SaveResult>("doc_save", { request }),
   openDialog: () => invoke<void>("doc_open_dialog"),
   newDoc: (newWindow: boolean) => invoke<void>("doc_new", { newWindow }),

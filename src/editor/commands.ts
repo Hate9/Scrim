@@ -37,6 +37,15 @@ function spaceRule(state: EditorState, $from: ResolvedPos, prefix: string): Tran
   const trigger = prefix + " ";
   let m: RegExpExecArray | null;
   const tr = state.tr;
+  // `[ ]␣` / `[x]␣` at the start of a list item's first paragraph: a task item (3.3).
+  if ((m = /^\[([ xX])\] $/.exec(trigger)) && $from.depth >= 2) {
+    const item = $from.node($from.depth - 1);
+    if (item.type === S.list_item && $from.index($from.depth - 1) === 0 && item.attrs.task === null) {
+      tr.delete(start, end);
+      tr.setNodeMarkup($from.before($from.depth - 1), undefined, { ...item.attrs, task: m[1] === " " ? " " : "x" });
+      return tr;
+    }
+  }
   if ((m = /^(#{1,6}) $/.exec(trigger))) {
     tr.delete(start, end);
     tr.setNodeMarkup($from.before(), S.heading, { ...keepLeaf(para.attrs), level: m[1].length });

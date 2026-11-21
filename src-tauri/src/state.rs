@@ -29,6 +29,8 @@ pub struct DocState {
     pub malformed: bool,
     /// Set once the frontend has called `doc_init` for this window.
     pub initialized: bool,
+    /// Front matter `title`, shown instead of the file name (spec 04, 4.11).
+    pub title_override: Option<String>,
 }
 
 pub struct AppState {

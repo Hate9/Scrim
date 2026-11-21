@@ -32,6 +32,8 @@ export interface EditorOptions {
   allowIframes: boolean;
   /** Pad table columns when a table is re-serialized (default on). */
   prettyTables: boolean;
+  /** Show footnote references as numbers in document order (default on). */
+  numberFootnotes: boolean;
 }
 
 export const defaultOptions: EditorOptions = {
@@ -50,6 +52,7 @@ export const defaultOptions: EditorOptions = {
   mathAutoNumber: false,
   allowIframes: false,
   prettyTables: true,
+  numberFootnotes: true,
 };
 
 /** Textblocks whose content is Markdown inline source. */

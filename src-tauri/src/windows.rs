@@ -76,7 +76,10 @@ pub fn update_title(app: &AppHandle, label: &str) -> String {
     let title = {
         let docs = state.docs();
         match docs.get(label) {
-            Some(doc) => window_title(display_name(doc.path.as_deref()).as_deref(), doc.dirty),
+            Some(doc) => {
+                let name = doc.title_override.clone().or_else(|| display_name(doc.path.as_deref()));
+                window_title(name.as_deref(), doc.dirty)
+            }
             None => window_title(None, false),
         }
     };

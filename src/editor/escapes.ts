@@ -94,7 +94,7 @@ function autoEscapes(node: Node, pos: number): number[] {
 }
 
 /** Text that may still become a space-triggered input rule (3.3) once " " is typed. */
-const SPACE_TRIGGER_PREFIX = /^(?:#{1,6}|>|[-*+]|\d{1,9}[.)])$/;
+const SPACE_TRIGGER_PREFIX = /^(?:#{1,6}|>|[-*+]|\d{1,9}[.)]|\[[ xX]?\]?)$/;
 
 function deferred(state: EditorState, node: Node, pos: number): boolean {
   if (node.childCount === 0) return false;

@@ -210,3 +210,15 @@ affect only colors, so the cost is small. Requirements: links get `cursor: point
 from the base CSS when Mod is held (and always when "Open links with single click" is
 on), and keep a `title` tooltip with the URL per 3.9. Exports use real `href`.
 `10-themes.md` 10.3 is updated.
+
+## Q-013: Does the front matter `title` replace the window title for saved files too?
+**Asked by:** implementation team, 2026-11-21
+**Question:** 7.1 says the window title is `<file name> - Scrim`, and "`Untitled` for new
+documents (title from front matter `title` if present)", which reads as if the front
+matter title only replaces "Untitled". B-11 says "Front matter `title: X` → window title
+'X'", without saying whether the document is saved, and 4.11 lists `title` as "window
+title". Options: (a) the front matter title replaces the name part for every document
+(`X - Scrim`, `• X - Scrim` when dirty); (b) only for untitled documents; (c) the whole
+title becomes exactly `X`.
+**Interim:** (a). `SPEC-QUESTION Q-013` in `src-tauri/src/commands.rs`.
+**Answer:** pending.
