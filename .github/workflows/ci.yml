@@ -31,7 +31,8 @@ jobs:
       - run: cargo install tauri-driver --version ^2 --locked
       - run: npx tauri build --debug --no-bundle
       - name: E2E under connection trace (S-1, S-3, N-1)
-        run: SCRIM_SKIP_BUILD=1 scripts/n1-network.sh
+        # T-1 (fixture themes, network download) runs in goldens.yml.
+        run: SCRIM_SKIP_BUILD=1 SCRIM_E2E_FILTER='^(?!T-1 )' scripts/n1-network.sh
 
   windows:
     runs-on: windows-latest

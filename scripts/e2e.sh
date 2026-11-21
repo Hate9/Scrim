@@ -2,6 +2,7 @@
 # Run the end-to-end tests under a virtual X display and a private D-Bus session bus.
 # Usage: scripts/e2e.sh            (builds the debug app first)
 #        SCRIM_SKIP_BUILD=1 scripts/e2e.sh
+#        SCRIM_E2E_FILTER='^T-' scripts/e2e.sh   (regex on test names)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 if [[ -z "${SCRIM_SKIP_BUILD:-}" ]]; then
@@ -14,4 +15,4 @@ run() {
     exec "$@"
   fi
 }
-run dbus-run-session -- node tests/e2e/run.mjs
+run dbus-run-session -- node tests/e2e/run.mjs ${SCRIM_E2E_FILTER:+"$SCRIM_E2E_FILTER"}

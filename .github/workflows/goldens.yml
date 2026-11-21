@@ -1,0 +1,87 @@
+name: Theme goldens (T-1)
+
+# Renders the fixture themes in the CI Linux image (spec 20, T-1: "Screenshots are taken
+# in the CI Linux image so fonts match"), compares them with the approved goldens in
+# tests/golden/themes/, and commits new or changed renders as candidates to a
+# goldens/<date> branch for the owner to review. Approval (moving files to
+# tests/golden/themes/ on main) stays a human step.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "src-tauri/**"
+      - "spec/fixtures/themes.lock.json"
+      - "tests/golden/themes/*.png"
+      - "tests/e2e/p4.mjs"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: goldens
+  cancel-in-progress: false
+
+jobs:
+  t1:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev webkit2gtk-driver xvfb x11-utils dbus imagemagick
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: cargo install tauri-driver --version ^2 --locked
+      - run: npx tauri build --debug --no-bundle
+      - name: Fetch fixture themes (pinned, SHA-256 verified)
+        run: node scripts/fetch-fixture-themes.mjs
+      - name: T-1
+        id: t1
+        continue-on-error: true
+        run: xvfb-run -a -s "-screen 0 1280x900x24" dbus-run-session -- node tests/e2e/run.mjs "^T-1 "
+      - name: Upload candidates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-candidates
+          path: tests/golden/themes/candidates/
+          if-no-files-found: ignore
+      - name: Commit candidates to goldens/<date>
+        run: |
+          shopt -s nullglob
+          files=(tests/golden/themes/candidates/*.png)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No new or changed renders."
+            [ "${{ steps.t1.outcome }}" = "success" ] || { echo "T-1 failed without candidates"; exit 1; }
+            exit 0
+          fi
+          branch="goldens/$(date -u +%Y-%m-%d)"
+          src="$(git rev-parse --short HEAD)"
+          mkdir -p "$RUNNER_TEMP/candidates" && cp "${files[@]}" "$RUNNER_TEMP/candidates/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --quiet origin "$branch" 2>/dev/null; then
+            git checkout --quiet -B "$branch" FETCH_HEAD
+          else
+            git checkout --quiet -B "$branch"
+          fi
+          mkdir -p tests/golden/themes/candidates
+          rm -f tests/golden/themes/candidates/*.png
+          cp "$RUNNER_TEMP"/candidates/*.png tests/golden/themes/candidates/
+          git add tests/golden/themes/candidates
+          if git diff --cached --quiet; then
+            echo "Candidates on $branch are already up to date."
+            exit 0
+          fi
+          git commit --quiet -m "T-1 golden candidates from CI ($src, run ${{ github.run_id }})" \
+            -m "Rendered in the CI Linux image (ubuntu-24.04, Xvfb 1280x900x24) from $src. For the owner's review: approved files move to tests/golden/themes/ on main."
+          git push --quiet origin "$branch"
+          echo "Candidates pushed to $branch"
