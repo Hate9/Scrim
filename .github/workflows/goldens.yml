@@ -8,6 +8,11 @@ name: Theme goldens (T-1)
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch for the candidates (default goldens/<date>)"
+        required: false
+        default: ""
   push:
     branches: [main]
     paths:
@@ -63,7 +68,9 @@ jobs:
             [ "${{ steps.t1.outcome }}" = "success" ] || { echo "T-1 failed without candidates"; exit 1; }
             exit 0
           fi
-          branch="goldens/$(date -u +%Y-%m-%d)"
+          branch="${{ inputs.branch }}"
+          [ -n "$branch" ] || branch="goldens/$(date -u +%Y-%m-%d)"
+          case "$branch" in goldens/*) ;; *) echo "candidates go to goldens/ branches only"; exit 1 ;; esac
           src="$(git rev-parse --short HEAD)"
           mkdir -p "$RUNNER_TEMP/candidates" && cp "${files[@]}" "$RUNNER_TEMP/candidates/"
           rm -rf tests/golden/themes/candidates   # untracked here; the branch may track them
