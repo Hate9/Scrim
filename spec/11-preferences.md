@@ -69,8 +69,7 @@ Defaults in parentheses.
 - Number footnotes (on)
 - Writing style: bullet char, emphasis char, strong char, heading style, pretty-print
   tables (on)
-- Allow iframes in HTML (off). Turning it on shows "Applies to new windows" under the
-  checkbox (Q-015).
+- Allow iframes in HTML (off). Applies to open windows immediately (Q-015).
 - Default line ending for new files: LF / CRLF (platform)
 
 ### Export
