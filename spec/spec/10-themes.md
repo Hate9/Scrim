@@ -121,7 +121,7 @@ them when it loads any theme or user CSS file, so such themes work unmodified:
 | Focused block (cursor inside) | extra class `md-focus` on the block element |
 | Block with cursor in inline element | inline wrapper gets `md-expand` |
 | Syntax markers | `span.md-meta`; heading level hint `span.md-heading-hint` |
-| Inline | `strong`, `em`, `code`, `del`, `mark`, `sub`, `sup`, `u`, `a`, `span.md-inline-math`, `span.md-emoji` |
+| Inline | `strong`, `em`, `code`, `del`, `mark`, `sub`, `sup`, `u`, `a`, `span.md-inline-math`, `span.md-emoji`. In the editor, links are `a[data-href]` **without** `href` (Q-012), so `:link`/`:visited`/`a[href]` selectors match only in exports; `a`, `a:hover`, `#write a` match in both |
 | Search hits | `.md-search-hit`, current `.md-search-select` |
 
 ### CSS custom properties read by the app chrome
