@@ -7,7 +7,7 @@ import { liftListItem, sinkListItem, splitListItem, wrapInList } from "prosemirr
 import { AllSelection, NodeSelection, Selection, TextSelection, type Command, type EditorState, type Transaction } from "prosemirror-state";
 import { canSplit, liftTarget } from "prosemirror-transform";
 import { flatten, type InlineElement, type InlineKind } from "../md/inline";
-import { freshUid, schema } from "../md/schema";
+import { buildTable, CODE_TYPES, freshUid, schema } from "../md/schema";
 import { blockSource, elementsOf, isProse, type EditorOptions } from "./context";
 import { inlineKey } from "./decorations";
 import { SKIP_ESCAPES } from "./escapes";
@@ -74,13 +74,22 @@ const HR = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 const TABLE = /^\|(.*\|)+$/;
 const HTML_OPEN = /^<\/?([A-Za-z][A-Za-z0-9-]*)(\s[^>]*)?\/?>/;
 
-function rawBlock(kind: string, lines: string[]): Node {
+function lineContent(lines: string[]): Node[] {
   const content: Node[] = [];
   lines.forEach((l, i) => {
     if (i) content.push(S.line_break.create());
     if (l) content.push(schema.text(l));
   });
-  return S.raw.create({ uid: freshUid(), kind }, content);
+  return content;
+}
+
+/** A new, empty table: header cells from `headers`, one empty body row (3.3). */
+export function newTable(headers: string[], bodyRows = 1): Node {
+  const row = (cells: string[], header: boolean) =>
+    S.table_row.create(null, cells.map((c) => S.table_cell.create({ header }, c ? schema.text(c) : null)));
+  const rows = [row(headers, true)];
+  for (let i = 0; i < bodyRows; i++) rows.push(row(headers.map(() => ""), false));
+  return buildTable({ uid: freshUid(), align: headers.map(() => null), origAlign: null, delim: null }, rows);
 }
 
 /** Enter-triggered rules (3.3): fire when the paragraph's entire text is the trigger. */
@@ -94,8 +103,8 @@ function enterRule(state: EditorState): Transaction | null {
   let m: RegExpExecArray | null;
   const isFirstBlockOfEmptyDoc = state.doc.childCount === 1 && $from.depth === 1;
   if (text === "---" && isFirstBlockOfEmptyDoc) {
-    tr.replaceWith(pos, pos + size, rawBlock("frontmatter", ["---", "", "---"]));
-    return tr.setSelection(TextSelection.create(tr.doc, pos + 1 + 4));
+    tr.replaceWith(pos, pos + size, S.front_matter.create({ uid: freshUid() }));
+    return tr.setSelection(TextSelection.create(tr.doc, pos + 1));
   }
   if (HR.test(text)) {
     const hr = S.hr.create({ ...keepLeaf($from.parent.attrs), text });
@@ -104,28 +113,50 @@ function enterRule(state: EditorState): Transaction | null {
     return tr.setSelection(TextSelection.create(tr.doc, pos + hr.nodeSize + 1));
   }
   if ((m = FENCE.exec(text))) {
-    tr.replaceWith(pos, pos + size, rawBlock("code", [text, "", m[1]]));
-    return tr.setSelection(TextSelection.create(tr.doc, pos + 1 + text.length + 1));
+    tr.replaceWith(pos, pos + size, S.code_block.create({ uid: freshUid(), fence: m[1], info: m[2].trim() }));
+    return tr.setSelection(TextSelection.create(tr.doc, pos + 1));
   }
   if (text === "$$") {
-    tr.replaceWith(pos, pos + size, rawBlock("math", ["$$", "", "$$"]));
-    return tr.setSelection(TextSelection.create(tr.doc, pos + 1 + 3));
+    tr.replaceWith(pos, pos + size, S.math_block.create({ uid: freshUid() }));
+    return tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+  }
+  if (/^\[toc\]$/i.test(text)) {
+    tr.replaceWith(pos, pos + size, [S.toc.create({ ...keepLeaf($from.parent.attrs), text }), S.paragraph.create({ uid: freshUid() })]);
+    return tr.setSelection(TextSelection.create(tr.doc, pos + 2));
   }
   if (TABLE.test(text)) {
-    const cells = text.slice(1, -1).split("|");
-    if (cells.some((c) => c.trim())) {
-      const header = "| " + cells.map((c) => c.trim()).join(" | ") + " |";
-      const delim = "| " + cells.map((c) => "-".repeat(Math.max(3, c.trim().length))).join(" | ") + " |";
-      const body = "| " + cells.map((c) => " ".repeat(Math.max(3, c.trim().length))).join(" | ") + " |";
-      tr.replaceWith(pos, pos + size, rawBlock("table", [header, delim, body]));
-      return tr.setSelection(TextSelection.create(tr.doc, pos + 1 + header.length + 1 + delim.length + 1 + 2));
+    const cells = text.slice(1, -1).split("|").map((c) => c.trim());
+    if (cells.some(Boolean)) {
+      const table = newTable(cells);
+      tr.replaceWith(pos, pos + size, table);
+      // Cursor in the first body cell.
+      let cellPos = -1;
+      tr.doc.nodeAt(pos)!.descendants((n, p) => {
+        if (cellPos < 0 && n.type === S.table_cell && !n.attrs.header) cellPos = pos + 1 + p + 1;
+        return cellPos < 0;
+      });
+      return tr.setSelection(TextSelection.create(tr.doc, cellPos));
     }
   }
   if ((m = HTML_OPEN.exec(text)) && !/^(span|b|i|u|s|a|em|strong|code|kbd|img|br)$/i.test(m[1])) {
-    tr.replaceWith(pos, pos + size, rawBlock("html", [text, ""]));
+    tr.replaceWith(pos, pos + size, S.html_block.create({ uid: freshUid() }, lineContent([text, ""])));
     return tr.setSelection(TextSelection.create(tr.doc, pos + 1 + text.length + 1));
   }
   return null;
+}
+
+/** Arrow keys into code-like blocks and other non-text blocks from the neighbouring text. */
+export function arrowInto(dir: "up" | "down" | "left" | "right"): Command {
+  return (state, dispatch, view) => {
+    if (!state.selection.empty || !view || !view.endOfTextblock(dir)) return false;
+    const side = dir === "left" || dir === "up" ? -1 : 1;
+    const $head = state.selection.$head;
+    if (!$head.parent.isTextblock) return false;
+    const next = Selection.near(state.doc.resolve(side > 0 ? $head.after() : $head.before()), side);
+    if (!next.$head || !CODE_TYPES.has(next.$head.parent.type.name)) return false;
+    if (dispatch) dispatch(state.tr.setSelection(next).scrollIntoView());
+    return true;
+  };
 }
 
 // ---- Enter / Shift+Enter ------------------------------------------------------------------
@@ -359,7 +390,7 @@ export const deleteToLineStart: Command = (state, dispatch) => {
 
 export const tab: Command = (state, dispatch) => {
   const { $from } = state.selection;
-  if ($from.parent.type === S.raw) {
+  if ($from.parent.type === S.raw || $from.parent.type.spec.code) {
     if (dispatch) dispatch(state.tr.insertText("    "));
     return true;
   }

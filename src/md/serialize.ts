@@ -8,7 +8,7 @@
 // the node's content, which is its Markdown source.
 
 import type { Node } from "prosemirror-model";
-import { CONTAINER_TYPES } from "./schema";
+import { CONTAINER_TYPES, tableRows } from "./schema";
 
 export interface LeafEntry {
   node: Node;
@@ -270,7 +270,7 @@ export class Serializer {
     const t = e.node;
     const align: (string | null)[] = t.attrs.align;
     const rows: { node: Node; cells: string[] }[] = [];
-    t.forEach((row) => {
+    tableRows(t).forEach((row) => {
       const cells: string[] = [];
       row.forEach((cell) => cells.push(cell.textBetween(0, cell.content.size, undefined, " ")));
       rows.push({ node: row, cells });

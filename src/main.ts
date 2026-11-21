@@ -80,9 +80,12 @@ const editor = createEditor(
         img.src = url;
       });
     },
-    renderMath(tex, el) {
-      el.textContent = tex;
-      void import("./editor/math").then((m) => m.renderMath(tex, el));
+    renderMath(tex, el, display = false) {
+      if (!el.firstChild) el.textContent = tex;
+      void import("./editor/math").then((m) => m.renderMath(tex, el, display));
+    },
+    copyText(text) {
+      void ipc.clipboardWrite(text);
     },
     openLink(href, newWindow) {
       void openLink(href, newWindow);
@@ -131,6 +134,12 @@ function applySettings(settings: Record<string, unknown>) {
   o.copyMarkdown = bool("copyAsMarkdown", true);
   o.emojiAutocomplete = bool("emojiAutocomplete", true);
   o.openLinksSingleClick = bool("openLinksSingleClick", false);
+  o.codeWrap = bool("codeWrap", true);
+  o.codeLineNumbers = bool("codeLineNumbers", false);
+  o.codeCopyButton = bool("codeCopyButton", false);
+  o.mathAutoNumber = bool("mathAutoNumber", false);
+  o.allowIframes = bool("allowIframes", false);
+  o.prettyTables = bool("prettyPrintTables", true);
   document.body.classList.toggle("md-soft-breaks", !o.preserveLineBreaks);
 }
 

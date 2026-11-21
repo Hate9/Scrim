@@ -51,5 +51,6 @@ export const ipc = {
   openExternal: (target: string, isPath: boolean) => invoke<void>("open_external", { target, isPath }),
   allowFiles: (paths: string[]) => invoke<void>("scope_allow_files", { paths }),
   clipboardText: () => invoke<string | null>("clipboard_read_text"),
+  clipboardWrite: (text: string) => invoke<void>("clipboard_write_text", { text }),
   log: (level: "info" | "warn" | "error", message: string) => invoke<void>("log_frontend", { level, message }),
 };

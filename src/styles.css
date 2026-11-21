@@ -271,3 +271,214 @@ body.md-soft-breaks .md-inline-break + .md-br br {
 }
 
 
+
+/* ---- rich blocks (spec 04) ---- */
+#write pre.md-fences,
+#write pre.md-meta-block {
+  position: relative;
+  margin: 0.8em 0;
+  padding: 8px 12px;
+  background: rgba(127, 127, 127, 0.08);
+  border-radius: 3px;
+  font-family: var(--monospace);
+  font-size: 0.9em;
+  white-space: normal;
+}
+#write pre.md-meta-block {
+  font-size: 0.82em;
+  color: var(--meta-content-color);
+}
+#write .cm-editor {
+  background: transparent;
+  font-family: var(--monospace);
+}
+#write .cm-editor.cm-focused {
+  outline: none;
+}
+#write .cm-content {
+  padding: 0;
+  caret-color: var(--text-color);
+}
+#write .cm-line {
+  padding: 0;
+}
+/* Language box: bottom-right, visible on hover or while editing. */
+.md-lang-box {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  display: none;
+  z-index: 3;
+}
+#write pre.md-fences:hover .md-lang-box,
+#write pre.md-fences.md-editing .md-lang-box,
+.md-lang-box:focus-within {
+  display: block;
+}
+.md-lang-input {
+  width: 9em;
+  padding: 1px 6px;
+  font: 12px/1.4 system-ui, sans-serif;
+  color: var(--meta-content-color);
+  background: var(--bg-color);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 3px;
+  text-align: right;
+}
+.md-lang-list {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  min-width: 9em;
+  background: var(--bg-color);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 3px;
+  font: 12px/1.6 system-ui, sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+.md-lang-list[hidden] {
+  display: none;
+}
+.md-lang-item {
+  padding: 0 8px;
+  cursor: pointer;
+}
+.md-lang-item.active {
+  background: var(--primary-color);
+  color: #fff;
+}
+.md-fences-copy {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font: 11px system-ui, sans-serif;
+  opacity: 0.6;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  background: var(--bg-color);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+/* Math and HTML blocks: preview, with the source editor shown while editing. */
+#write .md-math-block,
+#write .md-htmlblock {
+  margin: 0.8em 0;
+  position: relative;
+}
+#write .md-math-block .math-display {
+  text-align: center;
+  cursor: pointer;
+  min-height: 1.6em;
+}
+#write .md-math-source,
+#write .md-htmlblock-source {
+  display: none;
+  font-family: var(--monospace);
+  font-size: 0.9em;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  background: rgba(127, 127, 127, 0.08);
+  border-radius: 3px;
+}
+#write .md-math-block.md-editing .md-math-source,
+#write .md-htmlblock.md-editing .md-htmlblock-source {
+  display: block;
+}
+#write .md-htmlblock-container {
+  cursor: pointer;
+  min-height: 1em;
+}
+#write .md-comment {
+  color: var(--meta-content-color);
+  font-style: italic;
+  opacity: 0.7;
+}
+#write .md-math-block.ProseMirror-selectednode,
+#write .md-htmlblock.ProseMirror-selectednode,
+#write pre.md-fences.ProseMirror-selectednode {
+  outline: 2px solid var(--primary-color);
+}
+
+/* Tables (4.7) */
+#write figure.md-table-fig {
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+#write table {
+  border-collapse: collapse;
+}
+#write th,
+#write td {
+  border: 1px solid #dfe2e5;
+  padding: 4px 10px;
+  min-width: 2em;
+  vertical-align: top;
+}
+#write th {
+  font-weight: bold;
+}
+
+/* Link and footnote definitions, TOC (4.12–4.14) */
+#write .md-def-url {
+  font-size: 0.85em;
+  color: var(--meta-content-color);
+  font-family: var(--monospace);
+  white-space: pre-wrap;
+}
+#write .md-def-footnote {
+  position: relative;
+  font-size: 0.9em;
+  padding-left: 2.2em;
+  margin: 0.6em 0;
+}
+#write .md-def-footnote::before {
+  content: "[" attr(data-label) "]";
+  position: absolute;
+  left: 0;
+  color: var(--meta-content-color);
+}
+#write .md-toc {
+  margin: 0.8em 0;
+  padding: 6px 0;
+  border-left: 3px solid rgba(127, 127, 127, 0.25);
+}
+#write .md-toc-item {
+  display: block;
+  line-height: 1.8;
+}
+#write .md-toc-h2 { padding-left: 1.2em; }
+#write .md-toc-h3 { padding-left: 2.4em; }
+#write .md-toc-h4 { padding-left: 3.6em; }
+#write .md-toc-h5 { padding-left: 4.8em; }
+#write .md-toc-h6 { padding-left: 6em; }
+#write a.md-toc-inner {
+  cursor: pointer;
+}
+
+/* Task lists (4.4) */
+#write li.task-list-item {
+  list-style: none;
+  position: relative;
+}
+#write li.task-list-item > input[type="checkbox"] {
+  position: absolute;
+  left: -1.5em;
+  top: 0.3em;
+  margin: 0;
+}
+#write li.task-list-done > p {
+  color: var(--meta-content-color);
+}
+
+/* Default token colors (themes override them, spec 10). */
+#write .cm-keyword { color: #a626a4; }
+#write .cm-string { color: #50a14f; }
+#write .cm-comment { color: #a0a1a7; font-style: italic; }
+#write .cm-number, #write .cm-atom { color: #986801; }
+#write .cm-def { color: #4078f2; }
+#write .cm-variable-2, #write .cm-variable-3 { color: #c18401; }
+#write .cm-property, #write .cm-attribute { color: #e45649; }
+#write .cm-tag { color: #e45649; }
+#write .cm-meta, #write .cm-qualifier { color: #0184bc; }
+#write .cm-builtin { color: #0184bc; }
+#write .cm-error { color: #e45649; text-decoration: underline wavy; }

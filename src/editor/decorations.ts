@@ -35,7 +35,7 @@ export const inlineKey = new PluginKey<InlineDecoState>("scrim-inline");
 export interface RenderHooks {
   /** Point `img` at the image `src` refers to (may be asynchronous for local files). */
   setImageSource(img: HTMLImageElement, src: string): void;
-  renderMath(tex: string, el: HTMLElement): void;
+  renderMath(tex: string, el: HTMLElement, display?: boolean): void;
 }
 
 function widgetDom(w: Widget, index: number, hooks: RenderHooks, kind: string): HTMLElement {
@@ -194,7 +194,7 @@ function touchesRawDefinitions(tr: Transaction, doc: Node): boolean {
   let hit = false;
   for (const [from, to] of changedRanges(tr)) {
     doc.nodesBetween(Math.min(from, doc.content.size), Math.min(to, doc.content.size), (n) => {
-      if (n.type.name === "raw" && (n.attrs.kind === "definition" || n.attrs.kind === "footnote")) hit = true;
+      if ((n.type.name === "raw" && n.attrs.kind === "definition") || n.type.name === "footnote_def") hit = true;
       return !hit && !n.isTextblock;
     });
   }

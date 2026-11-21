@@ -1,6 +1,6 @@
 // The live-preview editor: ProseMirror view over the Markdown document model.
 
-import { baseKeymap } from "prosemirror-commands";
+import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { closeHistory, history, redo, undo } from "prosemirror-history";
 import { dropCursor } from "prosemirror-dropcursor";
 import { keymap } from "prosemirror-keymap";
@@ -15,6 +15,7 @@ import {
   backspace,
   del,
   deleteToLineStart,
+  arrowInto,
   enter,
   selectAll,
   shiftEnter,
@@ -31,6 +32,8 @@ import { createHeadingPlugin } from "./headings";
 import { createLinkPlugin, type LinkHooks } from "./links";
 import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
+import { codeNodeViews, type CodeViewHooks } from "./codeview";
+import { renderHtmlBlock } from "./htmlblock";
 
 export interface Editor {
   view: EditorView;
@@ -69,7 +72,7 @@ function typingGroups() {
 export function createEditor(
   mount: HTMLElement,
   opts: Partial<EditorOptions>,
-  hooks: RenderHooks & LinkHooks,
+  hooks: RenderHooks & LinkHooks & { copyText(text: string): void },
   onChange: (dirty: boolean) => void,
 ): Editor {
   const options: EditorOptions = { ...defaultOptions, ...opts };
@@ -89,8 +92,10 @@ export function createEditor(
     Delete: del,
     Tab: tab,
     "Shift-Tab": shiftTab,
-    ArrowLeft: arrowCommand(options, -1, false),
-    ArrowRight: arrowCommand(options, 1, false),
+    ArrowLeft: chainCommands(arrowCommand(options, -1, false), arrowInto("left")),
+    ArrowRight: chainCommands(arrowCommand(options, 1, false), arrowInto("right")),
+    ArrowUp: arrowInto("up"),
+    ArrowDown: arrowInto("down"),
     "Shift-ArrowLeft": arrowCommand(options, -1, true),
     "Shift-ArrowRight": arrowCommand(options, 1, true),
     "Mod-z": undo,
@@ -130,10 +135,25 @@ export function createEditor(
   const makeState = (doc: Node) => EditorState.create({ doc, plugins });
   const initial = parseMarkdown("").doc;
 
+  const codeHooks: CodeViewHooks = {
+    renderMath: (tex, el, display) => hooks.renderMath(numbered(tex, el), el, display),
+    renderHtml: (html, el) =>
+      renderHtmlBlock(html, el, { allowIframes: options.allowIframes, setImageSource: hooks.setImageSource }),
+    copyText: hooks.copyText,
+  };
+  /** Auto-numbering of display equations (4.6, default off). */
+  function numbered(tex: string, el: HTMLElement): string {
+    if (!options.mathAutoNumber || /\\(tag|notag|nonumber)\b/.test(tex)) return tex;
+    const blocks = [...document.querySelectorAll("#write .md-math-block .math-display")];
+    const n = blocks.indexOf(el) + 1;
+    return n > 0 ? `${tex}\\tag{${n}}` : tex;
+  }
+
   const view = new EditorView(
     { mount },
     {
       state: makeState(initial),
+      nodeViews: codeNodeViews(options, codeHooks),
       attributes: { spellcheck: "false", class: "scrim-doc" },
       dispatchTransaction(tr: Transaction) {
         const state = view.state.apply(tr);
@@ -186,7 +206,7 @@ export function createEditor(
     options,
     markdown() {
       flushEscapes(view, options);
-      return serialize(view.state.doc);
+      return serialize(view.state.doc, { prettyTables: options.prettyTables });
     },
     load(text: string, newFile: boolean, eol: string) {
       let { doc } = parseMarkdown(text, { inlineMath: options.inlineMath }, eol);

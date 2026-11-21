@@ -16,7 +16,7 @@
 //   the line that follows.
 // Attributes that are null mean "new": the serializer writes canonical Markdown.
 
-import { Schema, type NodeSpec } from "prosemirror-model";
+import { Schema, type Node, type NodeSpec } from "prosemirror-model";
 
 export interface MarkerSpan {
   /** uid of the list item whose marker this is */
@@ -187,7 +187,7 @@ const nodes: Record<string, NodeSpec> = {
   },
   table: {
     group: "block",
-    content: "table_row+",
+    content: "table_head table_body",
     isolating: true,
     attrs: {
       ...leafAttrs,
@@ -198,7 +198,17 @@ const nodes: Record<string, NodeSpec> = {
       delim: { default: null as DelimRow | null },
     },
     parseDOM: [{ tag: "figure.md-table-fig" }],
-    toDOM: () => ["figure", { class: "md-table-fig" }, ["table", ["tbody", 0]]],
+    toDOM: () => ["figure", { class: "md-table-fig" }, ["table", 0]],
+  },
+  table_head: {
+    content: "table_row",
+    parseDOM: [{ tag: "thead" }],
+    toDOM: () => ["thead", 0],
+  },
+  table_body: {
+    content: "table_row*",
+    parseDOM: [{ tag: "tbody" }],
+    toDOM: () => ["tbody", 0],
   },
   table_row: {
     content: "table_cell+",
@@ -243,7 +253,10 @@ const nodes: Record<string, NodeSpec> = {
     defining: true,
     attrs: { ...leafAttrs, kind: { default: "raw" } },
     parseDOM: [{ tag: "pre.md-raw", preserveWhitespace: "full" }],
-    toDOM: (node) => ["pre", { class: `md-raw md-raw-${node.attrs.kind}`, spellcheck: "false" }, 0],
+    toDOM: (node) =>
+      node.attrs.kind === "definition"
+        ? ["div", { class: "md-def-url", spellcheck: "false" }, 0]
+        : ["pre", { class: `md-raw md-raw-${node.attrs.kind}`, spellcheck: "false" }, 0],
   },
   blockquote: {
     group: "block",
@@ -347,4 +360,19 @@ export function freshUid(): number {
 /** Make sure future uids do not collide with `uid` (after loading a document). */
 export function bumpUid(uid: number) {
   if (uid >= uidCounter) uidCounter = uid + 1;
+}
+
+/** Rows of a table in order (header first). */
+export function tableRows(table: Node): Node[] {
+  const rows: Node[] = [];
+  table.forEach((part) => part.forEach((row) => rows.push(row)));
+  return rows;
+}
+
+/** Build a table node from rows (the first row is the header). */
+export function buildTable(attrs: Record<string, unknown>, rows: Node[]): Node {
+  return schema.nodes.table.create(attrs, [
+    schema.nodes.table_head.create(null, rows[0]),
+    schema.nodes.table_body.create(null, rows.slice(1)),
+  ]);
 }

@@ -22,6 +22,16 @@ export interface EditorOptions {
   emojiAutocomplete: boolean;
   /** Open links with a plain click (Preferences → Editor, default off). */
   openLinksSingleClick: boolean;
+  /** Code blocks: wrap lines (default on), line numbers (off), copy button (off). */
+  codeWrap: boolean;
+  codeLineNumbers: boolean;
+  codeCopyButton: boolean;
+  /** Auto-number display equations (default off). */
+  mathAutoNumber: boolean;
+  /** Allow iframes in HTML blocks (default off). */
+  allowIframes: boolean;
+  /** Pad table columns when a table is re-serialized (default on). */
+  prettyTables: boolean;
 }
 
 export const defaultOptions: EditorOptions = {
@@ -34,11 +44,17 @@ export const defaultOptions: EditorOptions = {
   pathSep: "/",
   emojiAutocomplete: true,
   openLinksSingleClick: false,
+  codeWrap: true,
+  codeLineNumbers: false,
+  codeCopyButton: false,
+  mathAutoNumber: false,
+  allowIframes: false,
+  prettyTables: true,
 };
 
 /** Textblocks whose content is Markdown inline source. */
 export function isProse(node: Node): boolean {
-  return node.type.name === "paragraph" || node.type.name === "heading";
+  return node.type.name === "paragraph" || node.type.name === "heading" || node.type.name === "table_cell";
 }
 
 /** Inline source of a textblock (line breaks as "\n"). */
@@ -54,10 +70,11 @@ let defsCache: { key: string; defs: Definitions } | null = null;
 export function documentDefinitions(doc: Node): Definitions {
   const sources: string[] = [];
   doc.descendants((n) => {
-    if (n.type.name === "raw" && (n.attrs.kind === "definition" || n.attrs.kind === "footnote")) {
+    if (n.type.name === "raw" && n.attrs.kind === "definition") {
       sources.push(blockSource(n));
       return false;
     }
+    if (n.type.name === "footnote_def") sources.push(`[^${n.attrs.label}]: x`);
     return !n.isTextblock;
   });
   const key = sources.join("\u0000");

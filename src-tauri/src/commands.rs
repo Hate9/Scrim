@@ -411,3 +411,15 @@ pub async fn open_external(app: AppHandle, state: State<'_, AppState>, target: S
     let r = if is_path { app.opener().open_path(&target, None::<&str>) } else { app.opener().open_url(&target, None::<&str>) };
     r.map_err(|e| e.to_string())
 }
+
+/// Put plain text on the system clipboard (code block copy button, spec 04, 4.5).
+#[tauri::command]
+pub async fn clipboard_write_text(text: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use clipboard_rs::{Clipboard, ClipboardContext};
+        let ctx = ClipboardContext::new().map_err(|e| e.to_string())?;
+        ctx.set_text(text).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

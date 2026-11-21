@@ -57,6 +57,7 @@ pub fn run() {
             commands::log_frontend,
             commands::scope_allow_files,
             commands::clipboard_read_text,
+            commands::clipboard_write_text,
             commands::doc_open_path,
             commands::open_external,
         ])

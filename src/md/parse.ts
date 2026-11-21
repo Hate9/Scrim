@@ -12,7 +12,7 @@
 import type { Definition, FootnoteDefinition, Nodes, Root, RootContent } from "mdast";
 import type { Node } from "prosemirror-model";
 import { fingerprint, parseMdast, type ParseOptions } from "./mdast";
-import { bumpUid, freshUid, schema, type MarkerSpan } from "./schema";
+import { buildTable, bumpUid, freshUid, schema, type MarkerSpan } from "./schema";
 import { serialize, signature } from "./serialize";
 
 interface Line {
@@ -638,7 +638,7 @@ export class Parser {
     const delim = { term: this.lines[first].term, prefix: this.src.slice(this.lines[dl].start, ds), text: this.src.slice(ds, this.lines[dl].end) };
     const align = (node.align ?? []).map((a) => a ?? null);
     this.endLeaf(last, attrs.uid, chain);
-    return schema.nodes.table.create({ ...attrs, align, origAlign: align, delim }, rows);
+    return buildTable({ ...attrs, align, origAlign: align, delim }, rows);
   }
 
   private footnoteDef(node: Extract<RootContent, { type: "footnoteDefinition" }>, chain: Ctx[]): Node {
