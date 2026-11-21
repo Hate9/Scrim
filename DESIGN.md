@@ -12,12 +12,75 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `src-tauri/` | Tauri 2 shell: windows, IPC commands, `scrim-file` protocol, webview hardening, single instance. |
 | `src/md/` | Markdown layer, DOM-free: schema, parser, serializer, inline analyzer, HTML for the clipboard. |
 | `src/editor/` | The live-preview editor: decorations, reveal, commands, escapes, clipboard, links, emoji, key dispatcher. |
-| `src/app/` | Command table (ids and default keys). |
-| `src/main.ts` | Window glue: load/save, dialogs, link opening, settings. |
+| `src/app/` | Command table (ids and default keys) and the window chrome: sidebar, find bar, quick open, source mode, status bar, workspace behavior (external changes, autosave, recovery, view modes). |
+| `src/main.ts` | Window glue: load/save, dialogs, link opening, settings, wiring of the chrome. |
+| `src/chrome.css` | Layout and look of the chrome, from the theme custom properties (10, 22.1). |
 | `tests/corpus/` | Round-trip corpus (R-1). Marked `-text` in `.gitattributes` so git never touches line endings. |
 | `tests/e2e/` | WebDriver acceptance tests (tauri-driver + WebKitWebDriver). |
 | `scripts/` | Test wrappers (`e2e.sh`, `n1-network.sh`, `check-no-http.sh`) and generators. |
 | `spec/` | The specification (read-only for the implementation team). |
+
+## P3: workspace
+
+### Rust services (`src-tauri/src/workspace.rs`)
+
+- **File tree and list**: `fs_list_dir` (one level, filter, natural sort with folders
+  first, hidden files) and `fs_walk` (recursive, `ignore` crate, respects `.gitignore`).
+  File operations (create, rename, move, duplicate, trash via the `trash` crate, reveal)
+  update every window whose document lives under the moved path and emit
+  `scrim://doc-moved` with the new path.
+- **Watching** (`notify`): the open file per window, and the sidebar folder. A change
+  whose bytes equal what this window last saved is our own save and is ignored; anything
+  else emits `scrim://file-changed` (`modified` / `removed`). Folder changes are
+  debounced into `scrim://folder-changed`.
+- **Search in files**: a background thread per query (`grep-searcher` + `grep-regex`,
+  binary detection, 10 MB cap, file filter, `.gitignore`), streaming one event per file
+  (`scrim://search-result`) and a final `scrim://search-done`; a new query or
+  `search_cancel` stops the old one. W-7: first result in about 180 ms on 10,000 files
+  under software rendering.
+- **Recent** (`history.json`: 20 files, 10 folders) and **draft recovery**
+  (`recovery/<id>.md` + `<id>.json`; "Don't Save" moves the pair to
+  `recovery/discarded/`, purged after 7 days at startup). A draft opened from the
+  recovery list becomes that window's own draft, so the next draft write replaces it.
+
+### Frontend
+
+- **Sidebar** (`src/app/sidebar.ts`): tabs, tree with remembered expansion
+  (localStorage per folder), list cards, context menu, inline rename, outline with
+  collapse/filter/drag (a drag is one transaction, so one undo step; only top-level
+  headings move), search tab. Without a folder, the Files tab shows the document's own
+  folder (QA-LOG Q-016, interim).
+- **Find bar** (`src/editor/find.ts`, `src/app/findbar.ts`): matches run over the
+  *displayed* text of each prose block (markers removed, so `**bo**ld` matches "bold"),
+  mapped back to source ranges per character; "Match Markdown source", code and math
+  blocks, and source mode search the source. Replacing inside formatting rewrites only
+  the displayed characters, so Replace All in `**bold**` gives `**x**`. Highlights are a
+  decoration plugin (`md-search-hit`, current `md-search-select`).
+- **Source mode** (`src/app/sourcemode.ts`): a CodeMirror 6 editor over the serialized
+  text; cursor and top line map through `serializeWithMap`. Leaving applies the new text
+  with `applyText`, which replaces only the changed top-level blocks (untouched blocks
+  keep their identity) and is one closed undo step, so E-19's two undos work. Files over
+  5 MB open in source mode with a notice.
+- **Status bar and counts** (`src/editor/counts.ts`): counting rules of 14 over the
+  displayed text; computed on idle (300 ms) and with a selection.
+- **External changes, autosave, recovery** (`src/app/workspace.ts`): silent reload keeps
+  the source offset (7.3 says source offset, so an edit above the cursor moves it
+  relative to the text) and is undoable; autosave 1 s after the last edit, on blur, and
+  before switching files; drafts every 30 s and on blur.
+- **View modes**: focus mode marks the block (or innermost list item) at the cursor with
+  a node decoration `md-focus`; typewriter mode recenters after ProseMirror's own
+  scroll-into-view (next animation frame). Zoom uses the webview zoom, remembered in
+  settings.
+- **Chrome text fields own Mod+Z** (E-18): WebKitGTK keeps an undo stack for inputs but
+  binds no keys, so a window-level handler runs `execCommand("undo"/"redo")` for focused
+  inputs. Document commands such as Mod+B never run there (dispatcher scope).
+
+### Test hooks
+
+Debug builds read a Save As target from the file named by `SCRIM_TEST_SAVE_AS` (one use
+per write), because WebDriver cannot drive the native dialog; release builds compile
+the hook out. `window.__scrim.testHooks.askImagePaths` stands in for D-7's three-way
+native prompt.
 
 ## P2: rich blocks
 
@@ -385,7 +448,7 @@ SCRIM_PROTO_PRINT_PDF=/tmp/out.pdf xvfb-run -a dbus-run-session -- target/debug/
 | `npm test` (src/md, src/editor) | R-1 parse/serialize form, R-2/R-5/R-6, R-4/R-9, structural edits, clipboard, key identity |
 | `cargo test --workspace` | Rust unit tests, S-2 (kill -9 during save, via re-running the test binary as a child), R-1 file layer over the corpus and spec examples |
 | `npm test` | Frontend unit tests, including R-1 line bookkeeping over the corpus |
-| `scripts/e2e.sh` | S-1, S-3, save round trips, CSP; P2: B-1..B-11, C-3, C-4, D-4; P1: E-1..E-8, E-10..E-17, R-4/R-9 live, KB-1 (DOM part), emoji (needs Xvfb, D-Bus, tauri-driver, WebKitWebDriver, xclip). `node tests/e2e/run.mjs <regex>` runs a subset. |
+| `scripts/e2e.sh` | S-1, S-3, save round trips, CSP; P3: W-1..W-12, E-18, E-19, D-6, D-7; P2: B-1..B-11, C-3, C-4, D-4; P1: E-1..E-8, E-10..E-17, R-4/R-9 live, KB-1 (DOM part), emoji (needs Xvfb, D-Bus, tauri-driver, WebKitWebDriver, xclip). `node tests/e2e/run.mjs <regex>` runs a subset. |
 | `scripts/n1-network.sh` | N-1: the e2e suite under a connection trace |
 | `scripts/check-no-http.sh` | No HTTP client crate in the Rust graph |
 
