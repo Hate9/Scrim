@@ -153,3 +153,15 @@ recreating windows. (The first version of this answer used a runtime meta-tag CS
 - Changing the setting re-renders HTML blocks in every open window.
 - Exports emit the original iframe with the sandbox rules, no wrapper.
 `19-privacy-and-network.md` and `11-preferences.md` are updated.
+
+## Q-016: Files tab when no folder is open
+**Asked by:** implementation team, 2026-11-21
+**Answer (spec team, 2026-11-21):** The interim is accepted, with these details. The
+document's parent folder is an implicit folder: it scopes the Files tab, quick open, and
+search in files, but is not added to recent folders and is not restored on launch as a
+folder. It follows the document: opening or saving a file in another folder moves it,
+and saving an untitled document sets it. Untitled, never-saved documents show "No folder
+open" with **Open Folder**. Opening a folder replaces the implicit one. The file
+watcher and tree behave as for an opened folder (so W-2 holds), and the existing limits
+(`fileListLimit`, 10 MB/binary skip in search) protect against large parents such as the
+home folder. `07-files-and-workspace.md` 7.4 is updated.
