@@ -23,6 +23,30 @@ export interface MarkerSpan {
   item: number;
   from: number;
   to: number;
+  /** "task" for the `[ ]` of a task item; list marker otherwise */
+  kind?: "task";
+}
+
+/** A line break between two source lines that is not part of a textblock's content. */
+export interface LineBreakInfo {
+  term: string;
+  /** full prefix of the following line */
+  prefix: string;
+}
+
+/** Closing line of a fenced block (code, math, front matter). */
+export interface FenceClose {
+  /** terminator before the closing line */
+  term: string;
+  /** the closing line including its prefix */
+  line: string;
+}
+
+/** The delimiter row of a table. */
+export interface DelimRow {
+  term: string;
+  prefix: string;
+  text: string;
 }
 
 export interface SetextInfo {
@@ -42,6 +66,25 @@ const leafAttrs = {
 };
 
 const containerAttrs = { uid: { default: null as number | null } };
+
+/** Attributes of a fenced block. `open` is the opening line after the lead (e.g.
+ * "```js"); `info` the info string it was written with; `close` the closing line. */
+function fencedAttrs(fence = "```") {
+  return {
+    ...leafAttrs,
+    open: { default: null as string | null },
+    fence: { default: fence },
+    info: { default: "" },
+    openInfo: { default: null as string | null },
+    /** break between the opening line and the first content line */
+    openBreak: { default: null as LineBreakInfo | null },
+    close: { default: null as FenceClose | null },
+    /** the block had no content lines at all */
+    noLines: { default: false },
+    /** the block had no closing fence (ran to the end of its container) */
+    unclosed: { default: false },
+  };
+}
 
 const nodes: Record<string, NodeSpec> = {
   doc: {
@@ -86,7 +129,112 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: "hr" }],
     toDOM: () => ["hr"],
   },
-  /** Any block that P1 does not edit structurally: kept as exact source, shown as text. */
+  /**
+   * Fenced code (``` / ~~~) or indented code. Content is the code (line breaks as
+   * `line_break`), fences are attributes.
+   */
+  code_block: {
+    group: "block",
+    content: "inline*",
+    marks: "",
+    code: true,
+    defining: true,
+    attrs: { ...fencedAttrs(), indented: { default: false } },
+    parseDOM: [{ tag: "pre.md-fences", preserveWhitespace: "full" }],
+    toDOM: (node) => ["pre", { class: "md-fences", lang: node.attrs.info.split(/\s/)[0] ?? "" }, 0],
+  },
+  /** `$$` … `$$` display math. */
+  math_block: {
+    group: "block",
+    content: "inline*",
+    marks: "",
+    code: true,
+    defining: true,
+    attrs: fencedAttrs("$$"),
+    parseDOM: [{ tag: "div.md-math-block", preserveWhitespace: "full" }],
+    toDOM: () => ["div", { class: "md-math-block" }, 0],
+  },
+  /** YAML front matter at the very start of the file. */
+  front_matter: {
+    group: "block",
+    content: "inline*",
+    marks: "",
+    code: true,
+    defining: true,
+    attrs: fencedAttrs("---"),
+    parseDOM: [{ tag: "pre.md-meta-block", preserveWhitespace: "full" }],
+    toDOM: () => ["pre", { class: "md-meta-block" }, 0],
+  },
+  /** An HTML block: every line is content. */
+  html_block: {
+    group: "block",
+    content: "inline*",
+    marks: "",
+    code: true,
+    defining: true,
+    attrs: { ...leafAttrs },
+    parseDOM: [{ tag: "div.md-htmlblock", preserveWhitespace: "full" }],
+    toDOM: () => ["div", { class: "md-htmlblock" }, 0],
+  },
+  /** `[toc]`: a live table of contents (spec 04, 4.12). */
+  toc: {
+    group: "block",
+    atom: true,
+    selectable: true,
+    attrs: { ...leafAttrs, text: { default: "[toc]" } },
+    parseDOM: [{ tag: "div.md-toc" }],
+    toDOM: () => ["div", { class: "md-toc" }],
+  },
+  table: {
+    group: "block",
+    content: "table_row+",
+    isolating: true,
+    attrs: {
+      ...leafAttrs,
+      /** per column: null, "left", "center", "right" */
+      align: { default: [] as (string | null)[] },
+      /** alignment at load; the delimiter row is rewritten only if it changes */
+      origAlign: { default: null as (string | null)[] | null },
+      delim: { default: null as DelimRow | null },
+    },
+    parseDOM: [{ tag: "figure.md-table-fig" }],
+    toDOM: () => ["figure", { class: "md-table-fig" }, ["table", ["tbody", 0]]],
+  },
+  table_row: {
+    content: "table_cell+",
+    attrs: {
+      /** row line as read (after its prefix), null for new rows */
+      src: { default: null as string | null },
+      /** cell texts as read, to detect edits */
+      cells: { default: null as string[] | null },
+      /** terminator before this row and the row line's prefix (not for the header) */
+      term: { default: null as string | null },
+      prefix: { default: null as string | null },
+    },
+    parseDOM: [{ tag: "tr" }],
+    toDOM: () => ["tr", 0],
+  },
+  table_cell: {
+    content: "inline*",
+    marks: "",
+    isolating: true,
+    attrs: { header: { default: false } },
+    parseDOM: [
+      { tag: "th", attrs: { header: true } },
+      { tag: "td", attrs: { header: false } },
+    ],
+    toDOM: (node) => [node.attrs.header ? "th" : "td", 0],
+  },
+  /** `[^label]: …` footnote definition: a container (spec 04, 4.13). */
+  footnote_def: {
+    group: "block",
+    content: "block+",
+    defining: true,
+    attrs: { ...containerAttrs, label: { default: "1" } },
+    parseDOM: [{ tag: "div.md-def-footnote" }],
+    toDOM: (node) => ["div", { class: "md-def-footnote", "data-label": node.attrs.label }, 0],
+  },
+  /** Any block that is not edited structurally: kept as exact source, shown as text. */
   raw: {
     group: "block",
     content: "inline*",
@@ -141,9 +289,17 @@ const nodes: Record<string, NodeSpec> = {
   list_item: {
     content: "block+",
     defining: true,
-    attrs: { ...containerAttrs, marker: { default: null as string | null } },
+    attrs: {
+      ...containerAttrs,
+      marker: { default: null as string | null },
+      /** task state: null (not a task), " ", "x" or "X" */
+      task: { default: null as string | null },
+    },
     parseDOM: [{ tag: "li" }],
-    toDOM: () => ["li", 0],
+    toDOM: (node) =>
+      node.attrs.task === null
+        ? ["li", 0]
+        : ["li", { class: `task-list-item${node.attrs.task === " " ? "" : " task-list-done"}` }, 0],
   },
   text: { group: "inline" },
   line_break: {
@@ -176,8 +332,13 @@ export const schema = new Schema({
   },
 });
 
-export const LEAF_TYPES = new Set(["paragraph", "heading", "hr", "raw"]);
-export const CONTAINER_TYPES = new Set(["blockquote", "bullet_list", "ordered_list", "list_item"]);
+export const LEAF_TYPES = new Set([
+  "paragraph", "heading", "hr", "raw", "code_block", "math_block", "front_matter", "html_block", "toc", "table",
+]);
+export const CONTAINER_TYPES = new Set(["blockquote", "bullet_list", "ordered_list", "list_item", "footnote_def"]);
+/** Leaves whose content is edited as code (CodeMirror), not as Markdown inline source. */
+export const CODE_TYPES = new Set(["code_block", "math_block", "front_matter", "html_block", "raw"]);
+export const FENCED_TYPES = new Set(["code_block", "math_block", "front_matter"]);
 
 let uidCounter = 1;
 export function freshUid(): number {

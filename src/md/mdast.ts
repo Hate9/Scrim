@@ -1,6 +1,5 @@
 // Markdown parser configuration (spec 02): CommonMark + GFM (tables, strikethrough,
-// autolink literals, footnotes) + front matter + math. Task list items are handled by the
-// editor itself (P2), so the GFM task list extension is not used: `[ ]` stays text.
+// autolink literals, footnotes, task list items) + front matter + math.
 
 import type { Root, Nodes } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
@@ -9,12 +8,14 @@ import { gfmAutolinkLiteralFromMarkdown } from "mdast-util-gfm-autolink-literal"
 import { gfmFootnoteFromMarkdown } from "mdast-util-gfm-footnote";
 import { gfmStrikethroughFromMarkdown } from "mdast-util-gfm-strikethrough";
 import { gfmTableFromMarkdown } from "mdast-util-gfm-table";
+import { gfmTaskListItemFromMarkdown } from "mdast-util-gfm-task-list-item";
 import { mathFromMarkdown } from "mdast-util-math";
 import { frontmatter } from "micromark-extension-frontmatter";
 import { gfmAutolinkLiteral } from "micromark-extension-gfm-autolink-literal";
 import { gfmFootnote } from "micromark-extension-gfm-footnote";
 import { gfmStrikethrough } from "micromark-extension-gfm-strikethrough";
 import { gfmTable } from "micromark-extension-gfm-table";
+import { gfmTaskListItem } from "micromark-extension-gfm-task-list-item";
 import { math } from "micromark-extension-math";
 
 export interface ParseOptions {
@@ -30,6 +31,7 @@ export function parseMdast(src: string, opts: ParseOptions = {}): Root {
     gfmFootnote(),
     gfmStrikethrough({ singleTilde: false }),
     gfmTable(),
+    gfmTaskListItem(),
     // Block math `$$` is always on; inline math only when enabled.
     math({ singleDollarTextMath: !!opts.inlineMath }),
   ];
@@ -38,6 +40,7 @@ export function parseMdast(src: string, opts: ParseOptions = {}): Root {
     gfmFootnoteFromMarkdown(),
     gfmStrikethroughFromMarkdown(),
     gfmTableFromMarkdown(),
+    gfmTaskListItemFromMarkdown(),
     mathFromMarkdown(),
   ];
   if (opts.frontMatter !== false) {

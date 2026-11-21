@@ -58,7 +58,7 @@ export function detectEol(src: string, fallback = "\n"): string {
 }
 
 interface Ctx {
-  type: "blockquote" | "bullet_list" | "ordered_list" | "list_item";
+  type: "blockquote" | "bullet_list" | "ordered_list" | "list_item" | "footnote_def";
   uid: number;
   /** list items: offset where the item's content starts on its first line */
   contentStart?: number;
@@ -69,6 +69,9 @@ interface Ctx {
   /** list items: marker span */
   markerFrom?: number;
   markerTo?: number;
+  /** task items: span of `[ ]` */
+  taskFrom?: number;
+  taskTo?: number;
   /** a leaf inside this container was already emitted */
   hasLeaf?: boolean;
 }
@@ -192,6 +195,21 @@ export class Parser {
       }
       case "list":
         return [this.list(node, chain)];
+      case "code":
+        return [this.fenced(node, chain, "code_block", node.value)];
+      case "math":
+        return [this.fenced(node, chain, "math_block", node.value)];
+      case "yaml":
+        return [this.fenced(node, chain, "front_matter", node.value)];
+      case "html": {
+        const p = node.position!;
+        const block = this.rawFromRange(p.start.offset!, p.end.offset!, chain, "html", node.value);
+        return block ? [block] : [];
+      }
+      case "table":
+        return [this.table(node, chain)];
+      case "footnoteDefinition":
+        return [this.footnoteDef(node, chain)];
       default: {
         const p = node.position!;
         const raw = this.rawFromRange(p.start.offset!, p.end.offset!, chain, kindOf(node));
@@ -228,6 +246,18 @@ export class Parser {
         width = markerEnd - outer.end + 1;
       }
       if (/\t/.test(this.src.slice(outer.end, contentStart))) throw new Unsupported("tab in list prefix");
+      let task: string | null = null;
+      let taskFrom: number | undefined;
+      if (item.checked !== null && item.checked !== undefined) {
+        const t = /\[([ xX])\]/.exec(this.src.slice(markerEnd, contentStart));
+        if (!t) throw new Unsupported("task marker");
+        task = t[1];
+        taskFrom = markerEnd + t.index;
+        // The continuation width of a task item is the list item's (marker + spaces),
+        // not up to the paragraph after `[ ] `.
+        const spaces = /^ */.exec(this.src.slice(markerEnd, this.lines[firstLine].end))![0].length;
+        width = markerEnd - outer.end + Math.max(1, Math.min(4, spaces));
+      }
       const ctx: Ctx = {
         type: "list_item",
         uid: freshUid(),
@@ -236,11 +266,13 @@ export class Parser {
         width,
         markerFrom: start,
         markerTo: markerEnd,
+        taskFrom,
+        taskTo: taskFrom === undefined ? undefined : taskFrom + 3,
       };
       const inner = [...chain, listCtx, ctx];
       let children = item.children.flatMap((c) => this.block(c, inner));
       if (!children.length) children = [this.emptyLeaf(start, item.position!.end.offset!, inner)];
-      items.push(schema.nodes.list_item.create({ uid: ctx.uid, marker }, children));
+      items.push(schema.nodes.list_item.create({ uid: ctx.uid, marker, task }, children));
     }
     const itemUids = items.map((i) => i.attrs.uid as number);
     const tight = !node.spread;
@@ -277,7 +309,7 @@ export class Parser {
         if (!m) return { end: p, lazy: true };
         if (m[0].endsWith("\t")) throw new Unsupported("tab after >");
         p += m[0].length;
-      } else if (c.type === "list_item") {
+      } else if (c.type === "list_item" || c.type === "footnote_def") {
         if (li === c.firstLine) {
           p = c.contentStart!;
         } else {
@@ -296,6 +328,9 @@ export class Parser {
     for (const c of chain) {
       if (c.type === "list_item" && c.firstLine === li && !c.hasLeaf) {
         spans.push({ item: c.uid, from: c.markerFrom! - lineStart, to: c.markerTo! - lineStart });
+        if (c.taskFrom !== undefined) {
+          spans.push({ item: c.uid, from: c.taskFrom - lineStart, to: c.taskTo! - lineStart, kind: "task" });
+        }
       }
     }
     return spans;
@@ -379,6 +414,8 @@ export class Parser {
     const content = this.inlineContent(first, last, this.proseStarts(first, last, start, chain));
     this.verifyInline(node, content, chain);
     this.endLeaf(last, attrs.uid, chain);
+    const text = textOf(content);
+    if (first === last && /^\[toc\]$/i.test(text)) return schema.nodes.toc.create({ ...attrs, text });
     return schema.nodes.paragraph.create(attrs, content);
   }
 
@@ -457,7 +494,7 @@ export class Parser {
   }
 
   /** Raw leaf over the lines spanning [start, end). */
-  private rawFromRange(start: number, end: number, chain: Ctx[], kind: string): Node | null {
+  private rawFromRange(start: number, end: number, chain: Ctx[], kind: string, value?: string): Node | null {
     if (end <= start && start >= this.src.length) return null;
     start = this.clampStart(start);
     const first = this.lineOf(start);
@@ -473,8 +510,150 @@ export class Parser {
     }
     const attrs = this.leafAttrs(first, starts[0], chain);
     const content = this.inlineContent(first, last, starts);
+    if (value !== undefined && textOf(content) !== normalizeEol(value)) throw new Unsupported(`${kind} content differs`);
     this.endLeaf(last, attrs.uid, chain);
+    if (kind === "html") return schema.nodes.html_block.create(attrs, content);
     return schema.nodes.raw.create({ ...attrs, kind }, content);
+  }
+
+  // ---- rich blocks (P2) -------------------------------------------------------------
+
+  /** Fenced (or indented) code, display math, front matter. */
+  private fenced(node: RootContent, chain: Ctx[], type: "code_block" | "math_block" | "front_matter", value: string): Node {
+    const p = node.position!;
+    const start = this.clampStart(p.start.offset!);
+    const first = this.lineOf(start);
+    const last = this.lineOf(Math.max(start, p.end.offset!));
+    const head = this.stripContainers(first, chain);
+    if (head.lazy) throw new Unsupported("lazy fence");
+    const line0 = this.src.slice(head.end, this.lines[first].end);
+    const indent = /^ */.exec(line0)![0].length;
+    const fenceStart = head.end + indent;
+    const opener = this.src.slice(fenceStart, this.lines[first].end);
+    let fenceRe: RegExp;
+    let closeRe: (fence: string) => RegExp;
+    if (type === "code_block") {
+      fenceRe = /^(`{3,}|~{3,})/;
+      closeRe = (f) => new RegExp(`^ {0,3}${f[0] === "`" ? "`" : "~"}{${f.length},}[ \\t]*$`);
+    } else if (type === "math_block") {
+      fenceRe = /^\${2,}/;
+      closeRe = (f) => new RegExp(`^ {0,3}\\\${${f.length},}[ \\t]*$`);
+    } else {
+      fenceRe = /^---/;
+      closeRe = () => /^(---|\.\.\.)[ \t]*$/;
+    }
+    const m = fenceRe.exec(opener);
+    if (!m) {
+      if (type !== "code_block") throw new Unsupported("fence");
+      return this.indentedCode(node, chain, start, first, last, value);
+    }
+    const fence = m[0];
+    const info = opener.slice(fence.length).trim();
+    let closed = false;
+    if (last > first) {
+      const s = this.stripContainers(last, chain);
+      closed = !s.lazy && closeRe(fence).test(this.src.slice(s.end, this.lines[last].end));
+    }
+    const cFirst = first + 1;
+    const cLast = closed ? last - 1 : last;
+    const starts: number[] = [];
+    for (let li = cFirst; li <= cLast; li++) {
+      const s = this.stripContainers(li, chain);
+      if (s.lazy && this.src.slice(s.end, this.lines[li].end).trim()) throw new Unsupported("lazy code line");
+      const ws = /^ */.exec(this.src.slice(s.end, this.lines[li].end))![0].length;
+      starts.push(s.end + Math.min(ws, indent));
+    }
+    const attrs = this.leafAttrs(first, fenceStart, chain);
+    const noLines = cLast < cFirst;
+    const content = noLines ? [] : this.inlineContent(cFirst, cLast, starts);
+    if (textOf(content) !== normalizeEol(value)) throw new Unsupported(`${type} content differs`);
+    const openBreak = noLines ? null : { term: this.lines[first].term, prefix: this.src.slice(this.lines[cFirst].start, starts[0]) };
+    const close = closed
+      ? { term: this.lines[last - 1].term, line: this.src.slice(this.lines[last].start, this.lines[last].end) }
+      : null;
+    this.endLeaf(last, attrs.uid, chain);
+    return schema.nodes[type].create(
+      { ...attrs, open: opener, fence, info, openInfo: info, openBreak, close, noLines, unclosed: !closed },
+      content,
+    );
+  }
+
+  private indentedCode(node: RootContent, chain: Ctx[], start: number, first: number, last: number, value: string): Node {
+    const starts: number[] = [];
+    for (let li = first; li <= last; li++) {
+      const s = this.stripContainers(li, chain);
+      const rest = this.src.slice(s.end, this.lines[li].end);
+      const ws = /^ {0,4}/.exec(rest)![0].length;
+      if (ws < 4 && rest.trim() && li !== first) throw new Unsupported("indented code indentation");
+      if (/^ {0,3}\t/.test(rest)) throw new Unsupported("tab indentation");
+      starts.push(s.end + ws);
+    }
+    void start;
+    void node;
+    const attrs = this.leafAttrs(first, starts[0], chain);
+    const content = this.inlineContent(first, last, starts);
+    if (textOf(content) !== normalizeEol(value)) throw new Unsupported("indented code differs");
+    this.endLeaf(last, attrs.uid, chain);
+    return schema.nodes.code_block.create({ ...attrs, indented: true, open: null, fence: "```" }, content);
+  }
+
+  private table(node: Extract<RootContent, { type: "table" }>, chain: Ctx[]): Node {
+    const p = node.position!;
+    const start = this.clampStart(p.start.offset!);
+    const first = this.lineOf(start);
+    const last = this.lineOf(p.end.offset!);
+    if (node.children.length !== last - first) throw new Unsupported("table row count");
+    const cols = node.align?.length ?? node.children[0].children.length;
+    const lineStart = (li: number) => {
+      const s = this.stripContainers(li, chain);
+      if (s.lazy) throw new Unsupported("lazy table row");
+      return s.end;
+    };
+    const attrs = this.leafAttrs(first, lineStart(first), chain);
+    const rows: Node[] = [];
+    node.children.forEach((row, i) => {
+      const li = i === 0 ? first : first + 1 + i;
+      const ls = lineStart(li);
+      const cells: string[] = [];
+      for (let c = 0; c < cols; c++) {
+        const cell = row.children[c];
+        if (!cell || !cell.children.length) cells.push("");
+        else cells.push(this.src.slice(cell.children[0].position!.start.offset!, cell.children[cell.children.length - 1].position!.end.offset!));
+      }
+      if (cells.some((c) => /[\r\n]/.test(c))) throw new Unsupported("multi-line cell");
+      rows.push(
+        schema.nodes.table_row.create(
+          {
+            src: this.src.slice(ls, this.lines[li].end),
+            cells,
+            term: i === 0 ? null : this.lines[li - 1].term,
+            prefix: i === 0 ? null : this.src.slice(this.lines[li].start, ls),
+          },
+          cells.map((c) => schema.nodes.table_cell.create({ header: i === 0 }, c ? schema.text(c) : null)),
+        ),
+      );
+    });
+    const dl = first + 1;
+    const ds = lineStart(dl);
+    const delim = { term: this.lines[first].term, prefix: this.src.slice(this.lines[dl].start, ds), text: this.src.slice(ds, this.lines[dl].end) };
+    const align = (node.align ?? []).map((a) => a ?? null);
+    this.endLeaf(last, attrs.uid, chain);
+    return schema.nodes.table.create({ ...attrs, align, origAlign: align, delim }, rows);
+  }
+
+  private footnoteDef(node: Extract<RootContent, { type: "footnoteDefinition" }>, chain: Ctx[]): Node {
+    const start = node.position!.start.offset!;
+    const firstLine = this.lineOf(start);
+    const m = /^\[\^[^\]]+\]:[ \t]?/.exec(this.src.slice(start, this.lines[firstLine].end));
+    if (!m) throw new Unsupported("footnote label");
+    const firstChild = node.children[0];
+    const contentStart =
+      firstChild && this.lineOf(firstChild.position!.start.offset!) === firstLine ? firstChild.position!.start.offset! : start + m[0].length;
+    const ctx: Ctx = { type: "footnote_def", uid: freshUid(), firstLine, contentStart, width: 4 };
+    const inner = [...chain, ctx];
+    let children = node.children.flatMap((c) => this.block(c, inner));
+    if (!children.length) children = [this.emptyLeaf(start, node.position!.end.offset!, inner)];
+    return schema.nodes.footnote_def.create({ uid: ctx.uid, label: node.label ?? node.identifier }, children);
   }
 
   private firstLineContentStart(li: number, chain: Ctx[], blockStart: number): number {
@@ -482,6 +661,16 @@ export class Parser {
     if (lazy) throw new Unsupported("lazy raw line");
     return Math.min(end, blockStart);
   }
+}
+
+function textOf(content: Node[]): string {
+  let t = "";
+  for (const n of content) t += n.isText ? n.text : "\n";
+  return t;
+}
+
+function normalizeEol(s: string): string {
+  return s.replace(/\r\n?/g, "\n");
 }
 
 function kindOf(node: RootContent): string {

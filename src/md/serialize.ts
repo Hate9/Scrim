@@ -96,11 +96,30 @@ export function isEmptyParagraph(node: Node): boolean {
   return node.type.name === "paragraph" && node.content.size === 0;
 }
 
+export interface SerializeOptions {
+  /** Pad table columns when a table is re-serialized (spec 04, 4.7; default on). */
+  prettyTables?: boolean;
+}
+
+/** Display width of a string in a monospace view: wide East Asian characters count 2. */
+export function textWidth(s: string): number {
+  let w = 0;
+  for (const ch of s) {
+    const c = ch.codePointAt(0)!;
+    w += (c >= 0x1100 && c <= 0x115f) || (c >= 0x2e80 && c <= 0xa4cf) || (c >= 0xac00 && c <= 0xd7a3) ||
+      (c >= 0xf900 && c <= 0xfaff) || (c >= 0xfe30 && c <= 0xfe4f) || (c >= 0xff00 && c <= 0xff60) ||
+      (c >= 0xffe0 && c <= 0xffe6) || (c >= 0x1f300 && c <= 0x1faff) || (c >= 0x20000 && c <= 0x3fffd)
+      ? 2
+      : 1;
+  }
+  return w;
+}
+
 export class Serializer {
   readonly eol: string;
   readonly markers: Map<Node, string>;
 
-  constructor(readonly doc: Node) {
+  constructor(readonly doc: Node, readonly opts: SerializeOptions = {}) {
     this.eol = doc.attrs.eol;
     this.markers = listMarkers(doc);
   }
@@ -119,6 +138,7 @@ export class Serializer {
     for (const c of chain) {
       if (c.type.name === "blockquote") s += "> ";
       else if (c.type.name === "list_item") s += " ".repeat(this.markerOf(c).length + 1);
+      else if (c.type.name === "footnote_def") s += "    ";
     }
     return s;
   }
@@ -129,9 +149,13 @@ export class Serializer {
       if (c.type.name === "blockquote") s += "> ";
       else if (c.type.name === "list_item") {
         const m = this.markerOf(c);
-        s += e.first[i] ? `${m} ` : " ".repeat(m.length + 1);
+        if (!e.first[i]) s += " ".repeat(m.length + 1);
+        else s += c.attrs.task !== null ? `${m} [${c.attrs.task}] ` : `${m} `;
+      } else if (c.type.name === "footnote_def") {
+        s += e.first[i] ? `[^${c.attrs.label}]: ` : "    ";
       }
     });
+    if (e.node.type.name === "code_block" && e.node.attrs.indented && !e.node.attrs.info) s += "    ";
     return s;
   }
 
@@ -144,16 +168,19 @@ export class Serializer {
     let out = lead;
     for (const m of [...marks].sort((a, b) => b.from - a.from)) {
       const item = byUid.get(m.item);
-      if (item) out = out.slice(0, m.from) + this.markerOf(item) + out.slice(m.to);
+      if (!item) continue;
+      if (m.kind === "task") {
+        if (item.attrs.task !== null) out = out.slice(0, m.from) + `[${item.attrs.task}]` + out.slice(m.to);
+      } else out = out.slice(0, m.from) + this.markerOf(item) + out.slice(m.to);
     }
     return out;
   }
 
   /** Inline content: text plus line breaks with their terminators and prefixes. */
-  inline(e: LeafEntry, ok: boolean, breakAs?: string): string {
+  inline(e: LeafEntry, ok: boolean, breakAs?: string, node: Node = e.node, extraCont = ""): string {
     let s = "";
     let cont: string | null = null;
-    e.node.forEach((child) => {
+    node.forEach((child) => {
       if (child.isText) s += child.text;
       else if (child.type.name === "line_break") {
         if (breakAs !== undefined) {
@@ -162,7 +189,7 @@ export class Serializer {
         }
         const term = child.attrs.term ?? this.eol;
         let prefix = ok ? child.attrs.prefix : null;
-        if (prefix === null) prefix = cont ??= this.continuation(e.chain);
+        if (prefix === null) prefix = cont ??= this.continuation(e.chain) + extraCont;
         s += term + prefix;
       }
     });
@@ -173,7 +200,14 @@ export class Serializer {
     const n = e.node;
     switch (n.type.name) {
       case "hr":
+      case "toc":
         return n.attrs.text;
+      case "code_block":
+      case "math_block":
+      case "front_matter":
+        return this.fenced(e, ok);
+      case "table":
+        return this.table(e, ok);
       case "heading": {
         const { level, setext } = n.attrs;
         if (setext && level <= 2) {
@@ -195,6 +229,112 @@ export class Serializer {
       default:
         return this.inline(e, ok);
     }
+  }
+
+  /** Fenced code, display math, front matter; or indented code. */
+  private fenced(e: LeafEntry, ok: boolean): string {
+    const n = e.node;
+    const a = n.attrs;
+    const cont = this.continuation(e.chain);
+    if (n.type.name === "code_block" && a.indented && !a.info) {
+      return this.inline(e, ok, undefined, n, "    ");
+    }
+    // Indented code that got a language becomes fenced: its line prefixes held the
+    // indentation, so they are written canonically.
+    const linesOk = ok && !a.indented;
+    let fence: string = a.fence;
+    const text = this.inline(e, linesOk);
+    const reuseOpen = a.open !== null && a.openInfo === a.info && !a.indented;
+    if (!reuseOpen && n.type.name === "code_block") {
+      // A fence longer than any run of the fence character that starts a content line.
+      let longest = 0;
+      for (const line of text.split(/\r\n?|\n/)) {
+        const run = new RegExp(`^\\s*(\\${fence[0]}+)`).exec(line);
+        if (run) longest = Math.max(longest, run[1].length);
+      }
+      if (longest >= fence.length) fence = fence[0].repeat(longest + 1);
+    }
+    let out = reuseOpen ? a.open : n.type.name === "code_block" ? fence + a.info : fence + (a.info ? a.info : "");
+    const hasLines = !(a.noLines && n.content.size === 0);
+    if (hasLines) {
+      const ob = linesOk && a.openBreak ? a.openBreak : { term: this.eol, prefix: cont };
+      out += ob.term + ob.prefix + text;
+    }
+    if (a.unclosed && ok && !a.indented) return out;
+    const closeFence = n.type.name === "front_matter" ? "---" : fence;
+    const close = linesOk && a.close ? a.close : { term: this.eol, line: cont + closeFence };
+    return out + close.term + close.line;
+  }
+
+  private table(e: LeafEntry, ok: boolean): string {
+    const t = e.node;
+    const align: (string | null)[] = t.attrs.align;
+    const rows: { node: Node; cells: string[] }[] = [];
+    t.forEach((row) => {
+      const cells: string[] = [];
+      row.forEach((cell) => cells.push(cell.textBetween(0, cell.content.size, undefined, " ")));
+      rows.push({ node: row, cells });
+    });
+    const cols = Math.max(align.length, ...rows.map((r) => r.cells.length));
+    const same = (a: string[] | null, b: string[]) => !!a && a.length === b.length && a.every((x, i) => x === b[i]);
+    const rowChanged = rows.map((r) => r.node.attrs.src === null || !same(r.node.attrs.cells, r.cells));
+    const origAlign: (string | null)[] | null = t.attrs.origAlign;
+    const alignChanged = !origAlign || origAlign.length !== align.length || origAlign.some((x, i) => x !== align[i]);
+    const anyChanged = rowChanged.some(Boolean) || alignChanged || !t.attrs.delim;
+    const cont = this.continuation(e.chain);
+    const line = (r: { node: Node }, i: number) => {
+      if (i === 0) return "";
+      const term = r.node.attrs.term ?? this.eol;
+      const prefix = ok && r.node.attrs.prefix !== null ? r.node.attrs.prefix : cont;
+      return term + prefix;
+    };
+    const delimLine = (text: string) => {
+      const d = t.attrs.delim;
+      return (d?.term ?? this.eol) + (ok && d ? d.prefix : cont) + text;
+    };
+    if (!anyChanged) {
+      return rows.map((r, i) => line(r, i) + r.node.attrs.src + (i === 0 ? delimLine(t.attrs.delim.text) : "")).join("");
+    }
+    const pad = (row: string[]) => Array.from({ length: cols }, (_, j) => row[j] ?? "");
+    if (this.opts.prettyTables !== false) {
+      const widths = Array.from({ length: cols }, (_, j) => Math.max(3, ...rows.map((r) => textWidth(r.cells[j] ?? ""))));
+      const fmt = (cells: string[]) =>
+        "| " +
+        pad(cells)
+          .map((c, j) => {
+            const room = widths[j] - textWidth(c);
+            if (align[j] === "right") return " ".repeat(room) + c;
+            if (align[j] === "center") return " ".repeat(Math.floor(room / 2)) + c + " ".repeat(Math.ceil(room / 2));
+            return c + " ".repeat(room);
+          })
+          .join(" | ") +
+        " |";
+      const delim =
+        "| " +
+        widths
+          .map((w, j) => {
+            const a = align[j];
+            if (a === "left") return ":" + "-".repeat(w - 1);
+            if (a === "right") return "-".repeat(w - 1) + ":";
+            if (a === "center") return ":" + "-".repeat(w - 2) + ":";
+            return "-".repeat(w);
+          })
+          .join(" | ") +
+        " |";
+      return rows.map((r, i) => line(r, i) + fmt(r.cells) + (i === 0 ? delimLine(delim) : "")).join("");
+    }
+    const minimal = (cells: string[]) => "| " + pad(cells).join(" | ") + " |";
+    const minimalDelim =
+      "| " +
+      Array.from({ length: cols }, (_, j) => {
+        const a = align[j];
+        return a === "left" ? ":--" : a === "right" ? "--:" : a === "center" ? ":-:" : "---";
+      }).join(" | ") +
+      " |";
+    const delimText = alignChanged || !t.attrs.delim || cols !== (origAlign?.length ?? cols) ? minimalDelim : t.attrs.delim.text;
+    return rows
+      .map((r, i) => line(r, i) + (rowChanged[i] ? minimal(r.cells) : r.node.attrs.src) + (i === 0 ? delimLine(delimText) : ""))
+      .join("");
   }
 
   private commonDepth(a: LeafEntry, b: LeafEntry): number {
@@ -235,7 +375,11 @@ export class Serializer {
       // An empty paragraph is written only as the sole content of a list item or quote
       // (an empty item `-` or an empty quote `>`).
       const parent = e.chain[e.chain.length - 1];
-      return !!parent && (parent.type.name === "list_item" || parent.type.name === "blockquote") && parent.childCount === 1;
+      return (
+        !!parent &&
+        (parent.type.name === "list_item" || parent.type.name === "blockquote" || parent.type.name === "footnote_def") &&
+        parent.childCount === 1
+      );
     });
   }
 
@@ -272,6 +416,6 @@ export class Serializer {
   }
 }
 
-export function serialize(doc: Node): string {
-  return new Serializer(doc).serialize();
+export function serialize(doc: Node, opts: SerializeOptions = {}): string {
+  return new Serializer(doc, opts).serialize();
 }
