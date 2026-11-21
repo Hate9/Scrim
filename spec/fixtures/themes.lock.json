@@ -1,0 +1,278 @@
+{
+  "comment": "Owner-supplied community themes for T-1 (CLEAN-ROOM.md rule 7). Fetch into tests/fixtures/themes/ (git-ignored) at test time; verify sha256; never commit the files or read them to design Scrim's themes. 'dest' is relative to tests/fixtures/themes/. drake*.css also @imports Google Fonts; block remote loads during T-1 so screenshots are deterministic (its bundled drake/font.css covers the same fonts).",
+  "themes": [
+    {
+      "repo": "https://github.com/liangjingkanji/DrakeTyporaTheme",
+      "commit": "771df28080610cf6b0bd5f6f0c1864efa2d9a41e",
+      "license": "MIT",
+      "themes": [
+        "drake.css",
+        "drake-dark.css"
+      ],
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/liangjingkanji/DrakeTyporaTheme/771df28080610cf6b0bd5f6f0c1864efa2d9a41e/drake-dark.css",
+          "dest": "drake-dark.css",
+          "sha256": "88df57d0125441c6ebed89731f300bfb019166cf799ccb4524e6f55ba87d7eff"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/liangjingkanji/DrakeTyporaTheme/771df28080610cf6b0bd5f6f0c1864efa2d9a41e/drake.css",
+          "dest": "drake.css",
+          "sha256": "85bc97fc87b43c5e79dabdd33b26ff2fceed96d16b72f388322c79e3bb64dc43"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/liangjingkanji/DrakeTyporaTheme/771df28080610cf6b0bd5f6f0c1864efa2d9a41e/drake/JetBrainsMono-Bold.woff2",
+          "dest": "drake/JetBrainsMono-Bold.woff2",
+          "sha256": "df3f86c04988d8f7fc516db3e95ec6b630cdc67bec91fe4297c6f8e132be1037"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/liangjingkanji/DrakeTyporaTheme/771df28080610cf6b0bd5f6f0c1864efa2d9a41e/drake/JetBrainsMono-BoldItalic.woff2",
+          "dest": "drake/JetBrainsMono-BoldItalic.woff2",
+          "sha256": "3aa30cac2529ca86f6b8ef479f143d924378682657510541d10d8e8b6d07120b"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/liangjingkanji/DrakeTyporaTheme/771df28080610cf6b0bd5f6f0c1864efa2d9a41e/drake/JetBrainsMono-Italic.woff2",
+          "dest": "drake/JetBrainsMono-Italic.woff2",
+          "sha256": "9aef9fe9f1292b1cc4b1af075e4e9bc5f2adf23fef54908e58e2ebe338f33a65"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/liangjingkanji/DrakeTyporaTheme/771df28080610cf6b0bd5f6f0c1864efa2d9a41e/drake/JetBrainsMono-Regular.woff2",
+          "dest": "drake/JetBrainsMono-Regular.woff2",
+          "sha256": "bceff0710e3a7fe5b3622265c48b6fbc055cf071df80ef5f36ffc69550296664"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/liangjingkanji/DrakeTyporaTheme/771df28080610cf6b0bd5f6f0c1864efa2d9a41e/drake/font.css",
+          "dest": "drake/font.css",
+          "sha256": "3c1ce2608ebc2701c2841e0d1ba89b885e8b10e3baf171783f539bc065afd667"
+        }
+      ]
+    },
+    {
+      "repo": "https://github.com/blinkfox/typora-vue-theme",
+      "commit": "589efbb34d806fa27e6dc290e969c93c894a6394",
+      "license": "Apache-2.0",
+      "themes": [
+        "vue.css",
+        "vue-dark.css"
+      ],
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue-dark.css",
+          "dest": "vue-dark.css",
+          "sha256": "7bc2ad5e81b84ee73dcdf38d4c512b37bc9e08720716bee0c30c31a13d76d0b8"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue.css",
+          "dest": "vue.css",
+          "sha256": "a8175f49a2ac9d7dd97c4547692c6ed5c31d04a8775df71ed683edfa8a50eb14"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qN67lqDY.woff2",
+          "dest": "vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qN67lqDY.woff2",
+          "sha256": "d58a7f4fc4008aaab1b43ef30374d1b4c169c985d51ccbd2e28ef40b72697e2a"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qNK7lqDY.woff2",
+          "dest": "vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qNK7lqDY.woff2",
+          "sha256": "0ac4e0c4ab4f3a6816e8cf60f11aa50a54736be92ae6e4a6c021c065d3f34079"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qNa7lqDY.woff2",
+          "dest": "vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qNa7lqDY.woff2",
+          "sha256": "213686ba522afff7f6a335cdfec10890bbe70af31330452b4a4c35cda9200ae5"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qNq7lqDY.woff2",
+          "dest": "vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qNq7lqDY.woff2",
+          "sha256": "1ae31a8e59bf32ec4f65cb48fcbaa075cfb7c6e357a7f2b64483ffe99330086e"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qO67lqDY.woff2",
+          "dest": "vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qO67lqDY.woff2",
+          "sha256": "21754323ecaec0bfddb264ae6167f13a19451e77a8510b9b7e8ac4b314b5082e"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qOK7l.woff2",
+          "dest": "vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qOK7l.woff2",
+          "sha256": "cb992eae898417162c48b37712991d9ad8053c4a64fce51aff195edc69dc35f2"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qPK7lqDY.woff2",
+          "dest": "vue/6xK3dSBYKcSV-LCoeQqfX1RYOo3qPK7lqDY.woff2",
+          "sha256": "135acc933c7968b49dbdec7b2d2ccb3419276a89692e36972d3eecd4ac634f26"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwkxduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwkxduz8A.woff2",
+          "sha256": "91531ffd27e4b2d11927583deea49d72f170e9ca0702bc7e5a55ae58f905d83a"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwlBduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwlBduz8A.woff2",
+          "sha256": "79596e9ce63ae477a61a19d215869be3430b18e00a4a57026116be21ab5e4242"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwlxdu.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwlxdu.woff2",
+          "sha256": "d8381e66783011957eabadb622d7899061bf93e78fff38ebfe00ab743d6c8e60"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwmBduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwmBduz8A.woff2",
+          "sha256": "829edb8f76e9d320a4467047063e5d4dda574f293dccba3b213c089f4881cf5c"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwmRduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwmRduz8A.woff2",
+          "sha256": "48a375088cb25218a2f584f59dd61d6f246e0c9c81b2e2d989b310d14caa1800"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwmhduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwmhduz8A.woff2",
+          "sha256": "a5dc6fb483e521239b1ee890af0161ce5f1f893a7f919a1616babc6dbd787eb0"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwmxduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3i54rwmxduz8A.woff2",
+          "sha256": "864c560a39c3f7710092fd27a36165933542e8b2407593b624641868df9df935"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwkxduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwkxduz8A.woff2",
+          "sha256": "c162c5c7b3cf1b7ee6e77b4808dea01e2cc8d85f1dc449d2c33a9bd7370dd91d"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwlBduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwlBduz8A.woff2",
+          "sha256": "5f87be492fa6c89b8f71dceba6a188d816bd1557fad3d2dd6a55fba4715ba145"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwlxdu.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwlxdu.woff2",
+          "sha256": "1851a4758fa23827c8ef2d994b9bf4b8d0b3b54570f55cb5e5d5e7836a69b502"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwmBduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwmBduz8A.woff2",
+          "sha256": "4ca47b438e2428bf5e2fd5f84d9552ed846ee3eb91d04661e78df137ff687ebd"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwmRduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwmRduz8A.woff2",
+          "sha256": "bdec6766af2c259a80446934cc396f45e64a915f9424c520e07b0bb5255a4088"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwmhduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwmhduz8A.woff2",
+          "sha256": "7608495d5b2ac1e488fab8117305d4a7ec9d237fec2b633e1425346b4762289c"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwmxduz8A.woff2",
+          "dest": "vue/6xKydSBYKcSV-LCoeQqfX1RYOo3ik4zwmxduz8A.woff2",
+          "sha256": "55a54b856d09225ef0c6874f36052ab801738025660133f959c0b3d63ec10c8c"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/L0x5DF4xlVMF-BfR8bXMIjhEq3-cXbKDO1w.woff2",
+          "dest": "vue/L0x5DF4xlVMF-BfR8bXMIjhEq3-cXbKDO1w.woff2",
+          "sha256": "b568a2d630d5924e40b73489cc4a8720fb9fb0249b8117d6d45cfc95d249c1da"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/L0x5DF4xlVMF-BfR8bXMIjhFq3-cXbKDO1w.woff2",
+          "dest": "vue/L0x5DF4xlVMF-BfR8bXMIjhFq3-cXbKDO1w.woff2",
+          "sha256": "9a7b6e1f38e9a47867ad5c2f403ff4f4477a03bbec300d4e345bf67d5d0da262"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/L0x5DF4xlVMF-BfR8bXMIjhGq3-cXbKDO1w.woff2",
+          "dest": "vue/L0x5DF4xlVMF-BfR8bXMIjhGq3-cXbKDO1w.woff2",
+          "sha256": "671d1df350d3ccfd9a5ebbc9e92810a274d6215a648099f0f6e3e256b2bdae02"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/L0x5DF4xlVMF-BfR8bXMIjhHq3-cXbKDO1w.woff2",
+          "dest": "vue/L0x5DF4xlVMF-BfR8bXMIjhHq3-cXbKDO1w.woff2",
+          "sha256": "978a5db5af1654146da5ec93980c273df7010a2d045f1360ac3b9d85bd890299"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/L0x5DF4xlVMF-BfR8bXMIjhIq3-cXbKDO1w.woff2",
+          "dest": "vue/L0x5DF4xlVMF-BfR8bXMIjhIq3-cXbKDO1w.woff2",
+          "sha256": "eb84188b287e62e965be53c788b6562554cefcc0a3520f792ba91bb60d40e607"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/L0x5DF4xlVMF-BfR8bXMIjhLq3-cXbKD.woff2",
+          "dest": "vue/L0x5DF4xlVMF-BfR8bXMIjhLq3-cXbKD.woff2",
+          "sha256": "ecc28128233f90171df8f8915d60cdc59ff70b9194e1d93061816d3e3cd1f320"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/L0x5DF4xlVMF-BfR8bXMIjhPq3-cXbKDO1w.woff2",
+          "dest": "vue/L0x5DF4xlVMF-BfR8bXMIjhPq3-cXbKDO1w.woff2",
+          "sha256": "2c9fae8205ea404d8400b9731423d5f8261788efcb26b651ad1031c70c895824"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/blinkfox/typora-vue-theme/589efbb34d806fa27e6dc290e969c93c894a6394/vue/fonts.css",
+          "dest": "vue/fonts.css",
+          "sha256": "9cbb78a4d95c04c50eb06de37a2eb8280d5f5cd251a9f0f5721a7fc2469db101"
+        }
+      ]
+    },
+    {
+      "repo": "https://github.com/adrian-fuertes/typora-notion-theme",
+      "commit": "2611026951d7dacc3e5af21c6c09d076d17793de",
+      "license": "MIT",
+      "themes": [
+        "notion-light-enhanced.css",
+        "notion-dark-enhanced.css"
+      ],
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/adrian-fuertes/typora-notion-theme/2611026951d7dacc3e5af21c6c09d076d17793de/themes/enhanced/notion-dark-enhanced.css",
+          "dest": "notion-dark-enhanced.css",
+          "sha256": "9984fe77d43f1c3e7f077b9445efa01d451a07c8c1a3214c208fccfa02bfdb6d"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/adrian-fuertes/typora-notion-theme/2611026951d7dacc3e5af21c6c09d076d17793de/themes/enhanced/notion-light-enhanced.css",
+          "dest": "notion-light-enhanced.css",
+          "sha256": "66d3fb80c1813f9a997449b52640eccc68584448c7ca6e1c517e01ec758752b4"
+        }
+      ]
+    },
+    {
+      "repo": "https://github.com/evgo2017/typora-theme-orange-heart",
+      "commit": "4f462e6de7d7087691b2f857d4ef2de5cfe6579c",
+      "license": "MIT",
+      "themes": [
+        "orangeheart.css"
+      ],
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/evgo2017/typora-theme-orange-heart/4f462e6de7d7087691b2f857d4ef2de5cfe6579c/orangeheart.css",
+          "dest": "orangeheart.css",
+          "sha256": "fbde62dbf865f4f73aa14cca10723067a28298b6e0a7ecd0c9dd636969200600"
+        }
+      ]
+    },
+    {
+      "repo": "https://github.com/obscurefreeman/typora_theme_blackout",
+      "commit": "0bd7c61947b26b9b1b525610499ab3e3a0d26f62",
+      "license": "MIT",
+      "themes": [
+        "blackout.css"
+      ],
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/obscurefreeman/typora_theme_blackout/0bd7c61947b26b9b1b525610499ab3e3a0d26f62/blackout.css",
+          "dest": "blackout.css",
+          "sha256": "4a10fe921476783fa11b7447f4d61d01b333a74ff57ef3cf0c285dba8469bfdf"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/obscurefreeman/typora_theme_blackout/0bd7c61947b26b9b1b525610499ab3e3a0d26f62/obscurefreeman/codeblock.dark.css",
+          "dest": "obscurefreeman/codeblock.dark.css",
+          "sha256": "60cdf8820eeecf9adf8e3073bc5eb4b061df75456e7b9d357e881fa3a0aa04eb"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/obscurefreeman/typora_theme_blackout/0bd7c61947b26b9b1b525610499ab3e3a0d26f62/obscurefreeman/mermaid.dark.css",
+          "dest": "obscurefreeman/mermaid.dark.css",
+          "sha256": "6a2571cceda6259f785383910be615ef2e4b05dde21bbe08ca64cc22115afc57"
+        }
+      ]
+    }
+  ]
+}
