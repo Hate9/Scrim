@@ -168,6 +168,8 @@ test("W-7 search in a 10,000-file folder: first result < 500 ms; click selects t
   const first = await js(s, "return window.__scrim.sidebar.firstResultMs");
   console.log(`     first result after ${first} ms`);
   if (!(first < 500) && !process.env.SCRIM_UNDER_TRACE) throw new Error(`first result after ${first} ms`);
+  // Click once the search has finished: rows can move while results still stream in.
+  await waitFor(() => js(s, "return !/Searching/.test(document.querySelector('.scrim-search-status').textContent)"), "search done", 30000);
   await clickText(s, ".scrim-search-line", "needle");
   await waitFor(() => ed(s, "const { from, to } = view.state.selection; return view.state.doc.textBetween(from, to) === 'needle'"), "match selected").catch(async (e) => {
     const st = await ed(s, "const { from, to } = view.state.selection; return JSON.stringify({ title: document.title, sel: [from, to, view.state.doc.textBetween(from, to)], doc: ed.markdown().slice(0, 60) })");
