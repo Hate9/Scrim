@@ -19,7 +19,7 @@ import { LanguageDescription, syntaxHighlighting } from "@codemirror/language";
 import { tags, tagHighlighter } from "@lezer/highlight";
 import { redo, undo } from "prosemirror-history";
 import { Fragment, type Node } from "prosemirror-model";
-import { Selection, TextSelection } from "prosemirror-state";
+import { Plugin, Selection, TextSelection } from "prosemirror-state";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { schema } from "../md/schema";
 import type { EditorOptions } from "./context";
@@ -125,6 +125,9 @@ export interface CodeViewHooks {
 
 // ---- the node view ------------------------------------------------------------------------
 
+/** Live code views, so the selection plugin can reach them. */
+const liveViews = new Set<CodeBlockView>();
+
 export class CodeBlockView implements NodeView {
   dom: HTMLElement;
   cm: CMView;
@@ -191,6 +194,26 @@ export class CodeBlockView implements NodeView {
     }
     this.syncAttrs();
     this.renderPreview();
+    liveViews.add(this);
+  }
+
+  /** Make CodeMirror's selection follow ProseMirror's when it lies inside this block. */
+  syncSelection() {
+    const pos = this.getPos();
+    if (pos === undefined) return;
+    const sel = this.view.state.selection;
+    const start = pos + 1;
+    const end = start + this.node.content.size;
+    if (sel.from < start || sel.to > end) return;
+    const anchor = sel.anchor - start;
+    const head = sel.head - start;
+    const main = this.cm.state.selection.main;
+    if (main.anchor === anchor && main.head === head && this.cm.hasFocus) return;
+    this.show();
+    this.updating = true;
+    this.cm.dispatch({ selection: { anchor, head }, scrollIntoView: true });
+    this.updating = false;
+    if (this.view.hasFocus() && !this.cm.hasFocus) this.cm.focus();
   }
 
   private extensions(): Extension[] {
@@ -326,6 +349,7 @@ export class CodeBlockView implements NodeView {
   }
 
   destroy() {
+    liveViews.delete(this);
     clearTimeout(this.previewTimer);
     this.cm.destroy();
   }
@@ -368,9 +392,11 @@ export class CodeBlockView implements NodeView {
       if (!main.empty) return false;
       if (unit === "line") {
         const line = cm.state.doc.lineAt(main.head);
-        const visual = cm.moveVertically(main, dir > 0);
-        if (visual.head !== main.head) return false;
         if (dir < 0 ? line.number !== 1 : line.number !== cm.state.doc.lines) return false;
+        // A wrapped first/last line: move within it first.
+        const visual = cm.moveVertically(main, dir > 0);
+        const within = visual.head >= line.from && visual.head <= line.to;
+        if (within && (dir > 0 ? visual.head > main.head : visual.head < main.head)) return false;
       } else if (dir < 0 ? main.head > 0 : main.head < cm.state.doc.length) return false;
       this.leave(dir);
       return true;
@@ -544,6 +570,19 @@ export function fuzzyScore(q: string, name: string): number {
   let j = 0;
   for (const c of name) if (c === q[j]) j++;
   return j === q.length ? 1000 + name.length : Infinity;
+}
+
+/** Keeps CodeMirror selections in step with ProseMirror's (programmatic selections,
+ * undo, find results). */
+export function createCodeSelectionPlugin(): Plugin {
+  return new Plugin({
+    view: () => ({
+      update(view, prev) {
+        if (view.state.selection.eq(prev.selection) && view.state.doc === prev.doc) return;
+        for (const v of liveViews) v.syncSelection();
+      },
+    }),
+  });
 }
 
 export function codeNodeViews(opts: EditorOptions, hooks: CodeViewHooks) {

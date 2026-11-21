@@ -7,7 +7,9 @@ import { Decoration, DecorationSet, type EditorView, type NodeView } from "prose
 import { markdownToHtml } from "../md/html";
 import { freshUid, schema } from "../md/schema";
 import { blockSource } from "./context";
+import { changedRanges } from "./decorations";
 import { headingKey, type HeadingInfo } from "./headings";
+import { isStructural } from "./normalize";
 import { isImageParagraphSource } from "./images";
 import { jumpToAnchor } from "./links";
 
@@ -312,22 +314,48 @@ export function frontMatter(doc: Node): Record<string, string> {
 
 export const blocksKey = new PluginKey<DecorationSet>("scrim-blocks");
 
+/** Decorations for one textblock: image paragraph class, task checkbox before it. */
+function textblockDecorations(doc: Node, node: Node, pos: number): Decoration[] {
+  const out: Decoration[] = [];
+  if (node.type === S.paragraph && isImageParagraphSource(blockSource(node))) {
+    out.push(Decoration.node(pos, pos + node.nodeSize, { class: "md-image-paragraph" }));
+  }
+  const $p = doc.resolve(pos);
+  const item = $p.depth > 0 ? $p.parent : null;
+  if (item && item.type === S.list_item && item.attrs.task !== null && $p.index() === 0) {
+    const checked = item.attrs.task !== " ";
+    out.push(Decoration.widget(pos + 1, () => taskCheckbox(checked), { side: -1, key: `task-${checked}`, ignoreSelection: true }));
+  }
+  return out;
+}
+
+/** Text-only edits: map, then redo the decorations of the touched textblocks. */
+function updateDecorations(tr: Transaction, set: DecorationSet): DecorationSet {
+  if (isStructural(tr)) return listDecorations(tr.doc);
+  let next = set.map(tr.mapping, tr.doc);
+  const doc = tr.doc;
+  for (const [from, to] of changedRanges(tr)) {
+    doc.nodesBetween(Math.min(from, doc.content.size), Math.min(to, doc.content.size), (node, pos) => {
+      if (!node.isTextblock) return true;
+      next = next.remove(next.find(pos, pos + node.nodeSize, (spec) => spec.block !== true));
+      next = next.add(doc, textblockDecorations(doc, node, pos));
+      return false;
+    });
+  }
+  return next;
+}
+
 function listDecorations(doc: Node): DecorationSet {
   const decos: Decoration[] = [];
   doc.descendants((node, pos) => {
     if ((node.type === S.bullet_list || node.type === S.ordered_list) && someTask(node)) {
-      decos.push(Decoration.node(pos, pos + node.nodeSize, { class: "contains-task-list" }));
+      decos.push(Decoration.node(pos, pos + node.nodeSize, { class: "contains-task-list" }, { block: true }));
     }
-    if (node.type === S.paragraph && isImageParagraphSource(blockSource(node))) {
-      decos.push(Decoration.node(pos, pos + node.nodeSize, { class: "md-image-paragraph" }));
+    if (node.isTextblock) {
+      decos.push(...textblockDecorations(doc, node, pos));
+      return false;
     }
-    if (node.type === S.list_item && node.attrs.task !== null && node.firstChild?.isTextblock) {
-      const checked = node.attrs.task !== " ";
-      decos.push(
-        Decoration.widget(pos + 2, () => taskCheckbox(checked), { side: -1, key: `task-${checked}`, ignoreSelection: true }),
-      );
-    }
-    return !node.isTextblock;
+    return true;
   });
   return DecorationSet.create(doc, decos);
 }
@@ -352,7 +380,7 @@ export function createBlocksPlugin(hooks: BlockHooks): Plugin {
     key: blocksKey,
     state: {
       init: (_, s) => listDecorations(s.doc),
-      apply: (tr, set) => (tr.docChanged ? listDecorations(tr.doc) : set),
+      apply: (tr, set) => (tr.docChanged ? updateDecorations(tr, set) : set),
     },
     appendTransaction(trs: readonly Transaction[], _old: EditorState, state: EditorState) {
       // A `[toc]` paragraph shown for editing turns back into a TOC when the cursor leaves.
@@ -368,7 +396,11 @@ export function createBlocksPlugin(hooks: BlockHooks): Plugin {
       return tr.docChanged ? tr : null;
     },
     view(view) {
-      const update = (v: EditorView) => {
+      // Document-wide scans (TOC, front matter title, footnote numbers) run shortly
+      // after edits instead of on every keystroke (B-8 asks for TOC updates < 300 ms).
+      let timer = 0;
+      let lastDoc: Node | null = null;
+      const refresh = (v: EditorView) => {
         const list = headingKey.getState(v.state)?.list ?? [];
         for (const t of tocViews) t.render(list);
         const fm = frontMatter(v.state.doc);
@@ -392,8 +424,23 @@ export function createBlocksPlugin(hooks: BlockHooks): Plugin {
           observer.start();
         }
       };
-      update(view);
-      return { update, destroy: () => popover.dom.remove() };
+      const update = (v: EditorView) => {
+        if (v.state.doc === lastDoc) return;
+        lastDoc = v.state.doc;
+        clearTimeout(timer);
+        timer = window.setTimeout(() => !v.isDestroyed && refresh(v), 120);
+      };
+      // Plugin views are recreated when a document is loaded: re-attach the popover.
+      if (!popover.dom.isConnected) document.body.appendChild(popover.dom);
+      lastDoc = view.state.doc;
+      refresh(view);
+      return {
+        update,
+        destroy: () => {
+          clearTimeout(timer);
+          popover.hide();
+        },
+      };
     },
     props: {
       decorations: (state) => blocksKey.getState(state),

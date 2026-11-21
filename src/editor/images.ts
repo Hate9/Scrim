@@ -15,6 +15,8 @@ export interface ImageHooks {
   openMarkdown(path: string): void;
   openFolder(path: string): void;
   notify(message: string): void;
+  /** Image data or files from the system clipboard (WebKitGTK's paste event lacks them). */
+  readClipboardMedia(): Promise<{ imageBase64: string | null; files: string[] }>;
 }
 
 const MD_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdwn|mdtxt|mdtext|rmd)$/i;
@@ -79,6 +81,19 @@ export function pasteFilesOrImages(view: EditorView, event: ClipboardEvent, hook
     .map((l) => decodeURIComponent(l.replace(/^file:\/\/(localhost)?/, "")));
   if (files.length) {
     void insertFiles(view, files, hooks, "paste");
+    return true;
+  }
+  if (data.types.length === 0) {
+    // Nothing reached the DOM event: ask the system clipboard (01, keyboard routing 2).
+    void hooks.readClipboardMedia().then(async (m) => {
+      if (m.files.length) return insertFiles(view, m.files, hooks, "paste");
+      if (!m.imageBase64) return;
+      try {
+        insertAt(view, `![](${await hooks.insertImage({ dataBase64: m.imageBase64, ext: "png" })})`);
+      } catch (e) {
+        hooks.notify(String(e));
+      }
+    });
     return true;
   }
   const image = [...data.items].find((i) => i.kind === "file" && i.type.startsWith("image/"));

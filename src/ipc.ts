@@ -58,6 +58,7 @@ export const ipc = {
   pathKind: (path: string) => invoke<"dir" | "image" | "file">("path_kind", { path }),
   allowFiles: (paths: string[]) => invoke<void>("scope_allow_files", { paths }),
   clipboardText: () => invoke<string | null>("clipboard_read_text"),
+  clipboardMedia: () => invoke<{ imageBase64: string | null; files: string[] }>("clipboard_read_media"),
   clipboardWrite: (text: string) => invoke<void>("clipboard_write_text", { text }),
   log: (level: "info" | "warn" | "error", message: string) => invoke<void>("log_frontend", { level, message }),
 };

@@ -211,7 +211,7 @@ test("R-4 fence on the only line still triggers on Enter", async (s) => {
   await ready(s);
   await typeText(s, "```js");
   await press(s, ENTER);
-  await waitFor(() => s.exec("return !!document.querySelector('#write pre.md-raw-code')"), "code block");
+  await waitFor(() => s.exec("return !!document.querySelector('#write pre.md-fences')"), "code block");
   await typeText(s, "x");
   await expectMd(s, "```js\nx\n```\n");
 });

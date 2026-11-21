@@ -60,6 +60,7 @@ pub fn run() {
             commands::scope_allow_files,
             commands::clipboard_read_text,
             commands::clipboard_write_text,
+            commands::clipboard_read_media,
             commands::doc_open_path,
             commands::open_external,
             images::image_insert,

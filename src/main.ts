@@ -109,6 +109,7 @@ const editorHooks: Parameters<typeof createEditor>[2] = {
         showNotice("Opening folders arrives with the sidebar.");
       },
       notify: (m) => showNotice(m),
+      readClipboardMedia: () => ipc.clipboardMedia(),
     },
     onFrontMatter(fm) {
       // 4.11: title → window title (SPEC-QUESTION Q-013), root-url → image base.
@@ -338,8 +339,9 @@ void getCurrentWebview().onDragDropEvent((event) => {
   void insertFiles(editor.view, event.payload.paths, imageHooks, "drop", at?.pos);
 });
 
+const commandList = createCommands(editor, { save, isWindows, askTableSize, insertImage: insertImageDialog });
 const dispatcher = new Dispatcher(
-  createCommands(editor, { save, isWindows, askTableSize, insertImage: insertImageDialog }),
+  commandList,
   () => editor.view.hasFocus(),
 );
 dispatcher.attach(window);
@@ -369,7 +371,14 @@ window.addEventListener("error", (e) => void ipc.log("error", `${e.message} at $
 window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unhandled rejection: ${String(e.reason)}`));
 
 // Test hook: lets WebDriver tests read the document and drive the editor.
-(window as unknown as { __scrim: unknown }).__scrim = { editor, save, recordUpdates, inlineKey };
+(window as unknown as { __scrim: unknown }).__scrim = {
+  editor,
+  save,
+  recordUpdates,
+  inlineKey,
+  /** Run a command by id (menus arrive in P4). */
+  command: (id: string) => commandList.find((c) => c.id === id)?.run(),
+};
 
 void appWindow.listen("scrim://doc-reload", () => void init());
 void init();

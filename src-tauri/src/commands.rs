@@ -434,3 +434,44 @@ pub async fn doc_set_title_override(window: WebviewWindow, state: State<'_, AppS
     }
     Ok(windows::update_title(window.app_handle(), &label))
 }
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipboardMedia {
+    /// PNG data, base64, when the clipboard holds an image.
+    pub image_base64: Option<String>,
+    /// Copied files (from a file manager).
+    pub files: Vec<String>,
+}
+
+/// Image data or a file list from the system clipboard. WebKitGTK's paste event does
+/// not expose them, so keyboard paste falls back to this (spec 06, 6.2 items 3–4).
+#[tauri::command]
+pub async fn clipboard_read_media() -> Result<ClipboardMedia, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        use base64::Engine;
+        use clipboard_rs::common::RustImage;
+        use clipboard_rs::{Clipboard, ClipboardContext};
+        let ctx = ClipboardContext::new().map_err(|e| e.to_string())?;
+        let mut out = ClipboardMedia::default();
+        if let Ok(files) = ctx.get_files() {
+            out.files = files
+                .into_iter()
+                .map(|f| match f.strip_prefix("file://") {
+                    Some(rest) => percent_encoding::percent_decode_str(rest).decode_utf8_lossy().into_owned(),
+                    None => f,
+                })
+                .collect();
+        }
+        if out.files.is_empty() {
+            if let Ok(img) = ctx.get_image() {
+                if let Ok(png) = img.to_png() {
+                    out.image_base64 = Some(base64::engine::general_purpose::STANDARD.encode(png.get_bytes()));
+                }
+            }
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

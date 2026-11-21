@@ -32,7 +32,7 @@ import { createHeadingPlugin } from "./headings";
 import { createLinkPlugin, type LinkHooks } from "./links";
 import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
-import { codeNodeViews, type CodeViewHooks } from "./codeview";
+import { codeNodeViews, createCodeSelectionPlugin, type CodeViewHooks } from "./codeview";
 import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
 import { renderHtmlBlock } from "./htmlblock";
@@ -129,6 +129,7 @@ export function createEditor(
     }),
     createBlocksPlugin({ onFrontMatter: hooks.onFrontMatter, numberFootnotes: () => options.numberFootnotes }),
     dropCursor({ class: "scrim-drop-cursor", width: 2 }),
+    createCodeSelectionPlugin(),
   ];
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {
