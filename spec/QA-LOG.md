@@ -147,6 +147,6 @@ applies, so a page can tighten its CSP at runtime but never loosen it. Use that:
 - Turning the setting off adds that meta tag to every open window immediately.
 - Turning it on applies to windows opened afterwards. The checkbox shows "Applies to new
   windows" while any window still has the stricter policy. No window recreation.
-- When on, iframes keep the 4.x sandbox rules (no scripts unless the domain is in
+- When on, iframes keep the 4.10 sandbox rules (no scripts unless the domain is in
   `iframeAllowlist`).
 `19-privacy-and-network.md` and `11-preferences.md` are updated.
