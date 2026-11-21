@@ -245,16 +245,25 @@ export class Serializer {
     let out = "";
     let prev: LeafEntry | null = null;
     let prevOk = true;
+    // Last emitted leaf that existed at load time (new leaves have no signature).
+    let lastOriginal: LeafEntry | null = null;
     for (const e of leaves) {
       const ok = this.ok(e);
       const a = e.node.attrs;
-      const sepOk = ok && prevOk && a.sep !== null && a.prev === (prev ? prev.node.attrs.uid : null);
+      let sepOk = ok && prevOk && a.sep !== null && a.prev === (prev ? prev.node.attrs.uid : null);
+      // New blocks were inserted before this one: keep its original separator from the
+      // block it followed, as long as that separator holds a blank line (otherwise the
+      // inserted block would absorb this one as a lazy continuation).
+      if (!sepOk && ok && a.sep !== null && lastOriginal && prev !== lastOriginal) {
+        sepOk = a.prev === lastOriginal.node.attrs.uid && this.ok(lastOriginal) && /(\r\n?|\n)[^\r\n]*(\r\n?|\n)/.test(a.sep);
+      }
       out += sepOk ? a.sep : this.canonicalSep(prev, e);
       let lead = this.lead(e, ok);
       if (isEmptyParagraph(e.node) && !ok) lead = lead.trimEnd();
       out += lead + this.body(e, ok);
       prev = e;
       prevOk = ok;
+      if (e.node.attrs.sig !== null) lastOriginal = e;
     }
     const { tail, lastUid, finalNewline } = this.doc.attrs;
     if (tail !== null && prev && prev.node.attrs.uid === lastUid && prevOk) out += tail;
