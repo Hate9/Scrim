@@ -44,6 +44,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(state)
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
         .invoke_handler(tauri::generate_handler![
@@ -56,6 +57,8 @@ pub fn run() {
             commands::log_frontend,
             commands::scope_allow_files,
             commands::clipboard_read_text,
+            commands::doc_open_path,
+            commands::open_external,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

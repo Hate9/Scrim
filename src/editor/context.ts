@@ -18,6 +18,10 @@ export interface EditorOptions {
   docDir: string | null;
   /** Path separator of the platform. */
   pathSep: string;
+  /** Emoji autocomplete (Preferences → Editor, default on). */
+  emojiAutocomplete: boolean;
+  /** Open links with a plain click (Preferences → Editor, default off). */
+  openLinksSingleClick: boolean;
 }
 
 export const defaultOptions: EditorOptions = {
@@ -28,6 +32,8 @@ export const defaultOptions: EditorOptions = {
   copyMarkdown: true,
   docDir: null,
   pathSep: "/",
+  emojiAutocomplete: true,
+  openLinksSingleClick: false,
 };
 
 /** Textblocks whose content is Markdown inline source. */

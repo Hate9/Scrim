@@ -249,3 +249,34 @@ test("E-12 Mod+K with a URL on the clipboard", async (s) => {
   const c = await cursor(s);
   if (c !== 19) throw new Error(`cursor ${c}, want 19 (after the link)`);
 }, () => fixture("e12.md", "site x\n"));
+
+test("E-13 Mod+click on [x](#heading-two) jumps to the heading", async (s) => {
+  await ready(s);
+  const [x, y] = await s.exec(
+    "const a = document.querySelector('#write a'); const r = a.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)]",
+  );
+  await s.cmd("POST", "/actions", {
+    actions: [
+      { type: "key", id: "kbd", actions: [{ type: "keyDown", value: CTRL }, { type: "pause", duration: 0 }, { type: "pause", duration: 0 }, { type: "pause", duration: 0 }, { type: "keyUp", value: CTRL }] },
+      {
+        type: "pointer",
+        id: "mouse",
+        parameters: { pointerType: "mouse" },
+        actions: [{ type: "pause", duration: 0 }, { type: "pointerMove", x, y, origin: "viewport" }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 }, { type: "pause", duration: 0 }],
+      },
+    ],
+  });
+  await s.cmd("DELETE", "/actions");
+  await waitFor(() => ed(s, "return view.state.selection.$head.parent.type.name === 'heading' && view.state.selection.$head.parent.textContent === 'Heading Two'"), "cursor in Heading Two");
+  const [top, height] = await s.exec("return [Math.round(document.getElementById('heading-two').getBoundingClientRect().top), innerHeight]");
+  if (top < 0 || top > height - 30) throw new Error(`heading not scrolled into view (top ${top} of ${height})`);
+}, () => fixture("e13.md", "See [x](#heading-two).\n\n" + "filler paragraph\n\n".repeat(60) + "## Heading Two\n\nend\n"));
+
+test("emoji autocomplete inserts a shortcode", async (s) => {
+  await ready(s);
+  await typeText(s, "hi :smi");
+  await waitFor(() => s.exec("const p = document.querySelector('.scrim-emoji-popup'); return !!p && !p.hidden && p.children.length > 0"), "popup");
+  await press(s, ENTER);
+  await waitFor(async () => /^hi :smi[a-z_]*:\n$/.test(await md(s)), "shortcode inserted");
+  await waitFor(() => s.exec("return !!document.querySelector('#write .md-emoji')"), "emoji rendered");
+});

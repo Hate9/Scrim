@@ -26,6 +26,9 @@ pub enum Reuse {
     FreshOnly,
     /// Always open a new window (`--new-window`).
     Never,
+    /// Replace the document in this window even if it has unsaved changes (the user
+    /// already chose "Don't Save").
+    Force(String),
 }
 
 /// Reuse policy for paths given on a command line.
@@ -106,6 +109,7 @@ fn reuse_target(app: &AppHandle, reuse: &Reuse) -> Option<String> {
     let state = app.state::<AppState>();
     match reuse {
         Reuse::Never => None,
+        Reuse::Force(label) => state.docs().contains_key(label).then(|| label.clone()),
         Reuse::Current(label) => state.docs().get(label).is_some_and(reusable).then(|| label.clone()),
         Reuse::FreshOnly => {
             let docs = state.docs();

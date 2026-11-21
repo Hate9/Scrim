@@ -19,6 +19,7 @@ export interface DocInit {
   missing: boolean;
   error: string | null;
   title: string;
+  settings: Record<string, unknown>;
 }
 
 export type SaveResult =
@@ -46,6 +47,8 @@ export const ipc = {
   newDoc: (newWindow: boolean) => invoke<void>("doc_new", { newWindow }),
   logCsp: (violation: { blockedUri: string; violatedDirective: string; sourceFile?: string }) =>
     invoke<void>("log_csp_violation", { violation }),
+  openPath: (path: string, mode: "current" | "new") => invoke<void>("doc_open_path", { path, mode }),
+  openExternal: (target: string, isPath: boolean) => invoke<void>("open_external", { target, isPath }),
   allowFiles: (paths: string[]) => invoke<void>("scope_allow_files", { paths }),
   clipboardText: () => invoke<string | null>("clipboard_read_text"),
   log: (level: "info" | "warn" | "error", message: string) => invoke<void>("log_frontend", { level, message }),

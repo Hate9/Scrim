@@ -26,7 +26,9 @@ import { defaultOptions, type EditorOptions } from "./context";
 import { createInlinePlugin, type RenderHooks } from "./decorations";
 import { copyFlavors, handlePaste } from "./clipboard";
 import { createEscapePlugin, flushEscapes } from "./escapes";
+import { createEmojiPlugin } from "./emoji";
 import { createHeadingPlugin } from "./headings";
+import { createLinkPlugin, type LinkHooks } from "./links";
 import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
 
@@ -60,7 +62,7 @@ function typingGroups() {
 export function createEditor(
   mount: HTMLElement,
   opts: Partial<EditorOptions>,
-  hooks: RenderHooks,
+  hooks: RenderHooks & LinkHooks,
   onChange: (dirty: boolean) => void,
 ): Editor {
   const options: EditorOptions = { ...defaultOptions, ...opts };
@@ -91,6 +93,8 @@ export function createEditor(
   });
 
   const plugins = [
+    createEmojiPlugin(() => options.emojiAutocomplete),
+    createLinkPlugin(options, hooks),
     history({ newGroupDelay: 1000 }),
     keys,
     keymap(baseKeymap),

@@ -75,12 +75,59 @@ const editor = createEditor(
       el.textContent = tex;
       void import("./editor/math").then((m) => m.renderMath(tex, el));
     },
+    openLink(href, newWindow) {
+      void openLink(href, newWindow);
+    },
   },
   (dirty) => void ipc.setDirty(dirty).then((title) => (document.title = title)),
 );
 
+const MARKDOWN_EXT = /\.(md|markdown|mdown|mkd|mkdn|mdwn|mdtxt|mdtext|text|txt|rmd)$/i;
+/** Anchor to scroll to after the next document load (link to `file.md#heading`). */
+let pendingAnchor: string | null = null;
+
+/** Open a link from the document (spec 03, 3.9). */
+async function openLink(href: string, newWindow: boolean) {
+  const [target, hash] = href.split("#", 2) as [string, string | undefined];
+  const local = resolveLocal(target);
+  if (local === null) {
+    await ipc.openExternal(href, false); // http(s), mailto, other schemes
+    return;
+  }
+  if (!MARKDOWN_EXT.test(local)) {
+    await ipc.openExternal(local, true); // other files: system default application
+    return;
+  }
+  if (!newWindow && editor.isDirty()) {
+    const choice = await message(`Do you want to save the changes you made to ${state.fileName ?? "Untitled"}?`, {
+      title: "Scrim",
+      kind: "warning",
+      buttons: { yes: "Save", no: "Don't Save", cancel: "Cancel" },
+    });
+    if (choice === "Cancel") return;
+    if ((choice === "Save" || choice === "Yes") && !(await save(false))) return;
+  }
+  if (!newWindow) pendingAnchor = hash ?? null;
+  await ipc.openPath(local, newWindow ? "new" : "current");
+}
+
+/** Editor options from settings.json (spec 11; P4 adds the preferences window). */
+function applySettings(settings: Record<string, unknown>) {
+  const o = editor.options;
+  const bool = (key: string, fallback: boolean) => (typeof settings[key] === "boolean" ? (settings[key] as boolean) : fallback);
+  o.inlineMath = bool("inlineMath", false);
+  o.preserveLineBreaks = bool("preserveLineBreaks", true);
+  o.autoPairBrackets = bool("autoPairBrackets", true);
+  o.autoPairMarkdown = bool("autoPairMarkdown", false);
+  o.copyMarkdown = bool("copyAsMarkdown", true);
+  o.emojiAutocomplete = bool("emojiAutocomplete", true);
+  o.openLinksSingleClick = bool("openLinksSingleClick", false);
+  document.body.classList.toggle("md-soft-breaks", !o.preserveLineBreaks);
+}
+
 async function init() {
   const d = await ipc.docInit();
+  applySettings((d.settings ?? {}) as Record<string, unknown>);
   state.fileName = d.fileName;
   state.path = d.path;
   editor.options.docDir = d.path ? dirname(d.path) : null;
@@ -88,6 +135,11 @@ async function init() {
   editor.load(d.text, !d.path || d.missing, eol);
   document.title = d.title;
   editor.view.focus();
+  if (pendingAnchor) {
+    const { jumpToAnchor } = await import("./editor/links");
+    jumpToAnchor(editor.view, pendingAnchor);
+    pendingAnchor = null;
+  }
   if (d.error) showNotice(d.error);
   else if (d.malformed) showNotice(`Some bytes in this file are not valid ${d.encoding.name} and are shown as �.`);
   else showNotice(null);

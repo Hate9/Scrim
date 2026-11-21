@@ -38,6 +38,8 @@ pub struct DocInit {
     pub error: Option<String>,
     /// Window title.
     pub title: String,
+    /// The preferences (`settings.json`), as stored.
+    pub settings: serde_json::Value,
 }
 
 #[tauri::command]
@@ -56,6 +58,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         missing: false,
         error: None,
         title: String::new(),
+        settings: serde_json::Value::Object(state.settings().values.clone()),
     };
     let mut doc = DocState { initialized: true, ..Default::default() };
     if let Some(path) = path {
@@ -387,4 +390,24 @@ pub async fn clipboard_read_text() -> Result<Option<String>, String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Open a Markdown file from a link in the document (spec 03, 3.9): `mode` is
+/// "current" (this window; the frontend already asked about unsaved changes) or "new".
+#[tauri::command]
+pub async fn doc_open_path(window: WebviewWindow, path: String, mode: String) -> Result<(), String> {
+    let label = window.label().to_string();
+    let reuse = if mode == "new" { windows::Reuse::Never } else { windows::Reuse::Force(label) };
+    open_on_main(window.app_handle().clone(), vec![PathBuf::from(path)], reuse);
+    Ok(())
+}
+
+/// Hand a link the user opened to the system (spec 03, 3.9; spec 19: user-initiated,
+/// nothing is fetched by Scrim).
+#[tauri::command]
+pub async fn open_external(app: AppHandle, state: State<'_, AppState>, target: String, is_path: bool) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    state.logger.info(&format!("open externally: {}", if is_path { "local file" } else { "url" }));
+    let r = if is_path { app.opener().open_path(&target, None::<&str>) } else { app.opener().open_url(&target, None::<&str>) };
+    r.map_err(|e| e.to_string())
 }
