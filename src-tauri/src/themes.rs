@@ -119,7 +119,7 @@ pub fn list(dir: &Path) -> Vec<ThemeInfo> {
             Some(ThemeInfo { name: display_name(&stem), id: stem, path: p.to_string_lossy().into_owned() })
         })
         .collect();
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out.sort_by_key(|a| a.name.to_lowercase());
     out
 }
 

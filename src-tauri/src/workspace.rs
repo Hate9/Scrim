@@ -346,7 +346,9 @@ pub struct Session {
 }
 
 /// Windows closed in the last few seconds (a Quit closes them one after another).
-static CLOSING: Mutex<Vec<(std::time::Instant, Option<PathBuf>, Option<PathBuf>)>> = Mutex::new(Vec::new());
+/// (when, document path, sidebar folder) of a closed window.
+type Closed = (std::time::Instant, Option<PathBuf>, Option<PathBuf>);
+static CLOSING: Mutex<Vec<Closed>> = Mutex::new(Vec::new());
 
 /// Called when a window is destroyed, before its state is dropped. When it was the last
 /// window, the files and folders of the windows closed together with it become the
