@@ -245,7 +245,8 @@ const headingToParagraph: Command = (state, dispatch) => {
   return true;
 };
 
-// SPEC-QUESTION Q-009: any item's first paragraph lifts out (not only the first item's).
+// QA-LOG Q-009: any item's first paragraph lifts out (not only the first item's); a
+// top-level item splits the list, each half keeping its marker and numbering style.
 const liftFirstItemParagraph: Command = (state, dispatch) => {
   const $p = atBlockStart(state);
   if (!$p) return false;

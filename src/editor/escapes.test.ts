@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseMarkdown } from "../md/parse";
 import { schema } from "../md/schema";
 import { serialize } from "../md/serialize";
-import { createEscapePlugin, escapeFor, offendingLine } from "./escapes";
+import { createEscapePlugin, escapeFor, flushEscapesTr, offendingLine } from "./escapes";
 import { createNormalizePlugin } from "./normalize";
 
 const opts = { inlineMath: false };
@@ -133,5 +133,18 @@ describe("deferral for input-rule triggers", () => {
     expect(serialize(s.doc)).toBe("-\n\nafter\n");
     s = s.apply(s.tr.setSelection(TextSelection.atEnd(s.doc)));
     expect(serialize(s.doc)).toBe("\\-\n\nafter\n");
+  });
+});
+
+describe("Q-010: deferred escapes are flushed before hand-off", () => {
+  it("a fence typed on the only line is escaped by the flush", () => {
+    const s = type(stateOf(""), "```js");
+    expect(serialize(s.doc)).toBe("```js"); // deferred while the cursor is at its end
+    const tr = flushEscapesTr(s, opts)!;
+    expect(tr).not.toBeNull();
+    expect(serialize(s.apply(tr).doc)).toBe("\\```js");
+  });
+  it("nothing to flush gives null", () => {
+    expect(flushEscapesTr(stateOf("plain\n"), opts)).toBeNull();
   });
 });

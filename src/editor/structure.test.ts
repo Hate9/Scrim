@@ -93,6 +93,17 @@ describe("Tab / Shift+Tab / Backspace", () => {
     d.run(shiftTab);
     expect(d.md).toBe(src);
   });
+  it("Q-009: Backspace at the start of a middle item splits the list around a paragraph", () => {
+    expect(new Doc("1. a\n2. b\n3. c\n4. d\n").at("b", true).run(backspace(opts)).md).toBe("1. a\n\nb\n\n3. c\n4. d\n");
+    expect(new Doc("* a\n* b\n* c\n").at("b", true).run(backspace(opts)).md).toBe("* a\n\nb\n\n* c\n");
+    // Irregular numbering: both halves keep their numbers.
+    expect(new Doc("1. a\n7. b\n9. c\n").at("b", true).run(backspace(opts)).md).toBe("1. a\n\nb\n\n9. c\n");
+    // All-same numbering keeps its style in the second half.
+    expect(new Doc("1) a\n1) b\n1) c\n").at("b", true).run(backspace(opts)).md).toBe("1) a\n\nb\n\n1) c\n");
+  });
+  it("Q-009: nested item outdents one level", () => {
+    expect(new Doc("- a\n  - b\n  - c\n").at("c", true).run(backspace(opts)).md).toBe("- a\n  - b\n- c\n");
+  });
   it("Backspace at the start of an item lifts it to a paragraph", () => {
     expect(new Doc("- a\n").at("a", true).run(backspace(opts)).md).toBe("a\n");
   });

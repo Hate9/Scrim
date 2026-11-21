@@ -46,43 +46,22 @@ export function jumpToAnchor(view: EditorView, id: string): boolean {
 }
 
 /**
- * Link URL tooltip after 500 ms of hovering (3.9). Drawn in the page rather than with
- * the `title` attribute: the webview's native tooltip is a separate window that can
- * sit under the pointer and swallow the click.
+ * Pointer cursor over links while Mod is held, or always with "Open links with single
+ * click" (QA-LOG Q-012): the body gets `scrim-mod-held` / `scrim-links-single-click`.
  */
-class LinkTooltip {
-  private dom: HTMLDivElement | null = null;
-  private timer = 0;
-
-  schedule(a: HTMLElement) {
-    clearTimeout(this.timer);
-    this.timer = window.setTimeout(() => this.show(a), 500);
-  }
-
-  private show(a: HTMLElement) {
-    if (!a.isConnected) return;
-    if (!this.dom) {
-      this.dom = document.createElement("div");
-      this.dom.className = "scrim-link-tooltip";
-      document.body.appendChild(this.dom);
-    }
-    this.dom.textContent = a.dataset.href ?? "";
-    const r = a.getBoundingClientRect();
-    this.dom.style.left = `${r.left}px`;
-    this.dom.style.top = `${r.bottom + 4}px`;
-    this.dom.hidden = false;
-  }
-
-  hide() {
-    clearTimeout(this.timer);
-    if (this.dom) this.dom.hidden = true;
-  }
+function trackModifier(opts: EditorOptions) {
+  const set = (on: boolean) => document.body.classList.toggle("scrim-mod-held", on);
+  window.addEventListener("keydown", (e) => set(e.ctrlKey || e.metaKey), true);
+  window.addEventListener("keyup", (e) => set(e.ctrlKey || e.metaKey), true);
+  window.addEventListener("mousemove", (e) => set(e.ctrlKey || e.metaKey), { capture: true, passive: true });
+  window.addEventListener("blur", () => set(false));
+  return () => document.body.classList.toggle("scrim-links-single-click", !!opts.openLinksSingleClick);
 }
 
-const tooltip = new LinkTooltip();
-
 export function createLinkPlugin(opts: EditorOptions & { openLinksSingleClick?: boolean }, hooks: LinkHooks): Plugin {
+  const syncSetting = trackModifier(opts);
   return new Plugin({
+    view: () => ({ update: syncSetting }),
     props: {
       handleClick(view, pos, event) {
         const mod = event.ctrlKey || event.metaKey;
@@ -92,23 +71,6 @@ export function createLinkPlugin(opts: EditorOptions & { openLinksSingleClick?: 
         if (href.startsWith("#")) jumpToAnchor(view, href.slice(1));
         else hooks.openLink(href, event.shiftKey);
         return true;
-      },
-      handleDOMEvents: {
-        mouseover(_view, event) {
-          const a = (event.target as HTMLElement).closest?.("a[data-href]");
-          if (a instanceof HTMLElement) tooltip.schedule(a);
-          return false;
-        },
-        mouseout(_view, event) {
-          const a = (event.target as HTMLElement).closest?.("a[data-href]");
-          const to = (event as MouseEvent).relatedTarget as HTMLElement | null;
-          if (a && !(to && a.contains(to))) tooltip.hide();
-          return false;
-        },
-        mousedown() {
-          tooltip.hide();
-          return false;
-        },
       },
     },
   });

@@ -110,9 +110,12 @@ export function decorationsForBlock(node: Node, pos: number, defs: Definitions, 
     if (e.nodeName && e.contentFrom < e.contentTo && e.kind !== "break") {
       const attrs = e.kind === "html" ? sanitizeAttrs(e.attrs) : { ...(e.attrs ?? {}) };
       if (e.nodeName === "a") {
-        // No real href: WebKitGTK gives links inside contenteditable its own click
-        // handling and Scrim opens links itself (Mod+click, spec 03, 3.9).
-        attrs["data-href"] = attrs.href ?? "";
+        // No real href (QA-LOG Q-012): WebKitGTK gives links inside contenteditable its
+        // own click handling and Scrim opens links itself (Mod+click, spec 03, 3.9). The
+        // URL is the hover tooltip.
+        const url = attrs.href ?? "";
+        attrs["data-href"] = url;
+        attrs.title = attrs.title ? `${attrs.title}\n${url}` : url;
         delete attrs.href;
       }
       out.push(Decoration.inline(base + e.contentFrom, base + e.contentTo, { nodeName: e.nodeName, ...attrs }));

@@ -113,6 +113,12 @@ content {
   text-decoration: none;
   cursor: text;
 }
+/* QA-LOG Q-012: links look clickable while Mod is held (or always with single-click
+   opening). */
+body.scrim-mod-held #write a,
+body.scrim-links-single-click #write a {
+  cursor: pointer;
+}
 
 /* ---- syntax reveal (spec 03, 3.2) ---- */
 .md-meta {
@@ -262,25 +268,6 @@ body.md-soft-breaks .md-inline-break + .md-br br {
 .scrim-emoji-item.active {
   background: var(--primary-color);
   color: #fff;
-}
-
-.scrim-link-tooltip {
-  position: fixed;
-  z-index: 20;
-  max-width: 60vw;
-  padding: 2px 8px;
-  background: var(--bg-color);
-  color: var(--meta-content-color);
-  border: 1px solid rgba(127, 127, 127, 0.35);
-  border-radius: 3px;
-  font: 12px/1.5 system-ui, sans-serif;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.scrim-link-tooltip[hidden] {
-  display: none;
 }
 
 

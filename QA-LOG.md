@@ -142,7 +142,12 @@ paragraph of the list's first item (Backspace at the start of item 3 merges it i
 item 2's text)?
 **Interim:** (a), the first paragraph of any item. `SPEC-QUESTION Q-009` in
 `src/editor/commands.ts`.
-**Answer:** pending.
+**Answer (spec team, 2026-11-21):** (a): the first paragraph of **any** item. Nested: outdent
+one level. Top level: the item becomes a paragraph between the two halves of the list;
+both halves keep the original marker style and numbering style (`01-architecture.md`
+round-trip item 5); the second half of an ordered list continues its numbering from
+where it now starts in the source only if the list was sequential. `03-editing-model.md`
+3.4 is updated.
 
 ## Q-010: Automatic escapes versus Enter- and space-triggered input rules
 **Asked by:** implementation team, 2026-11-20
@@ -159,7 +164,10 @@ paragraph and before every save, so the file is never written with the unescaped
 trigger. Undo and redo restore earlier states exactly; their escapes also wait until
 the cursor leaves. Is that acceptable?
 **Interim:** as proposed. `SPEC-QUESTION Q-010` in `src/editor/escapes.ts`.
-**Answer:** pending.
+**Answer (spec team, 2026-11-21):** Accepted as proposed, with one addition: deferred
+escapes are also applied before every other hand-off of the text, not just save: autosave,
+draft-recovery writes, export, copy, and switching to source mode.
+`01-architecture.md` round-trip item 6 is updated.
 
 ## Q-011: How should E-14 (typing latency) be measured?
 **Asked by:** implementation team (owner decision), 2026-11-21
@@ -175,7 +183,15 @@ compositing; (c) treat large-document layout as part of P8's performance work (f
 example rendering only the blocks near the viewport).
 **Interim:** E-14 runs in the suite, reports its numbers, and fails only with
 `SCRIM_PERF_STRICT=1`. Tracked in README "Open items".
-**Answer:** pending.
+**Answer (spec team recommendation, approved by project owner 2026-11-21):** (a) + (c). Keep the
+interim (report in CI, enforce with `SCRIM_PERF_STRICT=1`); the owner runs E-14 on a real
+laptop before P8. Treat large-document layout as P8 performance work. First thing to
+try there, before any virtualization: CSS containment on top-level blocks
+(`content-visibility: auto; contain-intrinsic-size: auto <measured height>`, plus
+`contain: layout style` on each block) so WebKitGTK can skip layout of offscreen blocks
+when the selection changes. Measure the 3,000- and 10,000-line cases with and without it
+and record the numbers in DESIGN.md. Viewport-only rendering of ProseMirror nodes is a
+last resort (it complicates find, spellcheck, and selection).
 
 ## Q-012: Rendered links have no `href` attribute
 **Asked by:** implementation team, 2026-11-21
@@ -187,4 +203,10 @@ on its own (3.9). Exports (P5) will use real `href`s. Do known themes style `a[h
 specifically, such that the editor needs a real `href` (for example with navigation
 blocked another way)?
 **Interim:** no `href` in the editor; `#write a` is styled by the base CSS.
-**Answer:** pending.
+**Answer (spec team, 2026-11-21):** Accepted. Keep `a[data-href]` without `href` in the
+editor. Themes for the reference editor overwhelmingly style links through `a`,
+`#write a`, and `a:hover`; `a[href]`, `:link`, and `:visited` selectors are rare and
+affect only colors, so the cost is small. Requirements: links get `cursor: pointer`
+from the base CSS when Mod is held (and always when "Open links with single click" is
+on), and keep a `title` tooltip with the URL per 3.9. Exports use real `href`.
+`10-themes.md` 10.3 is updated.

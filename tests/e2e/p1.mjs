@@ -313,3 +313,16 @@ test(`E-14 typing latency on a ${E14_LINES}-line document (p95 < 16 ms)`, async 
   spawnSync("node", [join(ROOT_DIR, "scripts/make-big-doc.mjs"), join(docs, "big.md"), String(E14_LINES)]);
   return join(docs, "big.md");
 });
+
+test("Q-012 links: URL title tooltip, pointer cursor while Mod is held", async (s) => {
+  await ready(s);
+  const title = await s.exec("return document.querySelector('#write a').title");
+  if (title !== "https://example.com/x") throw new Error(`title ${JSON.stringify(title)}`);
+  if (await s.exec("return document.querySelector('#write a').hasAttribute('href')")) throw new Error("a has href");
+  const cur = () => s.exec("return getComputedStyle(document.querySelector('#write a')).cursor");
+  if ((await cur()) === "pointer") throw new Error("pointer without Mod");
+  await s.cmd("POST", "/actions", { actions: [{ type: "key", id: "kbd", actions: [{ type: "keyDown", value: CTRL }] }] });
+  await waitFor(async () => (await cur()) === "pointer", "pointer cursor while Ctrl is down");
+  await s.cmd("POST", "/actions", { actions: [{ type: "key", id: "kbd", actions: [{ type: "keyUp", value: CTRL }] }] });
+  await waitFor(async () => (await cur()) !== "pointer", "text cursor after Ctrl is released");
+}, () => fixture("q012.md", "A [link](https://example.com/x) here.\n"));

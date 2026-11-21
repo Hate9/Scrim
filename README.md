@@ -17,8 +17,9 @@ atomic saves, encodings, single instance, and network policy are in place. See
   on Windows 11 and confirm the WebView2 settings in `src-tauri/src/hardening.rs` take
   effect.
 - **Typing latency on large documents (QA-LOG Q-011).** E-14 is reported, not
-  enforced, in the container (software rendering). Measure it on a real laptop with
-  `SCRIM_PERF_STRICT=1 scripts/e2e.sh` before P8.
+  enforced, in CI. The owner runs it on a real laptop before P8 with
+  `SCRIM_PERF_STRICT=1 scripts/e2e.sh`; large-document layout is P8 work (DESIGN.md,
+  "Performance status").
 - **Open time for large files.** Block parsing (micromark) needs a faster path for the
   1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
 - **Manual tests.** E-9 (IME with Japanese input) needs a person.

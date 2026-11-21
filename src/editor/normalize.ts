@@ -33,12 +33,21 @@ export function isStructural(tr: Transaction): boolean {
   return false;
 }
 
-export function freshAttrs(node: Node): Record<string, unknown> {
+/**
+ * Attributes for a node that becomes new. `split` marks the second copy of a node that
+ * ProseMirror split in two: an ordered list split around a lifted item (Q-009) then
+ * continues from the number its first item already has in the source.
+ */
+export function freshAttrs(node: Node, split = false): Record<string, unknown> {
   const attrs: Record<string, unknown> = { ...node.attrs, uid: freshUid() };
   if (node.isLeaf || node.isTextblock) Object.assign(attrs, NEW_LEAF);
   if (node.type.name === "list_item") attrs.marker = null;
   if (node.type.name === "heading") Object.assign(attrs, { open: null, openLevel: null, close: "", setext: null });
   if (node.type.name === "bullet_list" || node.type.name === "ordered_list") attrs.items = null;
+  if (split && node.type.name === "ordered_list") {
+    const n = parseInt(node.firstChild?.attrs.marker ?? "", 10);
+    if (!Number.isNaN(n)) attrs.start = n;
+  }
   return attrs;
 }
 
@@ -60,7 +69,7 @@ export function createNormalizePlugin(): Plugin {
         }
         return true;
       });
-      const renew: { pos: number; node: Node }[] = [...missing];
+      const renew: { pos: number; node: Node; split?: boolean }[] = [...missing];
       for (const list of byUid.values()) {
         if (list.length < 2) continue;
         let keep = 0;
@@ -69,12 +78,12 @@ export function createNormalizePlugin(): Plugin {
           if (other > 0) keep = other;
         }
         list.forEach((x, i) => {
-          if (i !== keep) renew.push(x);
+          if (i !== keep) renew.push({ ...x, split: true });
         });
       }
       if (!renew.length) return null;
       const tr = state.tr;
-      for (const { pos, node } of renew) tr.setNodeMarkup(pos, undefined, freshAttrs(node));
+      for (const { pos, node, split } of renew) tr.setNodeMarkup(pos, undefined, freshAttrs(node, split));
       return tr;
     },
   });

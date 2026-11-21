@@ -6,7 +6,10 @@
 // `auto_escape` mark. Automatic escapes that are no longer needed are removed again;
 // backslashes the user typed are never touched.
 //
-// SPEC-QUESTION Q-010: deferral for input-rule triggers.
+// QA-LOG Q-010: deferral for input-rule triggers. Deferred escapes are applied when the
+// cursor leaves and before every write or hand-off of the text (save, copy; from later
+// phases autosave, draft recovery, export, and source mode, all of which take the text
+// through `Editor.markdown()` or `flushEscapes`).
 // Enter-triggered input rules (```, ~~~, $$, ---, ***, ___, an HTML open tag) are
 // typed on a paragraph's only line and fire on Enter (3.3), so while the cursor is at
 // the end of such a paragraph its escape is deferred until the cursor leaves or the
@@ -143,18 +146,24 @@ export const SKIP_ESCAPES = "scrim-skip-escapes";
 
 export const escapeKey = new PluginKey<{ pending: number | null }>("scrim-escapes");
 
-/** Apply deferred escapes now (before saving). */
-export function flushEscapes(view: EditorView, opts: EscapeOptions) {
-  const tr = view.state.tr;
+/** Transaction applying all deferred escapes, or null if there are none. */
+export function flushEscapesTr(state: EditorState, opts: EscapeOptions): Transaction | null {
+  const tr = state.tr;
   let changed = false;
-  view.state.doc.descendants((node, pos) => {
+  state.doc.descendants((node, pos) => {
     if (node.type === schema.nodes.paragraph) {
-      if (fixParagraph(tr, tr.mapping.map(pos), opts, view.state, true)) changed = true;
+      if (fixParagraph(tr, tr.mapping.map(pos), opts, state, true)) changed = true;
       return false;
     }
     return !node.isTextblock;
   });
-  if (changed) view.dispatch(tr);
+  return changed ? tr : null;
+}
+
+/** Apply deferred escapes now, before the text leaves the editor (Q-010). */
+export function flushEscapes(view: EditorView, opts: EscapeOptions) {
+  const tr = flushEscapesTr(view.state, opts);
+  if (tr) view.dispatch(tr);
 }
 
 export function createEscapePlugin(opts: EscapeOptions): Plugin {

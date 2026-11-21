@@ -58,7 +58,10 @@ its literal Markdown inline source. Deviations and details:
   front matter, definitions, footnote definitions). They are editable as plain text.
 - **Ordered list numbering**: the list stores its item uids at load. While they are
   unchanged every marker is written as read; otherwise markers follow the detected
-  style (sequential, all-same, irregular) as in item 5.
+  style (sequential, all-same, irregular) as in item 5. When Backspace lifts a middle
+  item out (Q-009), ProseMirror splits the list; the second half keeps the marker and
+  numbering style and continues from the number its first item already has, so
+  `1. 2. 3. 4.` with item 2 lifted writes `1.`, then the paragraph, then `3. 4.`.
 
 ### Inline rendering and reveal (spec 03, 3.2)
 
@@ -79,8 +82,12 @@ its literal Markdown inline source. Deviations and details:
 - Decorations are recomputed only for textblocks a transaction touched, frozen during
   IME composition, and computed progressively at load (150 textblocks at once, the
   rest in background chunks).
-- Rendered links are `<a data-href>` without `href` (Q-012). The URL tooltip is drawn
-  in the page after 500 ms; the native `title` tooltip window could swallow clicks.
+- Rendered links are `<a data-href title="URL">` without `href` (Q-012); themes'
+  `a`, `a:hover`, and `#write a` rules apply, `:link`/`a[href]` only in exports. The
+  pointer cursor appears over links while Mod is held (body class `scrim-mod-held`) or
+  always with "Open links with single click" (`scrim-links-single-click`). An earlier
+  version set `title` on hover, which made the native tooltip window swallow the click
+  under Xvfb; a static `title` does not.
 - Local images: the frontend asks Rust to add the file to the `scrim-file` scope
   before setting `src` (otherwise the first request races the grant and gets 403).
 
@@ -95,7 +102,10 @@ its literal Markdown inline source. Deviations and details:
   by line; the first line that would start another block gets a backslash with the
   `auto_escape` mark (leading whitespace on the first line is removed instead).
   Automatic escapes that are no longer needed are removed; typed backslashes are
-  never touched. Deferred while an input rule may still fire (Q-010).
+  never touched. Deferred while an input rule may still fire (Q-010), and flushed
+  before every hand-off of the text: save and copy/cut now; autosave, draft recovery,
+  export, and source mode (later phases) must take the text through
+  `Editor.markdown()` or `flushEscapes`, which apply deferred escapes first.
 - Undo grouping: prosemirror-history with a 1 s delay, plus a group break after
   whitespace that follows a word (3.8).
 - Clipboard (`clipboard.ts`, 06 text paths): copy writes the Markdown source as
@@ -129,7 +139,24 @@ its literal Markdown inline source. Deviations and details:
   inline strings.
 - Typing: Scrim's own work per keystroke is about 2 ms on 10,000 lines (incremental
   decorations, heading ids, definitions; the "clean again" check runs after a 300 ms
-  pause). WebKitGTK's layout dominates under software rendering (Q-011).
+  pause). WebKitGTK's synchronous layout when the selection is set dominates under
+  software rendering. Q-011: E-14 reports in CI and is enforced with
+  `SCRIM_PERF_STRICT=1` when the owner runs it on a laptop before P8; large-document
+  layout is P8 work, trying CSS containment first and viewport-only rendering last.
+- Containment numbers from a quick P1 experiment (Xvfb, software rendering, E-14
+  setup, 200 keystrokes, p95 of keydown → end of view update), to compare against in
+  P8 on real hardware:
+
+  | Document | Base CSS | `content-visibility: auto` + `contain-intrinsic-size: auto 1.6em` on `#write > *` | `contain: layout style` on `#write > *` |
+  |---|---|---|---|
+  | 1,000 lines | 7 ms | not measured | not measured |
+  | 3,000 lines | 17 ms | not measured | not measured |
+  | 10,000 lines | 37–62 ms | 1,371 ms (median 410 ms) | about 290 ms per update (profiling loop, not E-14) |
+
+  Both containment variants were much slower here, probably because the estimated
+  intrinsic height (1.6em) is wrong for most blocks and WebKitGTK re-measures them as
+  the selection moves. Q-011 asks for a measured height; P8 should rerun these with
+  measured heights, on real hardware, for the 3,000- and 10,000-line cases.
 
 ## P0 decisions
 

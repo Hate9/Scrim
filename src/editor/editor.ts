@@ -116,6 +116,8 @@ export function createEditor(
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {
     if (v.state.selection.empty || !event.clipboardData) return false;
+    // The clipboard never receives an unescaped trigger (Q-010).
+    flushEscapes(v, options);
     const { text, html } = copyFlavors(v.state, options, copyPlain);
     copyPlain = false;
     event.clipboardData.setData("text/plain", text);
