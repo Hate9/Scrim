@@ -75,13 +75,19 @@ Implementation decisions and deviations from the spec's "recommended" designs
 - **CodeMirror 5 aliases** (`cmAliases` in `codeview.ts`): editor, scroller, content,
   lines, active line, cursor, selection, gutters; `cm-s-inner` in code blocks and
   `cm-s-scrim-default` in source mode (new rewrite-table row).
-- **Base stylesheet** (`src/styles.css`): the document-content base of 10.3 wrapped in
-  `:where()` with no colors, borders, or backgrounds; editing mechanics (marker reveal,
-  widgets, source editors, footnote numbering) keep normal specificity. Scroll past end
-  is `#write::after`, so a theme's `#write` padding cannot remove it. Links keep a text
-  cursor except while Mod is held (QA-LOG Q-012, which is more specific than the base
-  list's "cursor: pointer"). Scrim's look (colors, code tokens, borders) is in the
-  built-in themes only.
+- **Base stylesheet** (`src/styles.css`, QA-LOG Q-019): the document-content base of
+  10.3 with its selectors as listed, at their natural specificity and loaded before the
+  theme, because themes are tuned against those exact rules (for example
+  `blockquote > :last-child` beating a theme's plain `p` margins). It includes
+  CodeMirror 5's default token palette under `.cm-s-inner` and `#write` padding. Editing
+  mechanics (marker reveal, widgets, source editors, footnote numbering) follow it.
+  Scroll past end is `#write::after`, so a theme's `#write` padding cannot remove it.
+  Links keep a text cursor except while Mod is held or with single-click opening (Q-012,
+  confirmed in Q-019). Scrim's look (colors, code tokens, borders) is in the built-in
+  themes only.
+- **CodeMirror's injected styles** are wrapped in `@layer scrim-cm`
+  (`src/editor/cmlayer.ts` wraps each style-mod module's rules before CodeMirror first
+  mounts them), so unlayered theme CSS beats them at any specificity.
 
 ### Preferences (`src/app/preferences.ts`, `src/app/prefsections.ts`)
 

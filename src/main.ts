@@ -1,5 +1,6 @@
 // Frontend entry: one document per window.
 
+import "./editor/cmlayer"; // first: CodeMirror styles in @layer scrim-cm (10.3)
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
