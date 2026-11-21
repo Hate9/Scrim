@@ -66,3 +66,20 @@ describe("containers", () => {
     expect(edit("- [x] done\n- [ ] todo\n", "todo", "next")).toBe("- [x] done\n- [ ] next\n");
   });
 });
+
+import { posToSource, serializeWithMap, sourceToPos } from "./serialize";
+
+describe("source map", () => {
+  it("maps source offsets to document positions and back", () => {
+    const src = "# Title\n\n> quote **bold**\n\n```js\nlet x\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n";
+    const { doc } = parseMarkdown(src);
+    const { text, map } = serializeWithMap(doc);
+    expect(text).toBe(src);
+    for (const word of ["Title", "quote", "bold", "let x", "2"]) {
+      const off = src.indexOf(word);
+      const pos = sourceToPos(map, off)!;
+      expect(doc.textBetween(pos, pos + word.length)).toBe(word);
+      expect(posToSource(map, pos)).toBe(off);
+    }
+  });
+});

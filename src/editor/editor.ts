@@ -1,5 +1,6 @@
 // The live-preview editor: ProseMirror view over the Markdown document model.
 
+import { createFocusPlugin } from "./focus";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { closeHistory, history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
@@ -50,6 +51,27 @@ export interface Editor {
   run(cmd: Command): boolean;
   /** Copy the selection with the given text/plain flavor (Edit menu variants). */
   copyAs(kind: "markdown" | "plain"): void;
+  /**
+   * Replace the document with `text` as one undoable step (source mode, external
+   * reload). Unchanged top-level blocks keep their identity; the result serializes to
+   * exactly `text`. Returns the transaction's document.
+   */
+  applyText(text: string, addToHistory?: boolean): Node;
+  /** Number of source lines (status bar). */
+  markdownLines(): number;
+  /** Hook for other modules: called after every view update. */
+  onUpdate: ((view: EditorView) => void)[];
+}
+
+/** Same type and content (attributes such as uids may differ). */
+function sameBlock(a: Node, b: Node): boolean {
+  return a.type === b.type && a.content.eq(b.content) && sameAttrs(a, b);
+}
+function sameAttrs(a: Node, b: Node): boolean {
+  for (const k of ["level", "info", "task", "align", "kind", "label", "text", "marker"]) {
+    if (k in a.attrs && JSON.stringify(a.attrs[k]) !== JSON.stringify(b.attrs[k])) return false;
+  }
+  return true;
 }
 
 /** Test hook (E-14): when set, the time of every document update is recorded. */
@@ -89,6 +111,7 @@ export function createEditor(
   let dirty = false;
   let cleanCheck = 0;
   const groups = typingGroups();
+  const updateHooks: ((view: EditorView) => void)[] = [];
   /** Set by Mod+Shift+V keydown; the paste event that follows inserts literally. */
   let plainPaste = false;
   /** Set by Copy as Plain Text; the copy event that follows writes rendered text. */
@@ -135,6 +158,7 @@ export function createEditor(
     }),
     createBlocksPlugin({ onFrontMatter: hooks.onFrontMatter, numberFootnotes: () => options.numberFootnotes }),
     createCodeSelectionPlugin(),
+    createFocusPlugin(),
   ];
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {
@@ -176,6 +200,7 @@ export function createEditor(
       dispatchTransaction(tr: Transaction) {
         const state = view.state.apply(tr);
         view.updateState(state);
+        for (const f of updateHooks) f(view);
         if (tr.docChanged && perfLog) perfLog.push(performance.now());
         if (tr.docChanged) {
           // Comparing whole documents is O(n): mark dirty at once, and check for a
@@ -250,6 +275,39 @@ export function createEditor(
     },
     run(cmd: Command) {
       return cmd(view.state, view.dispatch, view);
+    },
+    onUpdate: updateHooks,
+    markdownLines() {
+      return serialize(view.state.doc, { prettyTables: options.prettyTables }).split(/\r\n?|\n/).length;
+    },
+    applyText(text: string, addToHistory = true) {
+      const state = view.state;
+      const { doc: next } = parseMarkdown(text, { inlineMath: options.inlineMath }, state.doc.attrs.eol);
+      const old = state.doc;
+      let a = 0;
+      while (a < old.childCount && a < next.childCount && sameBlock(old.child(a), next.child(a))) a++;
+      let b = 0;
+      while (b < old.childCount - a && b < next.childCount - a && sameBlock(old.child(old.childCount - 1 - b), next.child(next.childCount - 1 - b))) b++;
+      const posOf = (d: Node, i: number) => {
+        let p = 0;
+        for (let k = 0; k < i; k++) p += d.child(k).nodeSize;
+        return p;
+      };
+      let tr = state.tr;
+      const from = posOf(old, a);
+      const to = posOf(old, old.childCount - b);
+      const nFrom = posOf(next, a);
+      const nTo = posOf(next, next.childCount - b);
+      tr.replaceWith(from, to, next.slice(nFrom, nTo).content);
+      for (const k of Object.keys(next.attrs)) tr.setDocAttribute(k, next.attrs[k]);
+      if (serialize(tr.doc, { prettyTables: options.prettyTables }) !== text) {
+        // Kept blocks' separators no longer line up: replace everything (exact bytes win).
+        tr = state.tr.replaceWith(0, old.content.size, next.content);
+        for (const k of Object.keys(next.attrs)) tr.setDocAttribute(k, next.attrs[k]);
+      }
+      if (!addToHistory) tr.setMeta("addToHistory", false);
+      view.dispatch(tr);
+      return view.state.doc;
     },
     copyAs(kind) {
       copyPlain = kind === "plain";

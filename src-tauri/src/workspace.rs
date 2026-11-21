@@ -220,22 +220,24 @@ fn not_exists(p: &Path) -> Result<(), String> {
 /// After a file or folder moved on disk, point open documents at the new place.
 fn follow_move(app: &AppHandle, from: &Path, to: &Path) {
     let state = app.state::<AppState>();
-    let labels: Vec<String> = {
+    let moved: Vec<(String, PathBuf)> = {
         let mut docs = state.docs();
         let mut changed = vec![];
         for (label, d) in docs.iter_mut() {
             if let Some(p) = &d.path {
                 if let Ok(rest) = p.strip_prefix(from) {
-                    d.path = Some(if rest.as_os_str().is_empty() { to.to_path_buf() } else { to.join(rest) });
-                    changed.push(label.clone());
+                    let np = if rest.as_os_str().is_empty() { to.to_path_buf() } else { to.join(rest) };
+                    d.path = Some(np.clone());
+                    changed.push((label.clone(), np));
                 }
             }
         }
         changed
     };
-    for l in labels {
+    for (l, np) in moved {
         crate::windows::update_title(app, &l);
-        let _ = app.emit_to(&l, "scrim://doc-moved", ());
+        watch_file(app, &l, &np);
+        let _ = app.emit_to(&l, "scrim://doc-moved", np.to_string_lossy().to_string());
     }
 }
 
@@ -858,4 +860,44 @@ mod tests {
         let names: Vec<String> = list_dir_sync(dir.path(), &ListOptions::default()).unwrap().into_iter().map(|e| e.name).collect();
         assert_eq!(names, vec!["zdir", "file2.md", "file10.md", "notes.txt"]);
     }
+}
+
+#[tauri::command]
+pub async fn fs_read_text(path: String) -> Result<String, String> {
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(scrim_core::encoding::decode(&bytes).text)
+}
+
+/// Copy a file, creating the destination folder (Save As → "Copy images", D-7).
+#[tauri::command]
+pub async fn fs_copy(from: String, to: String) -> Result<(), String> {
+    if let Some(dir) = Path::new(&to).parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::copy(&from, &to).map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Open a recovered draft in a new window: the draft's text, bound to its file if it
+/// had one, marked unsaved (7.6).
+#[tauri::command]
+pub async fn recovery_open(window: WebviewWindow, state: State<'_, AppState>, id: String) -> Result<(), String> {
+    if id.contains(['/', '\\']) {
+        return Err("bad id".into());
+    }
+    let app = window.app_handle().clone();
+    let app2 = app.clone();
+    let id2 = id.clone();
+    let _ = state;
+    app.run_on_main_thread(move || {
+        let st = app2.state::<AppState>();
+        match crate::windows::open_untitled(&app2) {
+            Ok(w) => {
+                if let Some(d) = st.docs().get_mut(w.label()) {
+                    d.recover_id = Some(id2);
+                }
+            }
+            Err(e) => st.logger.error(&format!("cannot open window: {e}")),
+        }
+    })
+    .map_err(|e| e.to_string())
 }

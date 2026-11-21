@@ -12,6 +12,8 @@ import { CONTAINER_TYPES, tableRows } from "./schema";
 
 export interface LeafEntry {
   node: Node;
+  /** document position before the leaf */
+  pos: number;
   /** container ancestors, outermost first */
   chain: Node[];
   /** per chain entry: this leaf is the first leaf inside that container */
@@ -35,21 +37,22 @@ function entrySig(e: LeafEntry): string {
 export function collectLeaves(doc: Node): LeafEntry[] {
   const out: LeafEntry[] = [];
   const seen = new Set<Node>();
-  const walk = (node: Node, chain: Node[]) => {
-    node.forEach((child) => {
+  const walk = (node: Node, chain: Node[], base: number) => {
+    node.forEach((child, offset) => {
+      const pos = base + offset;
       if (CONTAINER_TYPES.has(child.type.name)) {
-        walk(child, [...chain, child]);
+        walk(child, [...chain, child], pos + 1);
       } else {
         const first = chain.map((c) => {
           if (seen.has(c)) return false;
           return true;
         });
         for (const c of chain) seen.add(c);
-        out.push({ node: child, chain, first });
+        out.push({ node: child, chain, first, pos });
       }
     });
   };
-  walk(doc, []);
+  walk(doc, [], 0);
   return out;
 }
 
@@ -115,9 +118,29 @@ export function textWidth(s: string): number {
   return w;
 }
 
+/** A run of characters that is identical in the source and in the document: source
+ * offsets [src, src + len) correspond to document positions [pm, pm + len). */
+export interface MapSegment {
+  src: number;
+  pm: number;
+  len: number;
+}
+
+/** Text runs of a leaf in document order: [document position, text]. */
+function leafRuns(e: LeafEntry): [number, string][] {
+  const runs: [number, string][] = [];
+  e.node.descendants((n, p) => {
+    if (n.isText) runs.push([e.pos + 1 + p, n.text!]);
+    return true;
+  });
+  return runs;
+}
+
 export class Serializer {
   readonly eol: string;
   readonly markers: Map<Node, string>;
+  /** Filled by `serialize()` when mapping was requested. */
+  map: MapSegment[] | null = null;
 
   constructor(readonly doc: Node, readonly opts: SerializeOptions = {}) {
     this.eol = doc.attrs.eol;
@@ -228,6 +251,23 @@ export class Serializer {
       }
       default:
         return this.inline(e, ok);
+    }
+  }
+
+  /** Record where the leaf's text runs landed inside `piece` (written at `base`). */
+  private mapLeaf(e: LeafEntry, piece: string, base: number, leadLen: number) {
+    let cursor = leadLen;
+    const t = e.node.type.name;
+    // Skip the opening fence line of fenced blocks: its info string is not content.
+    if ((t === "code_block" || t === "math_block" || t === "front_matter") && e.node.attrs.open !== null) {
+      const nl = piece.slice(cursor).search(/\r\n?|\n/);
+      cursor = nl < 0 ? piece.length : cursor + nl + 1;
+    }
+    for (const [pm, text] of leafRuns(e)) {
+      const i = piece.indexOf(text, cursor);
+      if (i < 0) continue;
+      this.map!.push({ src: base + i, pm, len: text.length });
+      cursor = i + text.length;
     }
   }
 
@@ -404,7 +444,9 @@ export class Serializer {
       out += sepOk ? a.sep : this.canonicalSep(prev, e);
       let lead = this.lead(e, ok);
       if (isEmptyParagraph(e.node) && !ok) lead = lead.trimEnd();
-      out += lead + this.body(e, ok);
+      const piece = lead + this.body(e, ok);
+      if (this.map) this.mapLeaf(e, piece, out.length, lead.length);
+      out += piece;
       prev = e;
       prevOk = ok;
       if (e.node.attrs.sig !== null) lastOriginal = e;
@@ -418,4 +460,42 @@ export class Serializer {
 
 export function serialize(doc: Node, opts: SerializeOptions = {}): string {
   return new Serializer(doc, opts).serialize();
+}
+
+/** Serialize and map source offsets to document positions (find, source mode, reload). */
+export function serializeWithMap(doc: Node, opts: SerializeOptions = {}): { text: string; map: MapSegment[] } {
+  const s = new Serializer(doc, opts);
+  s.map = [];
+  const text = s.serialize();
+  return { text, map: s.map };
+}
+
+/** Document position for a source offset (the next mapped character if it falls on
+ * syntax that has no counterpart in the document). */
+export function sourceToPos(map: MapSegment[], offset: number): number | null {
+  let lo = 0;
+  let hi = map.length - 1;
+  let best: MapSegment | null = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (map[mid].src <= offset) {
+      best = map[mid];
+      lo = mid + 1;
+    } else hi = mid - 1;
+  }
+  if (best && offset <= best.src + best.len) return best.pm + (offset - best.src);
+  const next = map[lo];
+  if (next) return next.pm;
+  return best ? best.pm + best.len : null;
+}
+
+/** Source offset for a document position (the nearest mapped character). */
+export function posToSource(map: MapSegment[], pos: number): number {
+  let best: MapSegment | null = null;
+  for (const m of map) {
+    if (m.pm <= pos) best = m;
+    else break;
+  }
+  if (!best) return map[0]?.src ?? 0;
+  return best.src + Math.min(pos - best.pm, best.len);
 }

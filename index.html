@@ -5,12 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Scrim</title>
     <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/chrome.css" />
   </head>
   <body class="scrim">
     <header></header>
-    <div id="notice" class="scrim-notice" role="status" hidden>
-      <span id="notice-text"></span>
-      <button id="notice-close" type="button" aria-label="Dismiss">×</button>
+    <div id="scrim-sidebar" hidden></div>
+    <div id="scrim-topbars">
+      <div id="notice" class="scrim-notice" role="status" hidden>
+        <span id="notice-text"></span>
+        <span id="notice-buttons"></span>
+        <button id="notice-close" type="button" aria-label="Dismiss">×</button>
+      </div>
+      <div id="scrim-findbar" hidden></div>
     </div>
     <content>
       <div id="write"></div>

@@ -37,6 +37,8 @@ pub struct DocState {
     pub folder: Option<PathBuf>,
     /// Id of this document's draft in the recovery store (7.6).
     pub draft_id: Option<String>,
+    /// A recovered draft to load into this (new) window.
+    pub recover_id: Option<String>,
 }
 
 pub struct AppState {

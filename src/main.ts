@@ -5,9 +5,30 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { insertFiles } from "./editor/images";
+import * as mapModule from "./md/serialize";
 import { hideDropLine, showDropLine, textPosAt } from "./editor/dnd";
 import { listen } from "@tauri-apps/api/event";
 import { rerenderHtmlBlocks } from "./editor/codeview";
+import { TextSelection } from "prosemirror-state";
+import { FindBar } from "./app/findbar";
+import { QuickOpen } from "./app/quickopen";
+import { Sidebar } from "./app/sidebar";
+import { SourceMode } from "./app/sourcemode";
+import { StatusBar } from "./app/statusbar";
+import {
+  fixImagesAfterSaveAs,
+  offerRecovery,
+  recoveryDialog,
+  setupTypewriter,
+  startAutosaveAndRecovery,
+  toggleAlwaysOnTop,
+  toggleFocusMode,
+  toggleFullscreen,
+  toggleTypewriter,
+  watchExternalChanges,
+  zoom,
+} from "./app/workspace";
+import type { CommandDef } from "./editor/keys";
 import { createCommands } from "./app/commands";
 import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
@@ -33,9 +54,30 @@ const state = {
   imageFolder: null as string | null,
 };
 
-function showNotice(text: string | null) {
+/** The bar at the top of the editor area, optionally with buttons. */
+function showNotice(text: string | null, buttons: [string, () => void][] = []) {
   notice.hidden = !text;
   noticeText.textContent = text ?? "";
+  const box = document.getElementById("notice-buttons")!;
+  box.textContent = "";
+  for (const [label, run] of buttons) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "scrim-notice-button";
+    b.textContent = label;
+    b.addEventListener("click", run);
+    box.appendChild(b);
+  }
+}
+
+/** Preferences as last read; `setSetting` writes through to settings.json. */
+let settings: Record<string, unknown> = {};
+function setting<T>(key: string, fallback: T): T {
+  return (key in settings ? (settings[key] as T) : fallback) ?? fallback;
+}
+function setSetting(key: string, value: unknown) {
+  settings = { ...settings, [key]: value };
+  void ipc.setSetting(key, value);
 }
 document.getElementById("notice-close")!.addEventListener("click", () => showNotice(null));
 
@@ -165,7 +207,8 @@ async function openLink(href: string, newWindow: boolean) {
 }
 
 /** Editor options from settings.json (spec 11; P4 adds the preferences window). */
-function applySettings(settings: Record<string, unknown>) {
+function applySettings(next: Record<string, unknown>) {
+  settings = next;
   const o = editor.options;
   const bool = (key: string, fallback: boolean) => (typeof settings[key] === "boolean" ? (settings[key] as boolean) : fallback);
   o.inlineMath = bool("inlineMath", false);
@@ -183,6 +226,8 @@ function applySettings(settings: Record<string, unknown>) {
   o.prettyTables = bool("prettyPrintTables", true);
   o.numberFootnotes = bool("numberFootnotes", true);
   document.body.classList.toggle("md-soft-breaks", !o.preserveLineBreaks);
+  if (typeof statusBar !== "undefined") statusBar.syncButtons();
+  sourceMode?.setLineNumbers(setting("sourceLineNumbers", false));
 }
 
 async function init() {
@@ -199,6 +244,27 @@ async function init() {
     const { jumpToAnchor } = await import("./editor/links");
     jumpToAnchor(editor.view, pendingAnchor);
     pendingAnchor = null;
+  }
+  if (pendingSelect) {
+    selectSourceRange(pendingSelect);
+    pendingSelect = null;
+  }
+  sidebar.setFolder(d.folder);
+  if (d.recovered) document.title = await ipc.setDirty(true);
+  const z = setting("zoom", 1);
+  if (z !== 1) void getCurrentWebview().setZoom(z);
+  if (appWindow.label === "doc-1" && !recoveryOffered) {
+    recoveryOffered = true;
+    void offerRecovery(wsHooks, (drafts) => recoveryDialog(drafts, (draft) => void ipc.recoveryOpen(draft.id)));
+  }
+  // Large files open in source mode (01, performance budgets).
+  if (d.text.length > 5 * 1024 * 1024) {
+    sourceMode.enter();
+    showNotice("This file is large, so it opened in source code mode.", [["Switch to Live Preview", () => {
+      showNotice(null);
+      sourceMode.leave();
+    }]]);
+    return;
   }
   if (d.error) showNotice(d.error);
   else if (d.malformed) showNotice(`Some bytes in this file are not valid ${d.encoding.name} and are shown as �.`);
@@ -245,6 +311,8 @@ async function insertImageDialog() {
 async function save(saveAs = false): Promise<boolean> {
   if (state.saving) return false;
   state.saving = true;
+  sourceMode.sync();
+  const oldDir = state.path ? dirname(state.path) : null;
   try {
     const savedDoc = editor.view.state.doc;
     const text = editor.markdown();
@@ -262,8 +330,16 @@ async function save(saveAs = false): Promise<boolean> {
             state.saving = false;
             return save(false);
           }
+          if (saveAs && oldDir && oldDir !== dirname(r.path)) {
+            const changed = await fixImagesAfterSaveAs(editor, oldDir, dirname(r.path), askImagePaths);
+            if (changed) {
+              state.saving = false;
+              return save(false);
+            }
+          }
           if (editor.view.state.doc === savedDoc) editor.markSaved();
           document.title = await ipc.setDirty(editor.isDirty());
+          void ipc.recoveryRemove(false);
           return true;
         }
         case "cancelled":
@@ -354,12 +430,187 @@ void getCurrentWebview().onDragDropEvent((event) => {
   void insertFiles(editor.view, p.paths, imageHooks, "drop", at ?? undefined);
 });
 
-const commandList = createCommands(editor, { save, isWindows, askTableSize, insertImage: insertImageDialog });
-const dispatcher = new Dispatcher(
-  commandList,
-  () => editor.view.hasFocus(),
+// ---- workspace (P3) ---------------------------------------------------------------------
+
+let pendingSelect: { line: number; start: number; length: number } | null = null;
+let recoveryOffered = false;
+
+/** Select a source range given as line (1-based), column and length (search results). */
+function selectSourceRange(sel: { line: number; start: number; length: number }) {
+  const view = editor.view;
+  const { serializeWithMap, sourceToPos } = mapModule;
+  const { text, map } = serializeWithMap(view.state.doc, { prettyTables: editor.options.prettyTables });
+  let offset = 0;
+  for (let l = 1; l < sel.line; l++) {
+    const nl = text.slice(offset).search(/\r\n?|\n/);
+    if (nl < 0) break;
+    offset += nl + (text.slice(offset + nl, offset + nl + 2) === "\r\n" ? 2 : 1);
+  }
+  const a = sourceToPos(map, offset + sel.start);
+  const b = sourceToPos(map, offset + sel.start + sel.length);
+  if (a === null || b === null) return;
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, a, b)).scrollIntoView());
+  view.focus();
+}
+
+/** Open a file from the sidebar, quick open, or search results (7.4, 7.5, 7.7). */
+async function openFile(path: string, newWindow: boolean, select?: { line: number; start: number; length: number }) {
+  if (!newWindow && path === state.path) {
+    if (select) selectSourceRange(select);
+    return;
+  }
+  if (!newWindow && editor.isDirty()) {
+    if (setting("autoSave", false) && state.path) {
+      if (!(await save(false))) return;
+    } else {
+      const choice = await message(`Do you want to save the changes you made to ${state.fileName ?? "Untitled"}?`, {
+        title: "Scrim",
+        kind: "warning",
+        buttons: { yes: "Save", no: "Don't Save", cancel: "Cancel" },
+      });
+      if (choice === "Cancel") return;
+      if ((choice === "Save" || choice === "Yes") && !(await save(false))) return;
+    }
+  }
+  if (!newWindow) pendingSelect = select ?? null;
+  await ipc.openPath(path, newWindow ? "new" : "current");
+}
+
+function askImagePaths(): Promise<"update" | "copy" | "leave"> {
+  return message("This document refers to images by relative paths, and it was saved to another folder.", {
+    title: "Save As",
+    kind: "info",
+    buttons: { yes: "Update image paths", no: "Copy images", cancel: "Leave as is" },
+  }).then((c) => (c === "Update image paths" || c === "Yes" ? "update" : c === "Copy images" || c === "No" ? "copy" : "leave"));
+}
+
+const sourceMode = new SourceMode(
+  editor,
+  () => {
+    if (!editor.isDirty()) void ipc.setDirty(true).then((t) => (document.title = t));
+  },
+  () => setting("sourceLineNumbers", false),
 );
+const findBar = new FindBar(editor, sourceMode, (m) => showNotice(m));
+const sidebar = new Sidebar(editor, {
+  openFile: (p, nw, sel) => void openFile(p, nw, sel),
+  confirm: (m) => message(m, { title: "Scrim", kind: "warning", buttons: "OkCancel" }).then((c) => c === "Ok"),
+  notify: (m) => showNotice(m),
+  currentPath: () => state.path,
+  setSetting,
+  setting,
+});
+const quickOpen = new QuickOpen(
+  () => sidebar.folder,
+  (p, nw, folder) => (folder ? void ipc.folderOpen(p) : void openFile(p, nw)),
+);
+const statusBar = new StatusBar(editor, {
+  toggleSidebar: () => {
+    sidebar.toggle();
+    statusBar.syncButtons();
+  },
+  toggleSource: () => sourceMode.toggle(),
+  sidebarOpen: () => sidebar.visible,
+  setting,
+  setSetting,
+  sourceText: () => (sourceMode.active() ? editor.markdown() : null),
+});
+editor.onUpdate.push(() => {
+  sidebar.updateOutline();
+  if (findBar.isOpen) findBar.update();
+});
+const wsHooks = {
+  isDirty: () => editor.isDirty(),
+  path: () => state.path,
+  save: () => save(false),
+  notice: showNotice,
+  setting,
+  title: () => state.fileName ?? "Untitled",
+  markSaved: () => editor.markSaved(),
+  draftText: () => {
+    sourceMode.sync();
+    return editor.markdown();
+  },
+  close: () => void appWindow.destroy(),
+};
+watchExternalChanges(editor, wsHooks);
+const drafts = startAutosaveAndRecovery(editor, wsHooks);
+setupTypewriter(editor);
+void listen<string>("scrim://folder-opened", (e) => sidebar.setFolder(e.payload));
+void appWindow.listen<string>("scrim://doc-moved", async (e) => {
+  state.path = e.payload;
+  state.fileName = e.payload.split(/[\\/]/).pop() ?? null;
+  editor.options.docDir = dirname(e.payload);
+  document.title = await ipc.setDirty(editor.isDirty());
+  void sidebar.refreshFiles();
+});
+let zoomLevel = 1;
+
+const global = (id: string, key: string, run: () => unknown): CommandDef => ({ id, key, scope: "global", run: () => void run() });
+const workspaceCommands: CommandDef[] = [
+  global("view.sidebar", "Ctrl+Shift+L", () => {
+    sidebar.toggle();
+    statusBar.syncButtons();
+  }),
+  global("view.outline", "Ctrl+Shift+1", () => {
+    sidebar.toggle(true);
+    sidebar.show("outline");
+    statusBar.syncButtons();
+  }),
+  global("view.fileList", "Ctrl+Shift+2", () => sidebar.showFiles(true)),
+  global("view.fileTree", "Ctrl+Shift+3", () => sidebar.showFiles(false)),
+  global("file.quickOpen", "Ctrl+P", () => quickOpen.show()),
+  global("file.openFolder", "", () => sidebar.openFolderDialog()),
+  global("edit.searchInFolder", "Ctrl+Shift+F", () => sidebar.startSearch()),
+  global("edit.find", "Ctrl+F", () => findBar.open(false)),
+  global("edit.replace", "Ctrl+H", () => findBar.open(true)),
+  global("edit.findNext", "F3", () => (findBar.isOpen ? findBar.step(1) : findBar.again(1))),
+  global("edit.findPrevious", "Shift+F3", () => (findBar.isOpen ? findBar.step(-1) : findBar.again(-1))),
+  global("edit.findNextClosed", "Ctrl+G", () => findBar.again(1)),
+  global("edit.findPreviousClosed", "Ctrl+Shift+G", () => findBar.again(-1)),
+  global("view.sourceMode", "Ctrl+/", () => sourceMode.toggle()),
+  global("view.focusMode", "F8", () => toggleFocusMode(editor)),
+  global("view.typewriterMode", "F9", toggleTypewriter),
+  global("view.zoomIn", "Ctrl+Shift+=", async () => (zoomLevel = await zoom(0.1, setSetting, zoomLevel))),
+  global("view.zoomOut", "Ctrl+Shift+-", async () => (zoomLevel = await zoom(-0.1, setSetting, zoomLevel))),
+  global("view.actualSize", "Ctrl+Shift+0", async () => (zoomLevel = await zoom(null, setSetting, zoomLevel))),
+  global("view.fullScreen", "F11", toggleFullscreen),
+  global("view.alwaysOnTop", "", () => {
+    const on = !document.body.classList.contains("scrim-always-on-top");
+    document.body.classList.toggle("scrim-always-on-top", on);
+    return toggleAlwaysOnTop(on);
+  }),
+  global("view.statusBar", "", () => {
+    setSetting("showStatusBar", !setting("showStatusBar", true));
+    statusBar.syncButtons();
+  }),
+  global("file.rename", "F2", () => sidebar.renameCurrent()),
+  global("file.revealInFolder", "", () => state.path && ipc.fsReveal(state.path)),
+  global("file.moveTo", "", async () => {
+    const dir = await ipc.folderDialog();
+    if (dir && state.path) await ipc.fsMove(state.path, dir).catch((e) => showNotice(String(e)));
+  }),
+  global("file.delete", "", async () => {
+    if (!state.path) return;
+    const ok = await message(`Move "${state.fileName}" to the trash?`, { title: "Scrim", kind: "warning", buttons: "OkCancel" });
+    if (ok === "Ok") await ipc.fsTrash(state.path).catch((e) => showNotice(String(e)));
+  }),
+  global("file.recoverDrafts", "", async () => {
+    const list = await ipc.recoveryList();
+    if (!list.length) showNotice("There are no unsaved drafts to recover.");
+    else recoveryDialog(list, (d) => void ipc.recoveryOpen(d.id));
+  }),
+  global("file.clearRecent", "", () => ipc.recentClear()),
+];
+const commandList = [
+  ...createCommands(editor, { save, isWindows, askTableSize, insertImage: insertImageDialog }),
+  ...workspaceCommands,
+];
+const dispatcher = new Dispatcher(commandList, () => editor.view.hasFocus() || sourceMode.hasFocus());
 dispatcher.attach(window);
+window.addEventListener("keydown", (e) => {
+  if (sidebar.outlineKey(e)) e.preventDefault();
+});
 
 // Unsaved changes: Save / Don't Save / Cancel (spec 07, 7.1).
 void appWindow.onCloseRequested(async (event) => {
@@ -374,6 +625,7 @@ void appWindow.onCloseRequested(async (event) => {
   if (choice === "Save" || choice === "Yes") {
     if (await save(false)) await appWindow.destroy();
   } else if (choice === "Don't Save" || choice === "No") {
+    await ipc.recoveryRemove(true); // kept 7 days in recovery/discarded (7.6)
     await appWindow.destroy();
   }
 });
@@ -394,6 +646,12 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   /** Run a command by id (menus arrive in P4). */
   command: (id: string) => commandList.find((c) => c.id === id)?.run(),
   setSetting: (key: string, value: unknown) => ipc.setSetting(key, value),
+  sidebar,
+  findBar,
+  quickOpen,
+  sourceMode,
+  statusBar,
+  writeDraft: () => drafts.writeDraft(),
 };
 
 void appWindow.listen("scrim://doc-reload", () => void init());

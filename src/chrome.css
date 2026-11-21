@@ -1,0 +1,648 @@
+/* App chrome (spec 07, 14, 15, 22.1): sidebar, find bar, quick open, status bar, dialogs.
+   Uses only the theme custom properties listed in 10-themes.md, with 22-visual-design.md
+   defaults when a theme leaves them unset. */
+
+:root {
+  --sidebar-width: 240px;
+  --side-bar-bg-color: var(--bg-color);
+  --active-file-bg-color: #e4e4e4;
+  --active-file-text-color: inherit;
+  --active-file-border-color: var(--primary-color);
+  --item-hover-bg-color: rgba(0, 0, 0, 0.05);
+  --item-hover-text-color: inherit;
+  --control-text-color: #777777;
+  --control-text-hover-color: var(--text-color);
+  --window-border: 1px solid #dddddd;
+  --panel-border-color: #dddddd;
+  --search-hit-bg-color: rgba(255, 220, 0, 0.5);
+  --search-select-bg-color: rgba(255, 150, 0, 0.75);
+  --search-select-text-color: inherit;
+  --color-popover-bg-color: #fafafa;
+  --focus-ring-color: #6eace2;
+  --blur-text-color: #c8c8c8;
+  --drag-placeholder-color: var(--primary-color);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --active-file-bg-color: #33363b;
+    --item-hover-bg-color: rgba(255, 255, 255, 0.06);
+    --window-border: 1px solid #3a3d42;
+    --panel-border-color: #3a3d42;
+    --color-popover-bg-color: #2a2c30;
+    --blur-text-color: #55585e;
+    --control-text-color: #9a9da3;
+  }
+}
+
+/* ---- layout: sidebar spans the window height; everything else sits to its right ---- */
+body.scrim {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+body.scrim > header {
+  grid-column: 2;
+  grid-row: 1;
+}
+body.scrim > #scrim-sidebar {
+  grid-column: 1;
+  grid-row: 1 / 5;
+}
+body.scrim > #scrim-topbars {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  z-index: 5;
+}
+body.scrim > content {
+  grid-column: 2;
+  grid-row: 3;
+  position: relative;
+}
+body.scrim > footer {
+  grid-column: 2;
+  grid-row: 4;
+}
+[hidden] {
+  display: none !important;
+}
+
+/* ---- sidebar (7.4, 22.1) ----------------------------------------------------------- */
+#scrim-sidebar {
+  width: var(--sidebar-width);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--side-bar-bg-color);
+  border-right: 1px dashed var(--text-color);
+  font-size: 14px;
+  box-sizing: border-box;
+  user-select: none;
+}
+.sidebar-tabs {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 4px;
+  height: 58px;
+  flex: none;
+  position: relative;
+}
+.info-panel-tab {
+  width: 84px;
+  text-align: center;
+  padding-bottom: 11px;
+  border-bottom: 4px solid transparent;
+  cursor: pointer;
+}
+.info-panel-tab.active {
+  font-weight: bold;
+  border-bottom-color: var(--text-color);
+}
+.scrim-sidebar-tab-button {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  border: 0;
+  background: none;
+  color: var(--control-text-color);
+  cursor: pointer;
+  font-size: 13px;
+}
+.scrim-sidebar-tab-button:hover {
+  color: var(--control-text-hover-color);
+}
+#file-library,
+#outline-content,
+.scrim-search-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.file-tree-node {
+  display: flex;
+  align-items: center;
+  height: 25px;
+  padding-right: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+.file-tree-node:hover,
+.file-list-item:hover,
+.outline-item:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color);
+}
+.file-tree-node.active,
+.file-list-item.active {
+  background: var(--active-file-bg-color);
+  color: var(--active-file-text-color);
+  border-left-color: var(--active-file-border-color);
+}
+.file-tree-arrow {
+  width: 14px;
+  flex: none;
+  color: var(--control-text-color);
+  font-size: 11px;
+}
+.file-node-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scrim-inline-rename {
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 3px;
+  border: 1px solid var(--focus-ring-color);
+  background: var(--bg-color);
+  color: var(--text-color);
+  outline: none;
+}
+.file-list-item {
+  padding: 8px 12px 8px 15px;
+  border-bottom: 1px solid var(--panel-border-color);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.file-list-item-title {
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-list-item-time {
+  font-size: 11px;
+  color: var(--meta-content-color);
+}
+.file-list-item-summary {
+  font-size: 12px;
+  color: var(--meta-content-color);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+.scrim-sidebar-empty,
+.scrim-sidebar-error {
+  padding: 12px 18px;
+  color: var(--meta-content-color);
+}
+.scrim-sidebar-empty button {
+  margin-top: 8px;
+}
+.scrim-sidebar-bottom {
+  height: 30px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-top: var(--window-border);
+  font-size: 12px;
+}
+.scrim-sidebar-add,
+.scrim-sidebar-menu {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--primary-color);
+  padding: 0 4px;
+}
+.scrim-sidebar-menu {
+  color: var(--control-text-color);
+}
+.scrim-sidebar-folder {
+  margin-left: auto;
+  color: var(--meta-content-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scrim-sidebar-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+/* Outline: 14 px rows, 25 px pitch, 14 px indent per level; active heading bold. */
+.outline-item {
+  display: flex;
+  align-items: center;
+  height: 25px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+.outline-item-active {
+  font-weight: bold;
+}
+.outline-expander {
+  width: 14px;
+  flex: none;
+  font-size: 10px;
+  color: var(--control-text-color);
+  text-align: center;
+}
+.outline-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scrim-outline-filter,
+.scrim-search-input {
+  display: block;
+  margin: 0 12px 6px;
+  width: calc(100% - 24px);
+  box-sizing: border-box;
+  height: 26px;
+  font: 12px system-ui, sans-serif;
+  padding: 0 6px;
+  border: 1px solid #cccccc;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+.scrim-outline-drop {
+  height: 0;
+  border-top: 2px solid var(--drag-placeholder-color);
+  margin: -1px 0;
+  pointer-events: none;
+}
+
+/* Search tab (7.7). */
+.scrim-search-options {
+  display: flex;
+  gap: 4px;
+  margin: 0 12px 6px;
+}
+.scrim-search-toggle,
+.scrim-find-toggle {
+  border: 1px solid transparent;
+  background: none;
+  color: var(--control-text-color);
+  border-radius: 3px;
+  font: 12px var(--monospace);
+  min-width: 24px;
+  height: 22px;
+  cursor: pointer;
+}
+.scrim-search-toggle.active,
+.scrim-find-toggle.active {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+.scrim-search-status {
+  margin: 0 12px 6px;
+  font-size: 12px;
+  color: var(--meta-content-color);
+}
+.scrim-search-file {
+  margin-bottom: 4px;
+}
+.scrim-search-file-name {
+  display: flex;
+  padding: 2px 12px;
+  font-weight: bold;
+  font-size: 13px;
+}
+.scrim-search-count {
+  margin-left: auto;
+  font-weight: normal;
+  color: var(--meta-content-color);
+}
+.scrim-search-line {
+  padding: 2px 12px 2px 24px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.scrim-search-line:hover {
+  background: var(--item-hover-bg-color);
+}
+.scrim-search-line mark {
+  background: var(--search-hit-bg-color);
+  color: inherit;
+}
+
+/* ---- context menu and popovers ----------------------------------------------------- */
+.scrim-context-menu,
+.scrim-find-menu,
+.scrim-count-popover {
+  position: fixed;
+  z-index: 50;
+  min-width: 160px;
+  padding: 4px 0;
+  background: var(--color-popover-bg-color);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font: 13px system-ui, sans-serif;
+  color: var(--text-color);
+}
+.scrim-context-item,
+.scrim-find-menu-item,
+.scrim-count-row {
+  padding: 4px 14px;
+  cursor: default;
+  white-space: nowrap;
+}
+.scrim-context-item:hover,
+.scrim-find-menu-item:hover {
+  background: var(--item-hover-bg-color);
+}
+.scrim-context-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--panel-border-color);
+}
+
+/* ---- find bar (22.1) ---------------------------------------------------------------- */
+#scrim-findbar {
+  background: var(--bg-color);
+  box-shadow: 0 1px 0 rgba(12, 13, 14, 0.1), 0 1px 3px rgba(12, 13, 14, 0.1);
+}
+.scrim-findbar-row {
+  height: 39px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  position: relative;
+}
+.scrim-findbar-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.scrim-find-input,
+.scrim-replace-input {
+  flex: 1;
+  height: 26px;
+  box-sizing: border-box;
+  font: 12px system-ui, sans-serif;
+  padding: 0 70px 0 6px;
+  border: 1px solid #cccccc;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+.scrim-find-counter {
+  position: absolute;
+  right: 8px;
+  font-size: 11px;
+  color: var(--meta-content-color);
+  pointer-events: none;
+}
+.scrim-findbar-row button {
+  height: 26px;
+  min-width: 26px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--control-text-color);
+  cursor: pointer;
+  font-size: 12px;
+}
+.scrim-findbar-row button:hover {
+  color: var(--control-text-hover-color);
+}
+.scrim-find-menu {
+  position: absolute;
+  top: 34px;
+  right: 60px;
+}
+.md-search-hit {
+  background: var(--search-hit-bg-color);
+}
+.md-search-select,
+.md-search-hit.md-search-select {
+  background: var(--search-select-bg-color);
+  color: var(--search-select-text-color);
+}
+#scrim-source .md-search-hit,
+#scrim-source .cm-searchMatch {
+  background: var(--search-hit-bg-color);
+}
+
+/* ---- quick open (7.5, 22.1) --------------------------------------------------------- */
+.scrim-quick-open {
+  position: fixed;
+  z-index: 60;
+  width: 420px;
+  max-width: calc(100vw - 16px);
+  transform: translateX(-50%);
+  background: var(--color-popover-bg-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  overflow: hidden;
+  font-family: system-ui, sans-serif;
+}
+.scrim-quick-open-input {
+  display: block;
+  width: 100%;
+  height: 30px;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid var(--panel-border-color);
+  padding: 0 8px;
+  font-size: 14px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  outline: none;
+}
+.scrim-quick-open-list {
+  max-height: 320px; /* 8 rows */
+  overflow-y: auto;
+}
+.scrim-quick-open-item {
+  height: 40px;
+  padding: 3px 10px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  cursor: pointer;
+}
+.scrim-quick-open-item.active {
+  background: var(--active-file-bg-color);
+  color: var(--active-file-text-color);
+}
+.scrim-quick-open-name {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scrim-quick-open-dir {
+  font-size: 11px;
+  color: var(--meta-content-color);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ---- notice bar (7.3) ---------------------------------------------------------------- */
+#notice-buttons {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 10px;
+}
+.scrim-notice-button {
+  font: inherit;
+  font-size: 12px;
+  padding: 1px 10px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---- status bar (14, 22.1) ------------------------------------------------------------ */
+footer {
+  height: 30px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  border-top: var(--window-border);
+  font: 12px system-ui, sans-serif;
+  color: var(--control-text-color);
+  position: relative;
+  user-select: none;
+}
+.footer-left,
+.footer-right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+.footer-right {
+  margin-left: auto;
+  padding-right: 20px;
+  gap: 12px;
+}
+.footer-left .footer-item {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: 12px var(--monospace);
+  padding: 0;
+}
+.footer-item:hover {
+  color: var(--control-text-hover-color);
+}
+#footer-word-count {
+  cursor: pointer;
+}
+.scrim-count-popover {
+  position: absolute;
+  bottom: 32px;
+  right: 12px;
+  left: auto;
+  top: auto;
+  min-width: 220px;
+}
+.scrim-count-row {
+  display: flex;
+  gap: 10px;
+}
+.scrim-count-row span:last-child {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- dialogs (recovery, 7.6) -------------------------------------------------------- */
+.scrim-dialog {
+  position: fixed;
+  z-index: 80;
+  left: 50%;
+  top: 60px;
+  transform: translateX(-50%);
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 16px 20px;
+  background: var(--bg-color);
+  border: 1px solid var(--panel-border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  font: 14px system-ui, sans-serif;
+}
+.scrim-dialog-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.scrim-recovery-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--panel-border-color);
+}
+.scrim-recovery-row > span:first-child {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scrim-recovery-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 6px 0;
+}
+.scrim-recovery-compare pre {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  font: 12px var(--monospace);
+  white-space: pre-wrap;
+  border: 1px solid var(--panel-border-color);
+  padding: 6px;
+}
+.scrim-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* ---- view modes (15) ------------------------------------------------------------------ */
+#scrim-source {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 40px 30px 40vh;
+  box-sizing: border-box;
+  font-family: var(--monospace);
+  font-size: 14px;
+}
+#scrim-source .cm-editor {
+  background: transparent;
+  outline: none;
+}
+body.on-focus-mode #write > *:not(.md-focus):not(:has(.md-focus)),
+body.on-focus-mode #write li:not(.md-focus):not(:has(.md-focus)) > * {
+  color: var(--blur-text-color);
+}
+body.on-focus-mode #write li.md-focus > *,
+body.on-focus-mode #write .md-focus {
+  color: inherit;
+}
+body.scrim-typewriter-mode #write {
+  padding-top: 50vh;
+}

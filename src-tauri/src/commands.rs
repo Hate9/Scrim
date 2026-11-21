@@ -42,12 +42,24 @@ pub struct DocInit {
     pub settings: serde_json::Value,
     /// The window's sidebar folder, if any (7.4).
     pub folder: Option<String>,
+    /// The text is a recovered draft (unsaved).
+    pub recovered: bool,
 }
 
 #[tauri::command]
 pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Result<DocInit, String> {
     let label = window.label().to_string();
-    let (path, folder) = state.docs().get(&label).map(|d| (d.path.clone(), d.folder.clone())).unwrap_or_default();
+    let (mut path, folder, recover) =
+        state.docs().get(&label).map(|d| (d.path.clone(), d.folder.clone(), d.recover_id.clone())).unwrap_or_default();
+    // A recovered draft (7.6): its text, bound to its file if it had one.
+    let mut recovered: Option<String> = None;
+    if let Some(id) = &recover {
+        let dir = state.config_dir.join("recovery");
+        recovered = std::fs::read_to_string(dir.join(format!("{id}.md"))).ok();
+        if let Some(meta) = std::fs::read(dir.join(format!("{id}.json"))).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()) {
+            path = meta.get("path").and_then(|p| p.as_str()).map(PathBuf::from);
+        }
+    }
     let default_line_ending = state.settings().default_line_ending();
     let mut init = DocInit {
         path: None,
@@ -62,6 +74,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         title: String::new(),
         settings: serde_json::Value::Object(state.settings().values.clone()),
         folder: None,
+        recovered: false,
     };
     let mut doc = DocState { initialized: true, folder: folder.clone(), ..Default::default() };
     init.folder = folder.map(|f| f.to_string_lossy().into_owned());
@@ -113,6 +126,12 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
             init.path = Some(path.to_string_lossy().into_owned());
             init.file_name = windows::display_name(Some(&path));
         }
+    }
+    if let (Some(text), Some(id)) = (recovered, recover) {
+        init.text = text;
+        init.recovered = true;
+        doc.draft_id = Some(id);
+        doc.dirty = true;
     }
     state.docs().insert(label.clone(), doc);
     init.title = windows::update_title(window.app_handle(), &label);

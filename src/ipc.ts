@@ -20,6 +20,8 @@ export interface DocInit {
   error: string | null;
   title: string;
   settings: Record<string, unknown>;
+  folder: string | null;
+  recovered: boolean;
 }
 
 export type SaveResult =
@@ -39,7 +41,67 @@ export interface SaveRequest {
   createFolder?: boolean;
 }
 
+export interface ListOptions {
+  filter?: "markdown" | "supported" | "all";
+  sort?: "name" | "modified" | "created";
+  hidden?: boolean;
+}
+export interface DirEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  modified: number;
+  created: number;
+}
+export interface FileInfo {
+  path: string;
+  name: string;
+  modified: number;
+  created: number;
+  title: string | null;
+  excerpt: string | null;
+}
+export interface SearchFileResult {
+  id: number;
+  path: string;
+  matches: { line: number; text: string; start: number; end: number; lineStart: number }[];
+}
+export interface DraftMeta {
+  id: string;
+  path: string | null;
+  time: number;
+  encoding: string | null;
+  title: string;
+}
+
 export const ipc = {
+  listDir: (path: string, options: ListOptions) => invoke<DirEntry[]>("fs_list_dir", { path, options }),
+  walk: (path: string, options: ListOptions, limit?: number, details?: boolean) =>
+    invoke<FileInfo[]>("fs_walk", { path, options, limit, details }),
+  fsCreateFile: (dir: string, name: string) => invoke<string>("fs_create_file", { dir, name }),
+  fsCreateDir: (dir: string, name: string) => invoke<string>("fs_create_dir", { dir, name }),
+  fsRename: (path: string, newName: string) => invoke<string>("fs_rename", { path, newName }),
+  fsMove: (path: string, destDir: string) => invoke<string>("fs_move", { path, destDir }),
+  fsDuplicate: (path: string) => invoke<string>("fs_duplicate", { path }),
+  fsTrash: (path: string) => invoke<void>("fs_trash", { path }),
+  fsReveal: (path: string) => invoke<void>("fs_reveal", { path }),
+  recent: () => invoke<{ files: string[]; folders: string[] }>("recent_get"),
+  recentClear: () => invoke<void>("recent_clear"),
+  folderGet: () => invoke<string | null>("folder_get"),
+  folderOpen: (path: string) => invoke<void>("folder_open", { path }),
+  folderDialog: () => invoke<string | null>("folder_dialog"),
+  reload: () => invoke<string>("doc_reload"),
+  readText: (path: string) => invoke<string>("fs_read_text", { path }),
+  copyFile: (from: string, to: string) => invoke<void>("fs_copy", { from, to }),
+  recoveryOpen: (id: string) => invoke<void>("recovery_open", { id }),
+  searchStart: (query: Record<string, unknown>) => invoke<number>("search_start", { query }),
+  searchCancel: () => invoke<void>("search_cancel"),
+  recoveryWrite: (text: string, title: string) => invoke<void>("recovery_write", { text, title }),
+  recoveryRemove: (discard: boolean) => invoke<void>("recovery_remove", { discard }),
+  recoveryList: () => invoke<DraftMeta[]>("recovery_list"),
+  recoveryRead: (id: string) => invoke<string>("recovery_read", { id }),
+  recoveryDiscard: (id: string) => invoke<void>("recovery_discard", { id }),
+  recoveryAdopt: (id: string) => invoke<void>("recovery_adopt", { id }),
   docInit: () => invoke<DocInit>("doc_init"),
   setDirty: (dirty: boolean) => invoke<string>("doc_set_dirty", { dirty }),
   setTitleOverride: (title: string | null) => invoke<string>("doc_set_title_override", { title }),

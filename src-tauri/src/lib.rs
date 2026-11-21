@@ -96,6 +96,9 @@ pub fn run() {
             workspace::recovery_read,
             workspace::recovery_discard,
             workspace::recovery_adopt,
+            workspace::recovery_open,
+            workspace::fs_read_text,
+            workspace::fs_copy,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
