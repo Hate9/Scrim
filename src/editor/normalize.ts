@@ -14,7 +14,8 @@ import { freshUid } from "../md/schema";
 
 const NEW_LEAF = { sep: null, prev: null, lead: null, marks: null, sig: null };
 
-function isStructural(tr: Transaction): boolean {
+/** True if the transaction may have changed block structure (not just inline text). */
+export function isStructural(tr: Transaction): boolean {
   for (const step of tr.steps) {
     if (!(step instanceof ReplaceStep)) return true;
     const { from, to, slice } = step as unknown as { from: number; to: number; slice: { openStart: number; openEnd: number; content: { forEach(f: (n: Node) => void): void } } };

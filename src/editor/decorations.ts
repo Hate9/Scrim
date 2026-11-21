@@ -15,12 +15,19 @@ import { Plugin, PluginKey, type EditorState, type Transaction } from "prosemirr
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { flatten, type InlineElement, type Widget, type Definitions } from "../md/inline";
 import { documentDefinitions, elementsOf, isProse, type EditorOptions } from "./context";
+import { isStructural } from "./normalize";
 import { sanitizeAttrs } from "./sanitize";
 
 export interface InlineDecoState {
   set: DecorationSet;
   defs: Definitions;
+  /** Position from which blocks still need decorations (progressive load), or null. */
+  pending: number | null;
 }
+
+/** Textblocks decorated synchronously at load; the rest follow in idle chunks. */
+const INITIAL_BLOCKS = 150;
+const CHUNK_BLOCKS = 300;
 
 export const inlineKey = new PluginKey<InlineDecoState>("scrim-inline");
 
@@ -150,17 +157,45 @@ function headingDecorations(node: Node, pos: number): Decoration[] {
   ];
 }
 
-function allDecorations(doc: Node, defs: Definitions, opts: EditorOptions, hooks: RenderHooks): DecorationSet {
+/** Decorations for up to `limit` textblocks starting at `from`; returns where it stopped. */
+function blocksFrom(doc: Node, from: number, limit: number, defs: Definitions, opts: EditorOptions, hooks: RenderHooks) {
   const decos: Decoration[] = [];
-  doc.descendants((node, pos) => {
+  const ranges: [number, number][] = [];
+  let count = 0;
+  let next: number | null = null;
+  doc.nodesBetween(from, doc.content.size, (node, pos) => {
+    if (next !== null) return false;
+    if (!node.isTextblock) return pos + node.nodeSize > from;
+    if (pos < from) return false;
+    if (count >= limit) {
+      next = pos;
+      return false;
+    }
+    count++;
+    ranges.push([pos, pos + node.nodeSize]);
     if (isProse(node)) {
       decos.push(...decorationsForBlock(node, pos, defs, opts, hooks));
       if (node.type.name === "heading") decos.push(...headingDecorations(node, pos));
-      return false;
     }
-    return !node.isTextblock;
+    return false;
   });
-  return DecorationSet.create(doc, decos);
+  return { decos, ranges, next };
+}
+
+function initialState(doc: Node, defs: Definitions, opts: EditorOptions, hooks: RenderHooks): InlineDecoState {
+  const { decos, next } = blocksFrom(doc, 0, INITIAL_BLOCKS, defs, opts, hooks);
+  return { defs, set: DecorationSet.create(doc, decos), pending: next };
+}
+
+function touchesRawDefinitions(tr: Transaction, doc: Node): boolean {
+  let hit = false;
+  for (const [from, to] of changedRanges(tr)) {
+    doc.nodesBetween(Math.min(from, doc.content.size), Math.min(to, doc.content.size), (n) => {
+      if (n.type.name === "raw" && (n.attrs.kind === "definition" || n.attrs.kind === "footnote")) hit = true;
+      return !hit && !n.isTextblock;
+    });
+  }
+  return hit;
 }
 
 /** Ranges of the new document touched by a transaction. */
@@ -184,23 +219,31 @@ export function changedRanges(tr: Transaction): [number, number][] {
 export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plugin<InlineDecoState> {
   let composing = false;
   const rebuildMeta = "scrim-rebuild-inline";
+  const chunkMeta = "scrim-inline-chunk";
   return new Plugin<InlineDecoState>({
     key: inlineKey,
     state: {
       init(_, state) {
-        const defs = documentDefinitions(state.doc);
-        return { defs, set: allDecorations(state.doc, defs, opts, hooks) };
+        return initialState(state.doc, documentDefinitions(state.doc), opts, hooks);
       },
       apply(tr, value, _old, state: EditorState) {
-        if (tr.getMeta(rebuildMeta)) {
-          const defs = documentDefinitions(state.doc);
-          return { defs, set: allDecorations(state.doc, defs, opts, hooks) };
+        if (tr.getMeta(rebuildMeta)) return initialState(state.doc, documentDefinitions(state.doc), opts, hooks);
+        if (tr.getMeta(chunkMeta) && value.pending !== null && !tr.docChanged) {
+          const { decos, ranges, next } = blocksFrom(state.doc, value.pending, CHUNK_BLOCKS, value.defs, opts, hooks);
+          let set = value.set;
+          for (const [a, b] of ranges) set = set.remove(set.find(a, b));
+          return { defs: value.defs, set: set.add(state.doc, decos), pending: next };
         }
         if (!tr.docChanged) return value;
         let set = value.set.map(tr.mapping, tr.doc);
-        if (composing) return { defs: value.defs, set };
-        const defs = documentDefinitions(state.doc);
-        if (defs !== value.defs) return { defs, set: allDecorations(state.doc, defs, opts, hooks) };
+        const pending = value.pending === null ? null : tr.mapping.map(value.pending, -1);
+        if (composing) return { defs: value.defs, set, pending };
+        // Definitions can only change if a definition block (or the structure) changed.
+        let defs = value.defs;
+        if (isStructural(tr) || touchesRawDefinitions(tr, state.doc)) {
+          defs = documentDefinitions(state.doc);
+          if (defs !== value.defs) return initialState(state.doc, defs, opts, hooks);
+        }
         const done = new Set<number>();
         for (const [from, to] of changedRanges(tr)) {
           const lo = Math.max(0, Math.min(from, state.doc.content.size));
@@ -218,8 +261,22 @@ export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plu
             return false;
           });
         }
-        return { defs, set };
+        return { defs, set, pending };
       },
+    },
+    view: (initialView) => {
+      let scheduled = 0;
+      const pv = {
+        update(view: EditorView) {
+          if (scheduled || inlineKey.getState(view.state)?.pending == null) return;
+          scheduled = window.setTimeout(() => {
+            scheduled = 0;
+            if (!view.isDestroyed && inlineKey.getState(view.state)?.pending != null) view.dispatch(view.state.tr.setMeta(chunkMeta, true));
+          }, 0);
+        },
+      };
+      pv.update(initialView);
+      return pv;
     },
     props: {
       decorations(state) {

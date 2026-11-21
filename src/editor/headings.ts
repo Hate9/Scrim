@@ -5,10 +5,12 @@
 import GithubSlugger from "github-slugger";
 import { toString } from "mdast-util-to-string";
 import type { Node } from "prosemirror-model";
-import { Plugin, PluginKey } from "prosemirror-state";
+import { Plugin, PluginKey, type Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { parseMdast } from "../md/mdast";
 import { blockSource } from "./context";
+import { changedRanges } from "./decorations";
+import { isStructural } from "./normalize";
 
 const textCache = new WeakMap<Node, string>();
 
@@ -55,12 +57,35 @@ function build(doc: Node) {
   return { set, list };
 }
 
+/** Typing inside non-heading blocks cannot change heading ids: just map positions. */
+function headingsUntouched(tr: Transaction): boolean {
+  if (isStructural(tr)) return false;
+  for (const [from, to] of changedRanges(tr)) {
+    let heading = false;
+    tr.doc.nodesBetween(Math.min(from, tr.doc.content.size), Math.min(to, tr.doc.content.size), (n) => {
+      if (n.type.name === "heading") heading = true;
+      return !heading && !n.isTextblock;
+    });
+    if (heading) return false;
+  }
+  return true;
+}
+
 export function createHeadingPlugin(): Plugin {
   return new Plugin({
     key: headingKey,
     state: {
       init: (_, state) => build(state.doc),
-      apply: (tr, value) => (tr.docChanged ? build(tr.doc) : value),
+      apply: (tr, value) => {
+        if (!tr.docChanged) return value;
+        if (headingsUntouched(tr)) {
+          return {
+            set: value.set.map(tr.mapping, tr.doc),
+            list: value.list.map((h) => ({ ...h, pos: tr.mapping.map(h.pos) })),
+          };
+        }
+        return build(tr.doc);
+      },
     },
     props: {
       decorations: (state) => headingKey.getState(state)?.set,

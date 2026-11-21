@@ -46,6 +46,13 @@ export interface Editor {
   copyAs(kind: "markdown" | "plain"): void;
 }
 
+/** Test hook (E-14): when set, the time of every document update is recorded. */
+let perfLog: number[] | null = null;
+export function recordUpdates(on: boolean): number[] | null {
+  perfLog = on ? [] : null;
+  return perfLog;
+}
+
 /** Typing groups break after whitespace that follows a word (3.8). */
 function typingGroups() {
   let breakNext = false;
@@ -68,6 +75,7 @@ export function createEditor(
   const options: EditorOptions = { ...defaultOptions, ...opts };
   let savedDoc: Node | null = null;
   let dirty = false;
+  let cleanCheck = 0;
   const groups = typingGroups();
   /** Set by Mod+Shift+V keydown; the paste event that follows inserts literally. */
   let plainPaste = false;
@@ -128,12 +136,21 @@ export function createEditor(
       dispatchTransaction(tr: Transaction) {
         const state = view.state.apply(tr);
         view.updateState(state);
+        if (tr.docChanged && perfLog) perfLog.push(performance.now());
         if (tr.docChanged) {
-          const now = savedDoc === null || !state.doc.eq(savedDoc);
-          if (now !== dirty) {
-            dirty = now;
-            onChange(dirty);
+          // Comparing whole documents is O(n): mark dirty at once, and check for a
+          // return to the saved state (undo) only after typing pauses.
+          if (!dirty) {
+            dirty = true;
+            onChange(true);
           }
+          clearTimeout(cleanCheck);
+          cleanCheck = window.setTimeout(() => {
+            if (dirty && savedDoc !== null && view.state.doc.eq(savedDoc)) {
+              dirty = false;
+              onChange(false);
+            }
+          }, 300);
         }
       },
       handleKeyDown(_v, event) {

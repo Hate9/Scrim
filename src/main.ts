@@ -5,7 +5,8 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { message } from "@tauri-apps/plugin-dialog";
 import { createCommands } from "./app/commands";
 import { suggestedFileName } from "./doc/naming";
-import { createEditor } from "./editor/editor";
+import { inlineKey } from "./editor/decorations";
+import { createEditor, recordUpdates } from "./editor/editor";
 import { Dispatcher } from "./editor/keys";
 import { ipc, type LineEndingName, type SaveRequest } from "./ipc";
 
@@ -245,7 +246,7 @@ window.addEventListener("error", (e) => void ipc.log("error", `${e.message} at $
 window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unhandled rejection: ${String(e.reason)}`));
 
 // Test hook: lets WebDriver tests read the document and drive the editor.
-(window as unknown as { __scrim: unknown }).__scrim = { editor, save };
+(window as unknown as { __scrim: unknown }).__scrim = { editor, save, recordUpdates, inlineKey };
 
 void appWindow.listen("scrim://doc-reload", () => void init());
 void init();

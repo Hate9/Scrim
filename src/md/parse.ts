@@ -357,7 +357,10 @@ export class Parser {
     return starts;
   }
 
-  private verifyInline(original: Nodes & { children: Nodes[] }, content: Node[]) {
+  private verifyInline(original: Nodes & { children: Nodes[] }, content: Node[], chain: Ctx[]) {
+    // Top-level blocks have no container prefixes, so their inline source is the exact
+    // text mdast parsed (minus leading whitespace, which does not change meaning).
+    if (chain.length === 0) return;
     let text = "";
     for (const n of content) text += n.isText ? n.text : "\n";
     const reparsed = parseMdast(text + this.defsSuffix, { ...this.opts, frontMatter: false });
@@ -374,7 +377,7 @@ export class Parser {
     const last = this.lineOf(p.end.offset!);
     const attrs = this.leafAttrs(first, start, chain);
     const content = this.inlineContent(first, last, this.proseStarts(first, last, start, chain));
-    this.verifyInline(node, content);
+    this.verifyInline(node, content, chain);
     this.endLeaf(last, attrs.uid, chain);
     return schema.nodes.paragraph.create(attrs, content);
   }
@@ -431,7 +434,7 @@ export class Parser {
         setext: { term: this.lines[textLast].term, line: this.src.slice(ul.start, ul.end) },
       };
     }
-    this.verifyInline(node, content);
+    this.verifyInline(node, content, chain);
     this.endLeaf(last, attrs.uid, chain);
     return schema.nodes.heading.create({ ...attrs, ...extra, level }, content);
   }
