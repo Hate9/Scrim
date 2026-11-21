@@ -10,7 +10,7 @@ const opts = { ...defaultOptions };
 
 function select(md: string, from: string, to: string) {
   const { doc } = parseMarkdown(md);
-  const state = EditorState.create({ doc, plugins: [createInlinePlugin(opts, { imageUrl: (s) => s, renderMath: () => {} })] });
+  const state = EditorState.create({ doc, plugins: [createInlinePlugin(opts, { setImageSource: () => {}, renderMath: () => {} })] });
   const find = (needle: string, end: boolean) => {
     let at = -1;
     doc.descendants((n, pos) => {

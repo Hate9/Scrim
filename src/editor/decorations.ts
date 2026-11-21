@@ -26,7 +26,8 @@ export const inlineKey = new PluginKey<InlineDecoState>("scrim-inline");
 
 /** Hooks the decorations need from the environment (image URLs, math rendering). */
 export interface RenderHooks {
-  imageUrl(src: string): string;
+  /** Point `img` at the image `src` refers to (may be asynchronous for local files). */
+  setImageSource(img: HTMLImageElement, src: string): void;
   renderMath(tex: string, el: HTMLElement): void;
 }
 
@@ -41,7 +42,7 @@ function widgetDom(w: Widget, index: number, hooks: RenderHooks, kind: string): 
       const wrap = document.createElement("span");
       wrap.className = "md-image";
       const img = document.createElement("img");
-      img.src = hooks.imageUrl(w.src);
+      hooks.setImageSource(img, w.src);
       img.alt = w.alt;
       if (w.title) img.title = w.title;
       img.draggable = false;

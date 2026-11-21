@@ -51,25 +51,33 @@ function resolveLocal(src: string): string | null {
   return dir + sep + path.replace(/^\.\//, "").replace(/\//g, sep);
 }
 
-const pendingScope = new Set<string>();
-let scopeTimer = 0;
+/** Local files already granted to the `scrim-file` protocol. */
+const allowed = new Set<string>();
 
 const editor = createEditor(
   write,
   { pathSep: isWindows ? "\\" : "/" },
   {
-    imageUrl(src) {
-      if (/^(https?:|data:|blob:)/i.test(src)) return src;
+    setImageSource(img, src) {
+      if (/^(https?:|data:|blob:)/i.test(src)) {
+        img.src = src;
+        return;
+      }
       const local = resolveLocal(src);
-      if (!local) return src;
-      pendingScope.add(local);
-      clearTimeout(scopeTimer);
-      scopeTimer = window.setTimeout(() => {
-        const paths = [...pendingScope];
-        pendingScope.clear();
-        void ipc.allowFiles(paths);
-      }, 0);
-      return convertFileSrc(local, "scrim-file");
+      if (!local) {
+        img.src = src;
+        return;
+      }
+      const url = convertFileSrc(local, "scrim-file");
+      if (allowed.has(local)) {
+        img.src = url;
+        return;
+      }
+      // Grant the protocol scope before the webview requests the file (spec 01, scope a).
+      void ipc.allowFiles([local]).then(() => {
+        allowed.add(local);
+        img.src = url;
+      });
     },
     renderMath(tex, el) {
       el.textContent = tex;

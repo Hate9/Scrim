@@ -11,7 +11,7 @@ import { createEscapePlugin } from "./escapes";
 import { createNormalizePlugin } from "./normalize";
 
 const opts = { ...defaultOptions };
-const hooks = { imageUrl: (s: string) => s, renderMath: () => {} };
+const hooks = { setImageSource: () => {}, renderMath: () => {} };
 
 class Doc {
   state: EditorState;
