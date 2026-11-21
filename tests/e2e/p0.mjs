@@ -14,6 +14,7 @@ test("S-1 launch with a path shows the text and the title", async (s, file) => {
 
 test("edit + Mod+S keeps CRLF and Latin-1 (R-8 file layer)", async (s, file) => {
   await waitFor(async () => (await editorValue(s)).startsWith("# Hello"), "text");
+  await waitFor(() => s.exec("return !document.body.classList.contains('scrim-loading') && window.__scrim.editor.view.hasFocus()"), "editor shown and focused");
   await s.chord(CTRL, END);
   await typeText(s, "Plus\u00e8");
   await waitFor(async () => (await s.title()) === "• a.md - Scrim", "dirty title");

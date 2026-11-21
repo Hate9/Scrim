@@ -121,7 +121,7 @@ function swapLink(slot: string, href: string): Promise<void> {
     const idx = SLOTS.indexOf(slot as (typeof SLOTS)[number]);
     const before = SLOTS.slice(idx + 1)
       .flatMap((s2) => [...document.querySelectorAll<HTMLLinkElement>(`link[data-slot="${s2}"]`)])
-      .shift();
+      .shift() ?? document.getElementById("scrim-font-size"); // the font size override stays last
     if (before) before.before(link);
     else document.head.appendChild(link);
   });

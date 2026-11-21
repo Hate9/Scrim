@@ -492,7 +492,14 @@ void getCurrentWebview().onDragDropEvent((event) => {
 });
 
 const themes = new ThemeLoader(setting);
-const revealPage = () => document.body.classList.remove("scrim-loading");
+/** Show the window's content once the theme is in. Hidden elements cannot take focus, so
+ * the editor gets it now if nothing else has. */
+function revealPage() {
+  if (!document.body.classList.contains("scrim-loading")) return;
+  document.body.classList.remove("scrim-loading");
+  const a = document.activeElement;
+  if (!a || a === document.body) editor.view.focus();
+}
 themes.onApplied.push(revealPage);
 window.setTimeout(revealPage, 1500);
 

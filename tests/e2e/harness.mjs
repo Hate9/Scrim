@@ -89,6 +89,8 @@ export async function main(filter) {
     selected = tests.filter((t) => !filter || filter.test(t.name));
     for (const t of selected) {
       await waitFor(() => !appRunning(), "previous app instance to exit", 15000);
+      // Each test starts with default preferences (they persist in settings.json).
+      writeFileSync(join(process.env.SCRIM_CONFIG_DIR, "settings.json"), "{}\n");
       const prepared = t.prepare();
       const [file, extra] = Array.isArray(prepared) ? prepared : [prepared];
       let s;

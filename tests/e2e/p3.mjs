@@ -252,6 +252,7 @@ test("W-11 focus mode dims all but the current block; typewriter centers the cur
   await typeText(s, "x");
   await sleep(600);
   const off = await ed(s, "const c = view.coordsAtPos(view.state.selection.head); const r = view.dom.closest('content').getBoundingClientRect(); return (c.top + c.bottom) / 2 - (r.top + r.height / 2)");
+  await press(s, F9); // the modes are preferences now (11): leave them off for later tests
   if (Math.abs(off) > 20) throw new Error(`cursor line ${off}px from center`);
 }, () => fixture("w11.md", Array.from({ length: 80 }, (_, i) => `para ${i}`).join("\n\n") + "\n"));
 
