@@ -188,3 +188,28 @@ test("Alt+Down moves a list item", async (s) => {
   await press(s, ALT, "");
   await expectMd(s, "- two\n- one\n");
 }, () => fixture("move.md", "- one\n- two\n"));
+
+test("R-4 escape on a continuation line, live (and R-9)", async (s) => {
+  await ready(s);
+  await press(s, CTRL, END);
+  await press(s, SHIFT, ENTER);
+  await typeText(s, "# b");
+  await waitFor(() => s.exec("return document.querySelectorAll('#write p').length === 1 && !document.querySelector('#write h1')"), "still one paragraph");
+  await expectMd(s, "a\n\\# b\n", "escaped");
+  // R-9: delete the # (two Lefts from the end, then Backspace).
+  await press(s, LEFT);
+  await press(s, LEFT);
+  await press(s, BACKSPACE);
+  await expectMd(s, "a\n b\n", "escape removed with the #");
+  await typeText(s, "#");
+  await expectMd(s, "a\n\\# b\n", "escape back");
+}, () => fixture("r4.md", "a\n"));
+
+test("R-4 fence on the only line still triggers on Enter", async (s) => {
+  await ready(s);
+  await typeText(s, "```js");
+  await press(s, ENTER);
+  await waitFor(() => s.exec("return !!document.querySelector('#write pre.md-raw-code')"), "code block");
+  await typeText(s, "x");
+  await expectMd(s, "```js\nx\n```\n");
+});

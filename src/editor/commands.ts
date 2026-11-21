@@ -10,6 +10,7 @@ import { flatten, type InlineElement, type InlineKind } from "../md/inline";
 import { freshUid, schema } from "../md/schema";
 import { blockSource, elementsOf, isProse, type EditorOptions } from "./context";
 import { inlineKey } from "./decorations";
+import { SKIP_ESCAPES } from "./escapes";
 
 const S = schema.nodes;
 
@@ -455,7 +456,7 @@ export function spaceInputRule(
   if ($from.parent.type !== S.paragraph) return false;
   const prefix = $from.parent.textBetween(0, $from.parentOffset, undefined, "\n");
   if (prefix.includes("\n") || prefix.length > 12 || !spaceRule(state, $from, prefix)) return false;
-  dispatch(state.tr.insertText(" ", from, to));
+  dispatch(state.tr.insertText(" ", from, to).setMeta(SKIP_ESCAPES, true));
   const after = getState();
   const tr = spaceRule(after, after.selection.$from, prefix);
   if (tr) dispatch(closeHistory(tr).scrollIntoView());

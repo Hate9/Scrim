@@ -23,6 +23,7 @@ import {
 } from "./commands";
 import { defaultOptions, type EditorOptions } from "./context";
 import { createInlinePlugin, type RenderHooks } from "./decorations";
+import { createEscapePlugin, flushEscapes } from "./escapes";
 import { createHeadingPlugin } from "./headings";
 import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
@@ -89,6 +90,7 @@ export function createEditor(
     createHeadingPlugin(),
     createRevealPlugin(options),
     createNormalizePlugin(),
+    createEscapePlugin(options),
   ];
 
   const makeState = (doc: Node) => EditorState.create({ doc, plugins });
@@ -121,7 +123,10 @@ export function createEditor(
   return {
     view,
     options,
-    markdown: () => serialize(view.state.doc),
+    markdown() {
+      flushEscapes(view, options);
+      return serialize(view.state.doc);
+    },
     load(text: string, newFile: boolean, eol: string) {
       let { doc } = parseMarkdown(text, { inlineMath: options.inlineMath }, eol);
       if (newFile && !text) doc = schema.nodes.doc.create({ ...doc.attrs, finalNewline: true }, doc.content);
