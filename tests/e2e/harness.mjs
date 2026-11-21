@@ -23,6 +23,8 @@ spawnSync("mkdir", ["-p", docs, process.env.SCRIM_CONFIG_DIR]);
 // Debug builds read a Save As target from this file instead of showing the dialog.
 const saveAsFile = join(work, "save-as.txt");
 process.env.SCRIM_TEST_SAVE_AS = saveAsFile;
+// Debug builds block remote theme styles and fonts (T-1: screenshots must be deterministic).
+process.env.SCRIM_TEST_NO_REMOTE = "1";
 writeFileSync(saveAsFile, "");
 
 function fixture(name, bytes) {

@@ -272,6 +272,14 @@ function applySettings(next: Record<string, unknown>) {
 
 async function init() {
   const d = await ipc.docInit();
+  if (d.testNoRemote && !document.getElementById("scrim-test-csp")) {
+    // Debug test hook: a second, stricter policy for theme resources (T-1).
+    const meta = document.createElement("meta");
+    meta.id = "scrim-test-csp";
+    meta.httpEquiv = "Content-Security-Policy";
+    meta.content = "style-src 'self' 'unsafe-inline' tauri: scrim-file:; font-src 'self' data: scrim-file:";
+    document.head.prepend(meta);
+  }
   applySettings((d.settings ?? {}) as Record<string, unknown>);
   state.fileName = d.fileName;
   state.path = d.path;

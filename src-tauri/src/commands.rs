@@ -44,6 +44,9 @@ pub struct DocInit {
     pub folder: Option<String>,
     /// The text is a recovered draft (unsaved).
     pub recovered: bool,
+    /// Debug builds with `SCRIM_TEST_NO_REMOTE` set: block remote styles and fonts (T-1
+    /// screenshots must not depend on the network).
+    pub test_no_remote: bool,
 }
 
 #[tauri::command]
@@ -75,6 +78,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         settings: serde_json::Value::Object(state.settings().values.clone()),
         folder: None,
         recovered: false,
+        test_no_remote: cfg!(debug_assertions) && std::env::var_os("SCRIM_TEST_NO_REMOTE").is_some(),
     };
     let mut doc = DocState { initialized: true, folder: folder.clone(), ..Default::default() };
     init.folder = folder.map(|f| f.to_string_lossy().into_owned());

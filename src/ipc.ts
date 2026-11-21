@@ -28,6 +28,7 @@ export interface DocInit {
   settings: Record<string, unknown>;
   folder: string | null;
   recovered: boolean;
+  testNoRemote: boolean;
 }
 
 export type SaveResult =

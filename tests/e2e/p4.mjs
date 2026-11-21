@@ -226,18 +226,23 @@ test("menu: commands run by id; Paragraph inserts; Help opens a local document",
   await waitFor(() => existsSync(join(process.env.SCRIM_CONFIG_DIR, "help", "Shortcuts.md")), "help document written");
 }, () => fixture("menu.md", "text\n"));
 
-// T-1 needs the owner's fixture themes (tests/fixtures/themes/, local and git-ignored,
-// CLEAN-ROOM.md rule 7). Without them it is skipped. Golden screenshots of Scrim live in
-// tests/fixtures/themes/golden/<theme>.png; a theme without one gets a candidate in
-// golden-candidates/ for the owner to approve, and the test fails until approved.
+// T-1 uses the owner's fixture themes (CLEAN-ROOM.md rule 7): `node
+// scripts/fetch-fixture-themes.mjs` downloads the list in spec/fixtures/themes.lock.json
+// into tests/fixtures/themes/ (git-ignored) and verifies the hashes. Without them the test
+// is skipped. Golden screenshots of Scrim live in tests/fixtures/themes/golden/<theme>.png;
+// a theme without one gets a candidate in golden-candidates/ for the owner to approve,
+// and the test fails until approved. Remote loads are blocked (SCRIM_TEST_NO_REMOTE).
 const FIXTURES = join(import.meta.dirname, "../fixtures/themes");
+const LOCK = join(import.meta.dirname, "../../spec/fixtures/themes.lock.json");
 test("T-1 fixture themes appear in the Themes menu and match approved screenshots", async (s) => {
   if (!existsSync(FIXTURES)) {
     console.log("     skipped: no tests/fixtures/themes/");
     return;
   }
-  const css = readdirSync(FIXTURES).filter((f) => f.endsWith(".css") && !f.endsWith(".user.css"));
-  for (const f of readdirSync(FIXTURES)) spawnSync("cp", ["-r", join(FIXTURES, f), themesDir()]);
+  const css = JSON.parse(readFileSync(LOCK, "utf8")).themes.flatMap((r) => r.themes);
+  const missing = css.filter((f) => !existsSync(join(FIXTURES, f)));
+  if (missing.length) throw new Error(`missing fixtures ${missing} (run scripts/fetch-fixture-themes.mjs)`);
+  for (const f of readdirSync(FIXTURES)) if (!f.startsWith("golden")) spawnSync("cp", ["-r", join(FIXTURES, f), themesDir()]);
   await ready(s);
   await js(s, "return window.__scrim.themes.refreshList().then(() => true)");
   const pending = [];
