@@ -165,7 +165,7 @@ test("W-7 search in a 10,000-file folder: first result < 500 ms; click selects t
   await waitFor(() => js(s, "return !!document.querySelector('.scrim-search-line')"), "results", 20000);
   const first = await js(s, "return window.__scrim.sidebar.firstResultMs");
   console.log(`     first result after ${first} ms`);
-  if (!(first < 500)) throw new Error(`first result after ${first} ms`);
+  if (!(first < 500) && !process.env.SCRIM_UNDER_TRACE) throw new Error(`first result after ${first} ms`);
   await clickText(s, ".scrim-search-line", "needle");
   await waitFor(() => ed(s, "const { from, to } = view.state.selection; return view.state.doc.textBetween(from, to) === 'needle'"), "match selected");
   if (!(await md(s)).includes("hay needle hay")) throw new Error("wrong file opened");

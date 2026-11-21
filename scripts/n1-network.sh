@@ -13,6 +13,8 @@ cd "$(dirname "$0")/.."
 log=$(mktemp -t scrim-n1-XXXXXX.strace)
 if [[ $# -eq 0 ]]; then set -- scripts/e2e.sh; fi
 
+# Timing assertions are meaningless under strace; tests report them instead.
+export SCRIM_UNDER_TRACE=1
 status=0
 strace -f -qq -s 0 -e trace=connect,sendto,sendmsg -e signal=none -o "$log" "$@" || status=$?
 

@@ -104,6 +104,8 @@ export async function main(filter) {
     }
   } finally {
     driver.kill();
+    // xclip stays alive serving the clipboard (and would keep strace in N-1 waiting).
+    spawnSync("pkill", ["-x", "xclip"]);
   }
   console.log(`\n${selected.length - failed}/${selected.length} passed (logs in ${process.env.SCRIM_CONFIG_DIR})`);
   process.exit(failed ? 1 : 0);
