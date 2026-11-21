@@ -527,3 +527,98 @@ body.md-soft-breaks .md-inline-break + .md-br br {
 .md-footnote-popover p {
   margin: 0.3em 0;
 }
+
+/* Table toolbar (4.7) and the in-page dialog. */
+.md-table-toolbar {
+  position: fixed;
+  z-index: 15;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-color);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 4px;
+  font: 13px system-ui, sans-serif;
+}
+.md-table-toolbar[hidden] {
+  display: none;
+}
+.md-table-toolbar > button {
+  min-width: 24px;
+  border: 0;
+  background: none;
+  color: var(--text-color);
+  cursor: pointer;
+  border-radius: 3px;
+}
+.md-table-toolbar > button:hover,
+.md-table-toolbar > button.active {
+  background: rgba(127, 127, 127, 0.18);
+}
+.md-table-menu,
+.md-table-size-picker {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+  background: var(--bg-color);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+.md-table-menu[hidden],
+.md-table-size-picker[hidden] {
+  display: none;
+}
+.md-table-menu-item {
+  padding: 3px 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.md-table-menu-item:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+.md-table-size-picker {
+  display: grid;
+  grid-template-columns: repeat(8, 14px);
+  gap: 2px;
+  padding: 4px;
+}
+.md-table-size-picker span {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+}
+.md-table-size-picker span.on {
+  background: var(--primary-color);
+}
+.scrim-dialog {
+  position: fixed;
+  z-index: 30;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 6px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  font: 13px system-ui, sans-serif;
+}
+.scrim-dialog-title {
+  font-weight: 600;
+}
+.scrim-dialog input {
+  width: 5em;
+  margin-left: 6px;
+}
+.scrim-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}

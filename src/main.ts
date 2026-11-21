@@ -238,8 +238,37 @@ async function save(saveAs = false): Promise<boolean> {
   }
 }
 
+/** Small in-page dialog for Mod+T (4.7): rows and columns, default 3 × 3. */
+function askTableSize(): Promise<{ rows: number; cols: number } | null> {
+  return new Promise((resolve) => {
+    const box = document.createElement("form");
+    box.className = "scrim-dialog";
+    box.innerHTML =
+      '<div class="scrim-dialog-title">Insert Table</div>' +
+      '<label>Rows <input name="rows" type="number" min="1" max="100" value="3"></label>' +
+      '<label>Columns <input name="cols" type="number" min="1" max="30" value="3"></label>' +
+      '<div class="scrim-dialog-buttons"><button type="button" value="cancel">Cancel</button><button type="submit">Insert</button></div>';
+    const done = (v: { rows: number; cols: number } | null) => {
+      box.remove();
+      resolve(v);
+    };
+    box.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const f = new FormData(box);
+      done({ rows: Math.max(1, Number(f.get("rows")) || 3), cols: Math.max(1, Number(f.get("cols")) || 3) });
+    });
+    box.querySelector('button[value="cancel"]')!.addEventListener("click", () => done(null));
+    box.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Escape") done(null);
+    });
+    document.body.appendChild(box);
+    (box.querySelector('input[name="rows"]') as HTMLInputElement).select();
+  });
+}
+
 const dispatcher = new Dispatcher(
-  createCommands(editor, { save, isWindows }),
+  createCommands(editor, { save, isWindows, askTableSize }),
   () => editor.view.hasFocus(),
 );
 dispatcher.attach(window);

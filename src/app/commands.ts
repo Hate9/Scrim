@@ -19,12 +19,16 @@ import {
   toggleQuote,
 } from "../editor/commands";
 import { insertFootnote, toggleTask } from "../editor/blocks";
+import { chainCommands } from "prosemirror-commands";
+import { insertTable, moveColumn, moveRow } from "../editor/tables";
 import type { Editor } from "../editor/editor";
 import type { CommandDef } from "../editor/keys";
 import { ipc } from "../ipc";
 
 export interface AppHooks {
   save(saveAs: boolean): Promise<boolean>;
+  /** Mod+T dialog (4.7): rows (including the header) and columns, or null. */
+  askTableSize(): Promise<{ rows: number; cols: number } | null>;
   isWindows: boolean;
 }
 
@@ -75,8 +79,20 @@ export function createCommands(editor: Editor, app: AppHooks): CommandDef[] {
     doc("format.footnote", "", insertFootnote),
     doc("para.indent", "Ctrl+]", indent),
     doc("para.outdent", "Ctrl+[", outdent),
-    doc("para.moveUp", "Alt+Up", moveBlock(-1)),
-    doc("para.moveDown", "Alt+Down", moveBlock(1)),
+    doc("para.moveUp", "Alt+Up", chainCommands(moveRow(-1), moveBlock(-1))),
+    doc("para.moveDown", "Alt+Down", chainCommands(moveRow(1), moveBlock(1))),
+    doc("table.moveColumnLeft", "Alt+Left", moveColumn(-1)),
+    doc("table.moveColumnRight", "Alt+Right", moveColumn(1)),
+    {
+      id: "para.table",
+      key: "Ctrl+T",
+      scope: "document",
+      run: async () => {
+        const size = await app.askTableSize();
+        if (size) editor.run(insertTable(size.rows, size.cols));
+        editor.view.focus();
+      },
+    },
     doc("edit.selectLine", "Ctrl+L", selectLine),
     doc("edit.selectScope", "Ctrl+E", selectScope(o)),
     doc("edit.selectWord", "Ctrl+D", selectWord),

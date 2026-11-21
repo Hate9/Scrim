@@ -34,6 +34,7 @@ import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
 import { codeNodeViews, type CodeViewHooks } from "./codeview";
 import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
+import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
 import { renderHtmlBlock } from "./htmlblock";
 
 export interface Editor {
@@ -88,13 +89,14 @@ export function createEditor(
   let copyPlain = false;
 
   const keys = keymap({
-    Enter: chainCommands(tocEnter, enter(options)),
+    Enter: chainCommands(tocEnter, cellEnter, enter(options)),
+    "Mod-Enter": insertRowBelow,
     Escape: escapeFootnote,
-    "Shift-Enter": shiftEnter(options),
+    "Shift-Enter": chainCommands(cellBreak, shiftEnter(options)),
     Backspace: backspace(options),
     Delete: del,
-    Tab: tab,
-    "Shift-Tab": shiftTab,
+    Tab: chainCommands(nextCell(1), tab),
+    "Shift-Tab": chainCommands(nextCell(-1), shiftTab),
     ArrowLeft: chainCommands(arrowCommand(options, -1, false), arrowInto("left")),
     ArrowRight: chainCommands(arrowCommand(options, 1, false), arrowInto("right")),
     ArrowUp: arrowInto("up"),
@@ -105,7 +107,7 @@ export function createEditor(
     "Mod-y": redo,
     "Mod-Shift-z": redo,
     "Mod-a": selectAll,
-    "Mod-Shift-Backspace": deleteToLineStart,
+    "Mod-Shift-Backspace": chainCommands(deleteRow(() => window.confirm("Delete this table?")), deleteToLineStart),
   });
 
   const plugins = [
@@ -119,6 +121,11 @@ export function createEditor(
     createRevealPlugin(options),
     createNormalizePlugin(),
     createEscapePlugin(options),
+    createTablePlugin({
+      copyText: hooks.copyText,
+      confirm: (m) => window.confirm(m),
+      prettyTables: () => options.prettyTables,
+    }),
     createBlocksPlugin({ onFrontMatter: hooks.onFrontMatter, numberFootnotes: () => options.numberFootnotes }),
     dropCursor({ class: "scrim-drop-cursor", width: 2 }),
   ];
@@ -199,6 +206,7 @@ export function createEditor(
       },
       handleTextInput(v, from, to, text) {
         groups(v, text);
+        if (cellTextInput(v.state, from, to, text, v.dispatch)) return true;
         if (spaceInputRule(() => v.state, from, to, text, v.dispatch)) return true;
         return autoPair(v.state, from, to, text, options, v.dispatch);
       },

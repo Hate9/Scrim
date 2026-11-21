@@ -14,6 +14,7 @@ import { serialize } from "../md/serialize";
 import { isUrl } from "./commands";
 import { blockSource, elementsOf, isProse, type EditorOptions } from "./context";
 import { inlineKey } from "./decorations";
+import { parseTsv, pasteGrid, pasteIntoCell } from "./tables";
 
 // ---- copy ------------------------------------------------------------------------------
 
@@ -211,6 +212,9 @@ export function handlePaste(view: EditorView, event: ClipboardEvent, opts: Edito
     view.dispatch(tr.setSelection(TextSelection.create(tr.doc, to + 3 + url.length + 1)));
     return true;
   }
+  // A grid from a spreadsheet (text/plain is tab-separated) fills or creates a table.
+  const grid = text ? parseTsv(text) : null;
+  if (grid && (grid.length > 1 || grid[0].length > 1) && !/data-scrim-source/.test(html)) return pasteGrid(view, grid);
   if (html) {
     const m = /data-scrim-source="([^"]*)"/.exec(html);
     if (m) {
@@ -223,6 +227,9 @@ export function handlePaste(view: EditorView, event: ClipboardEvent, opts: Edito
     }
   }
   if (text) {
+    const grid = parseTsv(text);
+    if (grid && (grid.length > 1 || grid[0].length > 1)) return pasteGrid(view, grid);
+    if (/\n/.test(text.replace(/\r?\n$/, "")) && pasteIntoCell(view, text)) return true;
     insertMarkdown(view, text, opts);
     return true;
   }
