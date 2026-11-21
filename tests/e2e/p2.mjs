@@ -10,7 +10,7 @@ const expectMd = async (s, want, what = "markdown") => {
     throw new Error(`${what}: got ${JSON.stringify(await md(s))}, want ${JSON.stringify(want)}`);
   }
 };
-const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc)"), "editor");
+const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && !document.body.classList.contains('scrim-loading') && window.__scrim.editor.view.state.doc)"), "editor");
 const press = (s, ...keys) => s.chord(...keys);
 const js = (s, body) => s.exec(body);
 const clickAt = (s, [x, y]) =>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Dispatcher, normalizeAccelerator, type CommandDef } from "../editor/keys";
-import { commandItems, labelKey, shortcutOverrides } from "./menu";
+import { commandItems, labelKey, nativeAccelerator, shortcutOverrides } from "./menu";
 import { menuTree } from "./menutree";
 
 const tree = menuTree({
@@ -66,5 +66,14 @@ describe("shortcuts overrides (12)", () => {
     d.rebind(new Map());
     expect(d.keyOf("a")).toBe("Ctrl+B");
     expect(d.keyOf("b")).toBe("Ctrl+Shift+B");
+  });
+});
+
+describe("native accelerators (QA-LOG Q-017)", () => {
+  it("only global commands get one, never clipboard keys", () => {
+    expect(nativeAccelerator("Ctrl+S", true)).toBe("CmdOrCtrl+S");
+    expect(nativeAccelerator("Ctrl+B", false)).toBeUndefined();
+    expect(nativeAccelerator("Ctrl+C", true)).toBeUndefined();
+    expect(nativeAccelerator("F11", true)).toBe("F11");
   });
 });

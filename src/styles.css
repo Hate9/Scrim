@@ -649,3 +649,8 @@ body.scrim-dragging-text * {
   border: 0;
   max-width: 100%;
 }
+
+/* Until the first theme is in (or 1.5 s pass), nothing shows: no unstyled flash. */
+body.scrim-loading > * {
+  visibility: hidden;
+}

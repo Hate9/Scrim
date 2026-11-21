@@ -484,6 +484,9 @@ void getCurrentWebview().onDragDropEvent((event) => {
 });
 
 const themes = new ThemeLoader(setting);
+const revealPage = () => document.body.classList.remove("scrim-loading");
+themes.onApplied.push(revealPage);
+window.setTimeout(revealPage, 1500);
 
 /** E2E stand-ins for native dialogs (set through `window.__scrim.testHooks`). */
 const testHooks: { askImagePaths?: () => Promise<"update" | "copy" | "leave"> } = {};

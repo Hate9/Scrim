@@ -29,8 +29,6 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   blink, window style (custom title bar), language, spell check (P6), export (P5), and
   `global:` shortcuts. They are saved and shown; the features behind them are pending.
 - **Window size and position per screen configuration (7.1)** are not remembered yet.
-- **Native menu accelerators (QA-LOG Q-017).** Interim: editing keys stay with the
-  webview.
 - **T-1 fixture themes** need the owner's local fixture folder (`tests/fixtures/themes/`)
   and approved screenshots; the test skips without them.
 - **Manual tests.** E-9 (IME with Japanese input) needs a person.

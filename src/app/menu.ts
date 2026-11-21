@@ -4,10 +4,12 @@
 // key and a click behave the same. Items carry their English label, which is also the
 // key for `shortcuts` overrides in config.jsonc.
 //
-// Native accelerators: on Linux, GTK runs menu accelerators before the webview sees the
-// key. Clipboard and undo keys never get one (rule 2), and neither do keys that text
-// fields and CodeMirror need themselves (SPEC-QUESTION Q-017): those items show their key in
-// the label only, and the key reaches the dispatcher as a DOM keydown.
+// Native accelerators (QA-LOG Q-017): GTK runs a menu accelerator before the webview
+// sees the key, whatever has focus. So only focus-independent commands (file, window,
+// view, app: dispatcher scope "global") get one, on both platforms; every document
+// command is label-only and arrives as a DOM keydown, which runs it only when the live
+// document has focus and otherwise leaves the key to CodeMirror or the text field.
+// The split is by the command's kind, so `shortcuts` overrides follow it too.
 
 import { Menu, MenuItem, Submenu, CheckMenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -32,13 +34,9 @@ export interface MenuNode {
 
 export const SEP: MenuNode = { label: "", sep: true };
 
-// SPEC-QUESTION Q-017
-/** Keys that never become native accelerators (rule 2 and Q-017). */
-const WEBVIEW_KEYS = new Set([
-  "Ctrl+C", "Ctrl+X", "Ctrl+V", "Ctrl+Shift+V", "Ctrl+A", "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z",
-  "Ctrl+Home", "Ctrl+End", "Ctrl+L", "Ctrl+D", "Ctrl+[", "Ctrl+]", "Ctrl+I", "Ctrl+Shift+K",
-  "Alt+Up", "Alt+Down", "Ctrl+/", "Ctrl+Shift+D", "Ctrl+E",
-]);
+/** Clipboard and undo keys stay with the webview (01, rule 2) even if a user binds them
+ * to a global command. */
+const WEBVIEW_KEYS = new Set(["Ctrl+C", "Ctrl+X", "Ctrl+V", "Ctrl+Shift+V", "Ctrl+A", "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z"]);
 
 /** Label → lookup key for `shortcuts` (case-insensitive; "…" and "." ignored, 12). */
 export function labelKey(label: string): string {
@@ -97,9 +95,9 @@ export function shortcutOverrides(tree: MenuNode[], shortcuts: Record<string, un
   return { overrides, global, problems };
 }
 
-/** Tauri (muda) accelerator text for a dispatcher key. */
-function nativeAccelerator(key: string): string | undefined {
-  if (!key || WEBVIEW_KEYS.has(key)) return undefined;
+/** Tauri (muda) accelerator text for a global command's key (Q-017). */
+export function nativeAccelerator(key: string, global: boolean): string | undefined {
+  if (!key || !global || WEBVIEW_KEYS.has(key)) return undefined;
   return key.replace(/^Ctrl\b/, "CmdOrCtrl").replace(/\bEsc$/, "Escape");
 }
 
@@ -137,7 +135,7 @@ export class AppMenu {
         return Submenu.new({ text: n.label, items, enabled: n.enabled ? n.enabled() : true });
       }
       const key = n.id ? this.dispatcher.keyOf(n.id) : "";
-      const accelerator = nativeAccelerator(key);
+      const accelerator = nativeAccelerator(key, !!n.id && this.dispatcher.byId.get(n.id)?.scope === "global");
       const shown = !accelerator && (key || n.display) ? `${n.label}\t${key || n.display}` : n.label;
       const action = () => {
         if (n.run) n.run();

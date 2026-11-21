@@ -73,10 +73,13 @@ the sidebar asks for it; `iframeAllowlist` is read by the `scrim-embed` handler.
   to the dispatcher's form and applied with `Dispatcher.rebind`: an override takes its
   key from any default owner, and an empty string unbinds (T-5). `global:` entries are
   logged as unsupported for now.
-- Native accelerators: GTK runs them before the webview sees the key, regardless of
-  focus. Rule 2's keys and the editing keys of QA-LOG Q-017 get none (shown in the
-  label only), so CodeMirror and text fields keep them. Document commands run only with
-  focus in the live document.
+- Native accelerators (QA-LOG Q-017): GTK runs them before the webview sees the key,
+  regardless of focus. Only focus-independent commands (dispatcher scope `global`:
+  file, window, view, app) get one; document commands are label-only and arrive as DOM
+  keydowns, which run them only with focus in the live document and otherwise leave the
+  key to CodeMirror or the text field. Global keys are taken in the capture phase from
+  any focus (Mod+/ never reaches CodeMirror's comment command). Overrides follow the
+  command's kind.
 - Menu-driven Copy/Cut/Paste go through Rust (`clipboard_write_flavors`,
   `clipboard_read_html`), feeding the same flavors and paste pipeline as the DOM events
   (01, rule 2).

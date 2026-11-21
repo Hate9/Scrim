@@ -13,7 +13,7 @@ const expectMd = async (s, want, what = "markdown") => {
     throw new Error(`${what}: got ${JSON.stringify(await md(s))}, want ${JSON.stringify(want)}`);
   }
 };
-const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.hasFocus())"), "editor focused");
+const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && !document.body.classList.contains('scrim-loading') && window.__scrim.editor.view.hasFocus())"), "editor focused");
 /** Cursor offset inside its textblock. */
 const cursor = (s) => ed(s, "return view.state.selection.$head.parentOffset");
 const press = (s, ...keys) => s.chord(...keys);

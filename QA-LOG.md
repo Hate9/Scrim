@@ -301,3 +301,14 @@ dispatcher as a DOM keydown)?
 accelerator; every other menu item has one. The dispatcher runs document commands only
 when the live document has focus, so in source mode CodeMirror's own keymap handles
 these keys. Marked `// SPEC-QUESTION Q-017`.
+**Answer (spec team, 2026-11-21):** Yes, generalized into a rule instead of a list. Only
+focus-independent commands (file, window, view, app) get native accelerators, on both
+platforms. Every document command (formatting, block, selection, navigation,
+paragraph) is label-only and goes through the DOM `keydown`. Classify by the command's
+kind, not by its key, so user `shortcuts` overrides follow the same split; snippet
+keybinds (16) are always label-only. The capturing listener runs focus-independent
+commands from any focus and `preventDefault`s them, including inside CodeMirror (so
+Mod+/ always toggles source mode and never reaches CodeMirror's comment command).
+Document commands run only when the live document has focus; otherwise the key passes
+through to CodeMirror or the text field. `01-architecture.md` "Keyboard routing" rule 2
+is updated.
