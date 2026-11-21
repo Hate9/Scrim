@@ -33,7 +33,9 @@ roles exist and must stay separate:
    `spec/22-visual-design.md`. Never copy theme CSS written for the original program
    (bundled or community) into the repository or into Scrim's own themes. For
    compatibility testing, the **project owner** supplies a set of community themes as
-   local, uncommitted test fixtures (`tests/fixtures/themes/`, git-ignored); you may
+   local, uncommitted test fixtures (`tests/fixtures/themes/`, git-ignored), listed in
+   `fixtures/themes.lock.json` (URL pinned to a commit, SHA-256, license; a test helper
+   downloads and verifies them, and only the list is committed); you may
    load them in tests but not read them to design Scrim's themes. Expected results for
    those tests are screenshots **of Scrim**, approved by the owner (golden images), never
    screenshots of the original program.
