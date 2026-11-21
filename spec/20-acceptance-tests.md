@@ -90,7 +90,8 @@ implementation team writes to contain at least one instance of every construct i
 - **E-19** (runs once P3's source mode exists) Undo across source mode: type "x" in live mode, switch to source mode, type
   "yz", switch back, Mod+Z once → "yz" gone, "x" still there; Mod+Z again → "x" gone.
 - **E-14** Typing latency (automated perf): 200 keystrokes into a 10,000-line document,
-  95th percentile < 16 ms.
+  95th percentile < 16 ms. In CI it reports numbers only; the budget is enforced with
+  `SCRIM_PERF_STRICT=1` when the owner runs it on a real laptop before P8 (Q-011).
 
 ## P2 Rich blocks
 

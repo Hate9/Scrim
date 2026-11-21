@@ -147,7 +147,16 @@ on Windows a named pipe. Tauri's single-instance plugin is acceptable.
    textblock, with the same type and displayed content. When an edit (typing, paste,
    deletion, Shift+Enter, replace) makes a line of a textblock parse as something else,
    the editor inserts a minimal **automatic escape**, but only when the parser confirms
-   the line would actually change meaning. Triggers to check:
+   the line would actually change meaning.
+   **Deferral for input rules (Q-010):** while the cursor is in a single-line paragraph
+   and either (a) the text before the cursor could still become a space-triggered input
+   rule (`#`…`######`, `>`, `-`, `+`, `*`, `1.`/`1)`), or (b) the paragraph is exactly an
+   Enter-triggered rule (fence, `$$`, `---`/`***`/`___`, an HTML open tag) with the
+   cursor at its end, the escape is deferred. Deferred escapes are applied when the
+   cursor leaves the paragraph and **before every write or hand-off of the text**: save,
+   autosave, draft-recovery write, export, copy, and switching to source mode, so no
+   file or clipboard ever receives the unescaped trigger. Undo/redo restore states
+   exactly; their escapes wait under the same rule. Triggers to check:
    - **Any line** (these can interrupt a paragraph): ATX heading (`#`…`######` + space,
      or `#letter` with strict mode off), fence openers (`` ``` ``, `~~~`), `$$` alone,
      thematic breaks (`---`, `***`, `___`, with spaces allowed between), setext

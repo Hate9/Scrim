@@ -152,7 +152,7 @@ copies the displayed form; copy as Markdown copies the source.
 |---|---|---|
 | Paragraph after a paragraph or heading | Merge into the previous block's end | Merge next block's text into this one (next must be a paragraph or heading) |
 | Heading | Turn into paragraph (keep text) | As paragraph |
-| First list item paragraph | Lift out of the list: becomes a paragraph (nested: outdent one level) | Merge next item's text |
+| First paragraph of **any** list item (Q-009) | Nested item: outdent one level. Top-level item: lift out of the list as a paragraph (a list split around it becomes two lists, each keeping its marker style) | Merge next item's text |
 | Blockquote first paragraph | Lift out of the quote | |
 | Empty code/math block | Remove the block, leave an empty paragraph | |
 | Paragraph after a rich block (code, math, table, image paragraph, hr, HTML) | Select the rich block (one press); a second press deletes it | |
