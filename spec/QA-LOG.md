@@ -138,15 +138,18 @@ platform delivers it with the native handler on; elsewhere it is out of scope fo
 
 ## Q-015: "Allow iframes in HTML" versus the Content-Security-Policy
 **Asked by:** implementation team, 2026-11-21
-**Answer (spec team, 2026-11-21):** Neither as stated. Browsers enforce every policy that
-applies, so a page can tighten its CSP at runtime but never loosen it. Use that:
-- The configured CSP has `frame-src https:`.
-- When "Allow iframes" is off, each editor page adds `<meta http-equiv=
-  "Content-Security-Policy" content="frame-src 'none'">` at startup, before any document
-  content renders. The sanitizer still removes iframes too (two layers).
-- Turning the setting off adds that meta tag to every open window immediately.
-- Turning it on applies to windows opened afterwards. The checkbox shows "Applies to new
-  windows" while any window still has the stricter policy. No window recreation.
-- When on, iframes keep the 4.10 sandbox rules (no scripts unless the domain is in
-  `iframeAllowlist`).
+**Answer (spec team, 2026-11-21, revised same day):** Neither; route iframes through
+an app-served wrapper so the setting applies live in both directions without
+recreating windows. (The first version of this answer used a runtime meta-tag CSP and
+"Applies to new windows"; it is withdrawn.)
+- App pages' CSP: `frame-src` lists only the new `scrim-embed` protocol, never `https:`.
+- The sanitizer rewrites each iframe in an HTML block to
+  `scrim-embed://localhost/?src=<url>` (Windows form `http://scrim-embed.localhost/…`),
+  copying `width`, `height`, `title`, and `style` onto that outer frame.
+- The Rust handler checks the current setting on every request. On (and `https:`
+  source): a static, script-free page whose own CSP allows `frame-src https:`, holding
+  the real iframe at 100% size with the 4.10 sandbox rules (`allow-scripts` only for
+  `iframeAllowlist` domains). Off: a static "Iframe blocked" placeholder with the URL.
+- Changing the setting re-renders HTML blocks in every open window.
+- Exports emit the original iframe with the sandbox rules, no wrapper.
 `19-privacy-and-network.md` and `11-preferences.md` are updated.
