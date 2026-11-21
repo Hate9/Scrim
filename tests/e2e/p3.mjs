@@ -169,7 +169,10 @@ test("W-7 search in a 10,000-file folder: first result < 500 ms; click selects t
   console.log(`     first result after ${first} ms`);
   if (!(first < 500) && !process.env.SCRIM_UNDER_TRACE) throw new Error(`first result after ${first} ms`);
   await clickText(s, ".scrim-search-line", "needle");
-  await waitFor(() => ed(s, "const { from, to } = view.state.selection; return view.state.doc.textBetween(from, to) === 'needle'"), "match selected");
+  await waitFor(() => ed(s, "const { from, to } = view.state.selection; return view.state.doc.textBetween(from, to) === 'needle'"), "match selected").catch(async (e) => {
+    const st = await ed(s, "const { from, to } = view.state.selection; return JSON.stringify({ title: document.title, sel: [from, to, view.state.doc.textBetween(from, to)], doc: ed.markdown().slice(0, 60) })");
+    throw new Error(`${e.message}: ${st}`);
+  });
   if (!(await md(s)).includes("hay needle hay")) throw new Error("wrong file opened");
 }, () => {
   const root = join(docs, "w7");

@@ -66,6 +66,7 @@ jobs:
           branch="goldens/$(date -u +%Y-%m-%d)"
           src="$(git rev-parse --short HEAD)"
           mkdir -p "$RUNNER_TEMP/candidates" && cp "${files[@]}" "$RUNNER_TEMP/candidates/"
+          rm -rf tests/golden/themes/candidates   # untracked here; the branch may track them
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git fetch --quiet origin "$branch" 2>/dev/null; then
