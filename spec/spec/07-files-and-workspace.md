@@ -54,6 +54,16 @@ Toggle: Mod+Shift+L. Width default 240 px, resizable by dragging its right edge
 (min 180, max 50% of window), width remembered. Two tabs at the top: **Files** and
 **Outline** (wireframe `wireframes/sidebar.svg`).
 
+### Folder for windows without one (Q-016)
+
+A window with no folder open uses its document's parent folder as an **implicit
+folder**: the Files tab shows it, and quick open and search in files use it as their
+scope. It is not opened explicitly: the sidebar does not open by itself, the folder is
+not added to recent folders, and it is not restored on launch as a folder. It follows the
+document (opening or saving a file elsewhere moves it; Save As on an untitled document
+sets it). Untitled documents never saved have none: the Files tab shows "No folder open"
+with an **Open Folder** button. Opening a folder replaces the implicit one.
+
 ### Files tab, tree view (default)
 
 - Shows the open folder as an expandable tree. Only folders and files matching the
