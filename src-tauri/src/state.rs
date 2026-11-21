@@ -81,6 +81,9 @@ impl AppState {
         let mut scope = FileScope::default();
         for sub in ["themes", "recovery", "tmp-images"] {
             let d = config_dir.join(sub);
+            if sub == "themes" {
+                let _ = std::fs::create_dir_all(&d);
+            }
             scope.dirs.insert(std::fs::canonicalize(&d).unwrap_or(d));
         }
         Self {

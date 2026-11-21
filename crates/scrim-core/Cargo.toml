@@ -5,6 +5,11 @@ edition.workspace = true
 license.workspace = true
 description = "Platform-independent core of Scrim: identity, file IO, encodings, logging."
 
+[features]
+default = ["theme-compat-rewrite"]
+# THEME_COMPAT_REWRITE (spec 10, 10.3): rewrite compatible themes' selectors.
+theme-compat-rewrite = []
+
 [dependencies]
 encoding_rs = "0.8"
 chardetng = "1"

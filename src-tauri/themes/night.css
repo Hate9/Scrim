@@ -1,0 +1,153 @@
+/* Night: dark background, light text (spec 22.4). Written for Scrim. */
+
+:root {
+  --color-scheme: dark;
+  color-scheme: dark;
+  --bg-color: #363b40;
+  --text-color: #b8bfc6;
+  --select-text-bg-color: #4a89dc;
+  --side-bar-bg-color: #2e3033;
+  --active-file-bg-color: #222222;
+  --active-file-text-color: white;
+  --item-hover-bg-color: #70717d;
+  --item-hover-text-color: white;
+  --control-text-color: #b7b7b7;
+  --control-text-hover-color: #ffffff;
+  --primary-color: #6dc1e7;
+  --search-select-bg-color: #428bca;
+  --search-select-text-color: #ffffff;
+  --md-char-color: #7a8087;
+  --heading-char-color: #5d6268;
+  --meta-content-color: #8fa3ad;
+  --blur-text-color: #5d6268;
+  --window-border: 1px solid #2a2d31;
+  --panel-border-color: #474d54;
+  --table-border-color: #474d54;
+  --color-popover-bg-color: #2e3033;
+  --rawblock-edit-panel-bd: #474d54;
+  --notice-bg: #4a4330;
+  --notice-fg: #f0dc9a;
+  --night-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --night-heading: "Lucida Grande", Corbel, "Open Sans", sans-serif;
+}
+
+html,
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+body {
+  font-family: var(--night-sans);
+  font-size: 16px;
+  line-height: 26px;
+}
+#write {
+  max-width: 914px;
+  padding: 36px 30px 70px;
+}
+::selection {
+  background: var(--select-text-bg-color);
+  color: #ffffff;
+}
+#write h1,
+#write h2,
+#write h3,
+#write h4,
+#write h5,
+#write h6 {
+  font-family: var(--night-heading);
+  color: #dedede;
+}
+#write h1 {
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 44px;
+  letter-spacing: -1.5px;
+  margin: 80px 0 24px;
+}
+#write h2 {
+  font-size: 26px;
+  font-weight: bold;
+  line-height: 30px;
+  letter-spacing: -1px;
+  margin-bottom: 24px;
+}
+#write h3 {
+  font-size: 18.7px;
+  font-weight: bold;
+  letter-spacing: -1px;
+}
+#write h4 {
+  font-size: 17.9px;
+  font-weight: 400;
+  color: white;
+}
+#write h5 {
+  font-size: 15.5px;
+  font-weight: bold;
+}
+#write h6 {
+  font-size: 14.9px;
+  font-weight: 400;
+  color: white;
+}
+#write p {
+  margin: 0 0 24px;
+}
+#write a {
+  color: #e0e0e0;
+}
+#write a:hover {
+  text-decoration: underline;
+}
+#write code {
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 5px;
+}
+#write blockquote {
+  color: #9da2a6;
+  margin: 35px 0 30px 30px;
+  padding-left: 30px;
+  border-left: 2px solid #474d54;
+}
+#write pre.md-fences {
+  font-size: 14.4px;
+  background: #333333;
+  padding: 10px 10px 10px 30px;
+  margin-bottom: 20px;
+}
+#write table {
+  border-collapse: collapse;
+}
+#write table th {
+  color: #dedede;
+  font-weight: bold;
+}
+#write table th,
+#write table td {
+  padding: 5px 10px;
+  border: 0;
+  border-bottom: 1px solid #474d54;
+}
+#write hr {
+  border: 0;
+  border-top: 1px solid #474d54;
+}
+.cm-s-inner .cm-keyword {
+  color: #c792ea;
+}
+.cm-s-inner .cm-string {
+  color: #c3e88d;
+}
+.cm-s-inner .cm-comment {
+  color: #7f8c98;
+}
+.cm-s-inner .cm-number,
+.cm-s-inner .cm-atom {
+  color: #f78c6c;
+}
+.cm-s-inner .cm-def,
+.cm-s-inner .cm-variable-2 {
+  color: #82aaff;
+}

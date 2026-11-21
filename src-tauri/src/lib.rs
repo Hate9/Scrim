@@ -8,6 +8,7 @@ mod images;
 mod pdf_proto;
 mod protocol;
 mod state;
+mod themes;
 mod windows;
 mod workspace;
 
@@ -50,6 +51,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(state)
         .manage(workspace::Watchers::default())
+        .manage(themes::ThemeWatcher(std::sync::Mutex::new(None)))
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
         .register_asynchronous_uri_scheme_protocol(embed::SCHEME, embed::handle)
         .invoke_handler(tauri::generate_handler![
@@ -87,6 +89,8 @@ pub fn run() {
             workspace::folder_get,
             workspace::folder_open,
             workspace::folder_watch_implicit,
+            themes::themes_list,
+            themes::themes_open_folder,
             workspace::folder_dialog,
             workspace::doc_reload,
             workspace::search_start,
@@ -111,6 +115,8 @@ pub fn run() {
         })
         .setup(|app| {
             workspace::purge_discarded(&app.state::<AppState>());
+            themes::install_builtin(&app.state::<AppState>());
+            themes::watch(app.handle());
             let cwd = std::env::current_dir().unwrap_or_default();
             let args: Vec<String> = std::env::args().skip(1).collect();
             let paths = windows::paths_from_args(args.clone(), &cwd);

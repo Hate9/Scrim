@@ -12,18 +12,6 @@
   --monospace: ui-monospace, "DejaVu Sans Mono", Consolas, monospace;
   --notice-bg: #fff6d6;
   --notice-fg: #5c4a00;
-  color-scheme: light dark;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-color: #1f2125;
-    --text-color: #d8d8d8;
-    --md-char-color: #6c6f75;
-    --meta-content-color: #8c8f96;
-    --heading-char-color: #5a5d63;
-    --notice-bg: #3a3320;
-    --notice-fg: #f0dc9a;
-  }
 }
 
 html,
@@ -484,17 +472,17 @@ body.scrim-dragging-text * {
 }
 
 /* Default token colors (themes override them, spec 10). */
-#write .cm-keyword { color: #a626a4; }
-#write .cm-string { color: #50a14f; }
-#write .cm-comment { color: #a0a1a7; font-style: italic; }
-#write .cm-number, #write .cm-atom { color: #986801; }
-#write .cm-def { color: #4078f2; }
-#write .cm-variable-2, #write .cm-variable-3 { color: #c18401; }
-#write .cm-property, #write .cm-attribute { color: #e45649; }
-#write .cm-tag { color: #e45649; }
-#write .cm-meta, #write .cm-qualifier { color: #0184bc; }
-#write .cm-builtin { color: #0184bc; }
-#write .cm-error { color: #e45649; text-decoration: underline wavy; }
+:where(#write) .cm-keyword { color: #a626a4; }
+:where(#write) .cm-string { color: #50a14f; }
+:where(#write) .cm-comment { color: #a0a1a7; font-style: italic; }
+:where(#write) .cm-number, :where(#write) .cm-atom { color: #986801; }
+:where(#write) .cm-def { color: #4078f2; }
+:where(#write) .cm-variable-2, :where(#write) .cm-variable-3 { color: #c18401; }
+:where(#write) .cm-property, :where(#write) .cm-attribute { color: #e45649; }
+:where(#write) .cm-tag { color: #e45649; }
+:where(#write) .cm-meta, :where(#write) .cm-qualifier { color: #0184bc; }
+:where(#write) .cm-builtin { color: #0184bc; }
+:where(#write) .cm-error { color: #e45649; text-decoration: underline wavy; }
 
 /* Footnotes (4.13): numbered references; definition label and back link. */
 #write sup.md-footnote[data-n] {

@@ -8,7 +8,7 @@
 //! Only paths in scope are served; everything else gets 403 and a log line. P0 scope is
 //! the theme and recovery folders plus whatever `AppState::file_scope` has been given.
 //! Document references (scope a) and the sidebar folder (scope b) are added in P1/P3,
-//! and the theme CSS selector rewrite in P4.
+//! and the theme CSS selector rewrite (`themes::is_theme_css`) in P4.
 
 use std::path::{Path, PathBuf};
 
@@ -59,6 +59,16 @@ fn serve(state: &AppState, uri_path: &str) -> Response<Vec<u8>> {
         return status(StatusCode::FORBIDDEN);
     }
     match std::fs::read(&resolved) {
+        Ok(bytes) if crate::themes::is_theme_css(state, &resolved) => {
+            // Theme and user CSS: the compatibility selector rewrite (10.3).
+            let css = scrim_core::theme_css::rewrite(&String::from_utf8_lossy(&bytes));
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/css; charset=utf-8")
+                .header(header::CACHE_CONTROL, "no-cache")
+                .body(css.into_bytes())
+                .unwrap_or_else(|_| status(StatusCode::INTERNAL_SERVER_ERROR))
+        }
         Ok(bytes) => Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, mime_for(&resolved))

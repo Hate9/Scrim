@@ -1,0 +1,35 @@
+/* Plain: system fonts, no decoration. A starting point for your own theme: copy it to
+   a new name in this folder and edit the copy. Written for Scrim. */
+
+:root {
+  --bg-color: #ffffff;
+  --text-color: #222222;
+  --primary-color: #2f6fd0;
+}
+
+html,
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+body {
+  font-family: system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+#write {
+  max-width: 800px;
+}
+#write blockquote {
+  border-left: 3px solid #dddddd;
+  color: #555555;
+}
+#write pre.md-fences,
+#write code {
+  background: transparent;
+}
+#write table th,
+#write table td {
+  padding: 4px 8px;
+  border: 1px solid #dddddd;
+}

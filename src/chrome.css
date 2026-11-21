@@ -22,17 +22,6 @@
   --blur-text-color: #c8c8c8;
   --drag-placeholder-color: var(--primary-color);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --active-file-bg-color: #33363b;
-    --item-hover-bg-color: rgba(255, 255, 255, 0.06);
-    --window-border: 1px solid #3a3d42;
-    --panel-border-color: #3a3d42;
-    --color-popover-bg-color: #2a2c30;
-    --blur-text-color: #55585e;
-    --control-text-color: #9a9da3;
-  }
-}
 
 /* ---- layout: sidebar spans the window height; everything else sits to its right ---- */
 body.scrim {

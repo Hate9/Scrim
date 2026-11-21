@@ -1,0 +1,228 @@
+/* Paper: Scrim's default theme. Warm off-white page, serif text (spec 22.2).
+   Written for Scrim; edit freely (an edited copy is never overwritten). */
+
+:root {
+  --bg-color: #f3f2ee;
+  --text-color: #1f0909;
+  --select-text-bg-color: rgba(32, 43, 51, 0.63);
+  --select-text-font-color: white;
+  --md-char-color: #c7c5c5;
+  --heading-char-color: #dddddd;
+  --meta-content-color: #5b808d;
+  --blur-text-color: #c8c8c8;
+  --side-bar-bg-color: #f3f2ee;
+  --active-file-bg-color: rgba(32, 43, 51, 0.63);
+  --active-file-text-color: white;
+  --control-text-color: #444444;
+  --control-text-hover-color: #1f0909;
+  --item-hover-bg-color: rgba(229, 229, 229, 0.59);
+  --primary-color: #428bca;
+  --table-border-color: #cccccc;
+  --search-select-bg-color: #000000;
+  --search-select-text-color: #ffffff;
+  --rawblock-edit-panel-bd: #e5e5e5;
+  --window-border: 1px solid #dddddd;
+  --monospace: "PT Mono", "DejaVu Sans Mono", Consolas, monospace;
+  --paper-serif: "PT Serif", "Times New Roman", Times, serif;
+}
+
+html,
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+body {
+  font-family: var(--paper-serif);
+  font-size: 16px;
+  line-height: 24px;
+}
+#write {
+  max-width: 640px;
+  padding: 36px 30px 70px;
+}
+::selection {
+  background: var(--select-text-bg-color);
+  color: var(--select-text-font-color);
+}
+
+#write h1 {
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 39px;
+  margin: 60px 0 15px;
+  padding-bottom: 24.4px;
+  border-bottom: 1px solid #c5c5c5;
+}
+#write h2 {
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 48px 0 15.75px;
+}
+#write h3 {
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.15;
+  margin: 48px 0 15.75px;
+}
+#write h4 {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  margin: 48px 0 27px;
+}
+#write h5,
+#write h6 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 16px 0 24px;
+}
+#write p {
+  margin: 16px 0 24px;
+}
+#write a {
+  color: #065588;
+  text-decoration: none;
+}
+#write strong {
+  font-weight: 700;
+}
+#write em {
+  font-style: italic;
+}
+#write code {
+  font-family: var(--monospace);
+  font-size: 14px;
+  background: #dadada;
+  padding: 0 2px;
+  border-radius: 0;
+}
+#write blockquote {
+  color: #656565;
+  font-style: italic;
+  margin: 0 0 24px 32px;
+  padding-left: 16px;
+  border-left: 5px solid #bababa;
+}
+#write ul,
+#write ol {
+  margin: 0 0 24px 24px;
+  padding-left: 40px;
+}
+#write li {
+  font-size: 16px;
+}
+#write li + li {
+  margin-top: 8px;
+}
+
+/* Task items: a √ glyph, faint when open, 27 px left of the text. */
+#write li.task-list-item {
+  list-style: none;
+  position: relative;
+}
+#write li.task-list-item input.md-task-checkbox {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  left: -27px;
+  top: 0;
+  width: 16px;
+  height: 24px;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+#write li.task-list-item input.md-task-checkbox::before {
+  content: "\221A";
+  color: #dddddd;
+  font: 16px/24px var(--paper-serif);
+}
+#write li.task-list-item input.md-task-checkbox:checked::before {
+  color: var(--text-color);
+}
+
+#write pre.md-fences {
+  font-family: var(--monospace);
+  font-size: 14.4px;
+  line-height: 1.71;
+  background: #dadada;
+  margin: 14.4px 0 43.2px 28.8px;
+  padding: 0 8.4px;
+  border: 0;
+  border-radius: 0;
+}
+.cm-s-inner .cm-keyword {
+  color: #8959a8;
+}
+.cm-s-inner .cm-string,
+.cm-s-inner .cm-number {
+  color: #718c00;
+}
+.cm-s-inner .cm-comment {
+  color: #a67f59;
+}
+.cm-s-inner .cm-variable,
+.cm-s-inner .cm-variable-2,
+.cm-s-inner .cm-def {
+  color: #4271ae;
+}
+.cm-s-inner .cm-operator {
+  color: #3e999f;
+}
+
+#write figure.md-table-fig table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#write table th {
+  font-weight: bold;
+  text-transform: uppercase;
+  background: #dadada;
+}
+#write table th,
+#write table td {
+  padding: 4px 4px 4px 6.4px;
+  border: 0;
+}
+
+#write hr {
+  border: 0;
+  border-bottom: 1px solid #c5c5c5;
+  margin: 20px 0;
+  height: 0;
+}
+#write .md-math-block {
+  text-align: center;
+  margin: 16px 0;
+}
+#write pre.md-meta-block {
+  font-family: var(--monospace);
+  font-size: 12.8px;
+  color: #555555;
+  margin: 12.8px 0;
+  background: none;
+}
+#write sup.md-footnote {
+  font-size: 12px;
+  color: #555555;
+  background: rgba(238, 238, 238, 0.7);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+#write sup.md-footnote[data-n]::after {
+  font-size: 12px;
+}
+#write .md-def-footnote {
+  font-size: 14.4px;
+}
+
+footer {
+  font-family: var(--paper-serif);
+  font-size: 12px;
+}
+#scrim-sidebar {
+  font-family: var(--paper-serif);
+  font-size: 14px;
+}

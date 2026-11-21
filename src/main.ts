@@ -11,6 +11,7 @@ import { listen } from "@tauri-apps/api/event";
 import { rerenderHtmlBlocks } from "./editor/codeview";
 import { TextSelection } from "prosemirror-state";
 import { FindBar } from "./app/findbar";
+import { ThemeLoader } from "./app/themes";
 import { QuickOpen } from "./app/quickopen";
 import { Sidebar } from "./app/sidebar";
 import { SourceMode } from "./app/sourcemode";
@@ -228,6 +229,16 @@ function applySettings(next: Record<string, unknown>) {
   document.body.classList.toggle("md-soft-breaks", !o.preserveLineBreaks);
   if (typeof statusBar !== "undefined") statusBar.syncButtons();
   sourceMode?.setLineNumbers(setting("sourceLineNumbers", false));
+  // Font size: "auto" lets the theme decide (11, Appearance).
+  const size = settings.fontSize;
+  let fs = document.getElementById("scrim-font-size") as HTMLStyleElement | null;
+  if (!fs) {
+    fs = document.createElement("style");
+    fs.id = "scrim-font-size";
+    document.head.appendChild(fs);
+  }
+  fs.textContent = typeof size === "number" && size >= 12 && size <= 24 ? `#write, #scrim-source { font-size: ${size}px; }` : "";
+  if (typeof themes !== "undefined") void themes.apply().then(() => document.head.appendChild(fs!));
 }
 
 async function init() {
@@ -252,8 +263,12 @@ async function init() {
   if (d.folder) sidebar.setFolder(d.folder);
   else followDocumentFolder(d.path);
   if (d.recovered) document.title = await ipc.setDirty(true);
+  // Zoom is remembered globally (15, T-8).
   const z = setting("zoom", 1);
-  if (z !== 1) void getCurrentWebview().setZoom(z);
+  if (z !== zoomLevel) {
+    zoomLevel = z;
+    void getCurrentWebview().setZoom(z);
+  }
   if (appWindow.label === "doc-1" && !recoveryOffered) {
     recoveryOffered = true;
     void offerRecovery(wsHooks, (drafts) => recoveryDialog(drafts, (draft) => void ipc.recoveryOpen(draft.id)));
@@ -431,6 +446,8 @@ void getCurrentWebview().onDragDropEvent((event) => {
   const at = textPosAt(editor.view, p.position.x / scale, p.position.y / scale);
   void insertFiles(editor.view, p.paths, imageHooks, "drop", at ?? undefined);
 });
+
+const themes = new ThemeLoader(setting);
 
 /** E2E stand-ins for native dialogs (set through `window.__scrim.testHooks`). */
 const testHooks: { askImagePaths?: () => Promise<"update" | "copy" | "leave"> } = {};
@@ -687,6 +704,8 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   statusBar,
   writeDraft: () => drafts.writeDraft(),
   testHooks,
+  themes,
+  zoomLevel: () => zoomLevel,
 };
 
 void appWindow.listen("scrim://doc-reload", () => void init());

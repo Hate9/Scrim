@@ -1,0 +1,136 @@
+/* Clean: white page, sans-serif text, wide column (spec 22.3). Written for Scrim. */
+
+:root {
+  --bg-color: #ffffff;
+  --text-color: #333333;
+  --select-text-bg-color: #dae3ea;
+  --side-bar-bg-color: #fafafa;
+  --active-file-bg-color: #eeeeee;
+  --active-file-text-color: inherit;
+  --active-file-border-color: #777777;
+  --control-text-color: #777777;
+  --control-text-hover-color: #333333;
+  --item-hover-bg-color: rgba(0, 0, 0, 0.04);
+  --primary-color: #4183c4;
+  --table-border-color: #dfe2e5;
+  --window-border: 1px solid #eeeeee;
+  --clean-sans: "Open Sans", "Clear Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --clean-chrome: "Segoe UI", "Open Sans", Arial, sans-serif;
+}
+
+html,
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+body {
+  font-family: var(--clean-sans);
+  font-size: 16px;
+  line-height: 1.6;
+}
+#write {
+  max-width: 860px;
+  padding: 30px 30px 100px;
+}
+::selection {
+  background: var(--select-text-bg-color);
+}
+#write h1,
+#write h2,
+#write h3,
+#write h4,
+#write h5,
+#write h6 {
+  font-weight: bold;
+  margin: 16px 0;
+}
+#write h1 {
+  font-size: 36px;
+  line-height: 1.2;
+  border-bottom: 1px solid #eeeeee;
+}
+#write h2 {
+  font-size: 28px;
+  line-height: 1.225;
+  border-bottom: 1px solid #eeeeee;
+}
+#write h3 {
+  font-size: 24px;
+}
+#write h4 {
+  font-size: 20px;
+}
+#write h5,
+#write h6 {
+  font-size: 16px;
+}
+#write h6 {
+  color: #777777;
+}
+#write p {
+  margin: 0.8em 0;
+}
+#write a {
+  color: #4183c4;
+}
+#write code {
+  font-size: 14.4px;
+  background: #f3f4f4;
+  border: 1px solid #e7eaed;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+#write blockquote {
+  color: #777777;
+  border-left: 4px solid #dfe2e5;
+  padding: 0 15px;
+  margin: 0.8em 0;
+}
+#write ul,
+#write ol {
+  padding-left: 30px;
+  margin: 0.8em 0;
+}
+#write pre.md-fences {
+  font-size: 14.4px;
+  background: #f8f8f8;
+  border: 1px solid #e7eaed;
+  border-radius: 3px;
+  padding: 8px 4px 6px;
+}
+#write table {
+  border-collapse: collapse;
+}
+#write table th {
+  font-weight: bold;
+}
+#write table th,
+#write table td {
+  padding: 6px 13px;
+  border: 1px solid #dfe2e5;
+}
+#write table tbody tr:nth-child(2n) {
+  background: #f8f8f8;
+}
+#write hr {
+  height: 2px;
+  padding: 0;
+  margin: 16px 0;
+  background: #e7e7e7;
+  border: 0;
+}
+#write pre.md-meta-block {
+  font-size: 13.6px;
+  color: #777777;
+  background: #f7f7f7;
+  padding: 16px;
+  border-radius: 3px;
+}
+footer,
+#scrim-sidebar {
+  font-family: var(--clean-chrome);
+}
+#scrim-sidebar .file-tree-node.active,
+#scrim-sidebar .file-list-item.active {
+  border-left: 4px solid var(--active-file-border-color);
+}
