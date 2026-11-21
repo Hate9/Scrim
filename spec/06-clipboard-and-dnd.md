@@ -59,6 +59,11 @@ Priority order of clipboard flavors:
 ## 6.3 Drag and drop
 
 - Dragging selected text inside the document moves it (Mod held: copies). One undo step.
+  Implemented with pointer events on all platforms, not HTML5 drag and drop, so it works
+  alongside the native file-drop handler on Windows (Q-014). Dragging text out of Scrim
+  into other apps is not required in v1. Dropping text from other apps is supported
+  where the platform delivers it with the native handler on; elsewhere it is out of scope
+  for v1.
 - Dropping files from the file manager onto the document:
   - images: insert per 6.4 at the drop point;
   - `.md` files: open them (new window if the current one has unsaved changes or a
