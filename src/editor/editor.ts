@@ -2,6 +2,7 @@
 
 import { baseKeymap } from "prosemirror-commands";
 import { closeHistory, history, redo, undo } from "prosemirror-history";
+import { dropCursor } from "prosemirror-dropcursor";
 import { keymap } from "prosemirror-keymap";
 import type { Node } from "prosemirror-model";
 import { EditorState, type Command, type Transaction } from "prosemirror-state";
@@ -23,6 +24,7 @@ import {
 } from "./commands";
 import { defaultOptions, type EditorOptions } from "./context";
 import { createInlinePlugin, type RenderHooks } from "./decorations";
+import { copyFlavors, handlePaste } from "./clipboard";
 import { createEscapePlugin, flushEscapes } from "./escapes";
 import { createHeadingPlugin } from "./headings";
 import { createNormalizePlugin } from "./normalize";
@@ -38,6 +40,8 @@ export interface Editor {
   isDirty(): boolean;
   markSaved(): void;
   run(cmd: Command): boolean;
+  /** Copy the selection with the given text/plain flavor (Edit menu variants). */
+  copyAs(kind: "markdown" | "plain"): void;
 }
 
 /** Typing groups break after whitespace that follows a word (3.8). */
@@ -63,6 +67,10 @@ export function createEditor(
   let savedDoc: Node | null = null;
   let dirty = false;
   const groups = typingGroups();
+  /** Set by Mod+Shift+V keydown; the paste event that follows inserts literally. */
+  let plainPaste = false;
+  /** Set by Copy as Plain Text; the copy event that follows writes rendered text. */
+  let copyPlain = false;
 
   const keys = keymap({
     Enter: enter(options),
@@ -91,7 +99,19 @@ export function createEditor(
     createRevealPlugin(options),
     createNormalizePlugin(),
     createEscapePlugin(options),
+    dropCursor({ class: "scrim-drop-cursor", width: 2 }),
   ];
+
+  function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {
+    if (v.state.selection.empty || !event.clipboardData) return false;
+    const { text, html } = copyFlavors(v.state, options, copyPlain);
+    copyPlain = false;
+    event.clipboardData.setData("text/plain", text);
+    event.clipboardData.setData("text/html", html);
+    event.preventDefault();
+    if (cut) v.dispatch(v.state.tr.deleteSelection().scrollIntoView().setMeta("uiEvent", "cut"));
+    return true;
+  }
 
   const makeState = (doc: Node) => EditorState.create({ doc, plugins });
   const initial = parseMarkdown("").doc;
@@ -111,6 +131,24 @@ export function createEditor(
             onChange(dirty);
           }
         }
+      },
+      handleKeyDown(_v, event) {
+        // Clipboard keys stay native (01, rule 2); only remember the variant.
+        plainPaste = event.ctrlKey && event.shiftKey && (event.key === "V" || event.key === "v" || event.code === "KeyV");
+        return false;
+      },
+      handlePaste(v, event) {
+        const plain = plainPaste;
+        plainPaste = false;
+        return handlePaste(v, event, options, plain);
+      },
+      handleDOMEvents: {
+        copy(v, event) {
+          return writeClipboard(v, event as ClipboardEvent, false);
+        },
+        cut(v, event) {
+          return writeClipboard(v, event as ClipboardEvent, true);
+        },
       },
       handleTextInput(v, from, to, text) {
         groups(v, text);
@@ -141,6 +179,14 @@ export function createEditor(
     },
     run(cmd: Command) {
       return cmd(view.state, view.dispatch, view);
+    },
+    copyAs(kind) {
+      copyPlain = kind === "plain";
+      const prev = options.copyMarkdown;
+      if (kind === "markdown") options.copyMarkdown = true;
+      document.execCommand("copy");
+      options.copyMarkdown = prev;
+      copyPlain = false;
     },
   };
 }

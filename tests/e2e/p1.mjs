@@ -1,7 +1,7 @@
 // P1 acceptance tests (spec 20, "P1 Core editing" and the round-trip tests that need
 // the live editor). Each test starts the app on a fixture or an untitled document.
 import { ALT, BACKSPACE, CTRL, END, ENTER, HOME, LEFT, RIGHT, SHIFT, TAB } from "./webdriver.mjs";
-import { ed, editorValue, fixture, sleep, test, typeText, waitFor } from "./harness.mjs";
+import { ed, editorValue, fixture, sleep, spawnSync, test, typeText, waitFor } from "./harness.mjs";
 
 const md = editorValue;
 const expectMd = async (s, want, what = "markdown") => {
@@ -213,3 +213,39 @@ test("R-4 fence on the only line still triggers on Enter", async (s) => {
   await typeText(s, "x");
   await expectMd(s, "```js\nx\n```\n");
 });
+
+test("KB-1 (DOM part) copy and paste round-trip Markdown structure", async (s) => {
+  await ready(s);
+  await press(s, CTRL, "a");
+  await press(s, CTRL, "c");
+  await press(s, CTRL, END);
+  await press(s, ENTER);
+  await press(s, CTRL, "v");
+  await expectMd(s, "a **bold** b\n\na **bold** b\n");
+  await waitFor(() => s.exec("return document.querySelectorAll('#write strong').length === 2"), "two strong elements");
+}, () => fixture("kb1.md", "a **bold** b\n"));
+
+test("Mod+Shift+V pastes literally", async (s) => {
+  await ready(s);
+  await press(s, CTRL, "a");
+  await press(s, CTRL, "c");
+  await press(s, CTRL, END);
+  await press(s, ENTER);
+  await press(s, CTRL, SHIFT, "v");
+  // The clipboard's text/plain is the Markdown source; pasted literally it shows the
+  // asterisks as text.
+  await expectMd(s, "a **bold** b\n\na \\*\\*bold\\*\\* b\n");
+}, () => fixture("plain.md", "a **bold** b\n"));
+
+test("E-12 Mod+K with a URL on the clipboard", async (s) => {
+  await ready(s);
+  // xclip forks a daemon that serves the selection; detach it fully.
+  spawnSync("sh", ["-c", "printf 'https://a.b' | xclip -selection clipboard -i >/dev/null 2>&1 &"], { env: process.env, stdio: "ignore", timeout: 3000 });
+  await sleep(300);
+  await press(s, CTRL, HOME);
+  for (let i = 0; i < 4; i++) await press(s, SHIFT, RIGHT);
+  await press(s, CTRL, "k");
+  await expectMd(s, "[site](https://a.b) x\n");
+  const c = await cursor(s);
+  if (c !== 19) throw new Error(`cursor ${c}, want 19 (after the link)`);
+}, () => fixture("e12.md", "site x\n"));

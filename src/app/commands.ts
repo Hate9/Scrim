@@ -78,6 +78,8 @@ export function createCommands(editor: Editor, app: AppHooks): CommandDef[] {
     doc("edit.selectScope", "Ctrl+E", selectScope(o)),
     doc("edit.selectWord", "Ctrl+D", selectWord),
     doc("edit.deleteWord", "Ctrl+Shift+D", deleteWord),
+    { id: "edit.copyMarkdown", key: "Ctrl+Shift+C", scope: "document", run: () => editor.copyAs("markdown") },
+    { id: "edit.copyPlain", key: "", scope: "document", run: () => editor.copyAs("plain") },
     {
       id: "edit.jumpToSelection",
       key: "Ctrl+J",

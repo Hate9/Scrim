@@ -77,9 +77,11 @@ export async function main(filter) {
   if (!existsSync(APP)) throw new Error(`app not built: ${APP}`);
   const driver = spawn("tauri-driver", ["--port", String(PORT)], { stdio: ["ignore", "inherit", "inherit"] });
   let failed = 0;
+  let selected = [];
   try {
     await waitFor(() => fetch(`${BASE}/status`).then((r) => r.ok), "tauri-driver");
-    for (const t of tests.filter((t) => !filter || filter.test(t.name))) {
+    selected = tests.filter((t) => !filter || filter.test(t.name));
+    for (const t of selected) {
       await waitFor(() => !appRunning(), "previous app instance to exit", 15000);
       const prepared = t.prepare();
       const [file, extra] = Array.isArray(prepared) ? prepared : [prepared];
@@ -99,7 +101,7 @@ export async function main(filter) {
   } finally {
     driver.kill();
   }
-  console.log(`\n${tests.length - failed}/${tests.length} passed (logs in ${process.env.SCRIM_CONFIG_DIR})`);
+  console.log(`\n${selected.length - failed}/${selected.length} passed (logs in ${process.env.SCRIM_CONFIG_DIR})`);
   process.exit(failed ? 1 : 0);
 }
 
