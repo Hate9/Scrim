@@ -332,7 +332,9 @@ test("D-7 Save As to another folder offers image choices; Update rewrites the pa
   if (!(await js(s, "return window.__asked === true"))) throw new Error("prompt not shown");
   const text = readFileSync(target, "utf8");
   if (text !== "![a](../../img/pic.png)\n\n![b](https://example.invalid/x.png)\n") throw new Error(`saved: ${JSON.stringify(text)}`);
-  await waitFor(async () => (await s.title()).startsWith("copy.md"), "title");
+  await waitFor(async () => (await s.title()).startsWith("copy.md"), "title").catch(async (e) => {
+    throw new Error(`${e.message}: ${JSON.stringify(await s.title())}; on disk ${JSON.stringify(readFileSync(target, "utf8"))}; doc ${JSON.stringify(await js(s, "return window.__scrim.editor.markdown()"))}`);
+  });
 }, () => {
   const root = mkFolder("d7", { "doc.md": "![a](img/pic.png)\n\n![b](https://example.invalid/x.png)\n", "img/pic.png": "png" });
   return join(root, "doc.md");

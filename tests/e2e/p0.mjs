@@ -6,7 +6,7 @@ import { typeText, test, fixture, waitFor, nativeTitles, editorValue, sleep, spa
 
 test("S-1 launch with a path shows the text and the title", async (s, file) => {
   await waitFor(async () => (await editorValue(s)) === "# Hello\r\nWorld café\r\n", "text");
-  await waitFor(async () => (await s.exec("return document.querySelector('#write h1')?.textContent")) === "H1Hello", "rendered h1");
+  await waitFor(async () => (await s.exec("return document.querySelector('#write h1')?.textContent")) === "Hello", "rendered h1 (the level hint is a ::before, 10.3)");
   await waitFor(async () => (await s.title()) === "a.md - Scrim", "document title");
   await waitFor(() => nativeTitles().includes("a.md - Scrim"), "native title");
   return file;

@@ -374,7 +374,6 @@ async function save(saveAs = false): Promise<boolean> {
   sourceMode.sync();
   const oldDir = state.path ? dirname(state.path) : null;
   try {
-    const savedDoc = editor.view.state.doc;
     const text = editor.markdown();
     const request: SaveRequest = { text, saveAs, suggestedName: suggestedFileName(text) };
     for (;;) {
@@ -397,7 +396,8 @@ async function save(saveAs = false): Promise<boolean> {
               return save(false);
             }
           }
-          if (editor.view.state.doc === savedDoc) editor.markSaved();
+          // Clean if nothing was typed meanwhile (presentation marks are not edits).
+          if (editor.markdown() === text) editor.markSaved();
           document.title = await ipc.setDirty(editor.isDirty());
           void ipc.recoveryRemove(false);
           followDocumentFolder(r.path);
