@@ -177,16 +177,26 @@ Tokens use the CodeMirror 5 class names in `04-blocks.md` 4.5. The source-mode e
 
 Themes are written against a small base stylesheet that the reference editor loads
 before them. Scrim's app base CSS provides the equivalents below for content inside
-`#write` and nothing else visual. **Every base rule for document content is wrapped in
-`:where()`** (zero specificity), so any theme rule wins. Scrim's own look (colors,
+`#write` and nothing else visual. Use the selectors as written, at their natural
+specificity, loaded before the theme: themes are tuned against these exact rules (for
+example, `blockquote > :last-child { margin-bottom: 0 }` must still beat a theme's
+plain `p { margin: … }`). Do **not** wrap them in `:where()`. Scrim's own look (colors,
 fonts, backgrounds, link and code styling, table borders) lives only in its built-in
 theme files (10.2), never in the base CSS. `plain.css` is close to the base alone.
+
+CodeMirror 6's own injected styles (its base theme and any `EditorView.theme`) are
+not part of this base and must lose to theme rules of any specificity: put them in a
+cascade layer (`@layer scrim-cm`), since unlayered theme CSS always beats layered
+rules. Otherwise a theme's `.cm-s-inner.CodeMirror { background: … }` ties with CM6's
+generated selectors and loses on order.
 
 - Root: `html { font-size: 14px; line-height: 1.42857 }`, `--bg-color: #fff`,
   `--text-color: #333`, `--monospace` (a system monospace stack); `html` background and
   color from those variables; `* { box-sizing: border-box }`.
-- `#write`: centered (`margin: 0 auto`), `padding-top: 36px`, `position: relative`,
-  `word-wrap: break-word`.
+- `#write`: centered (`margin: 0 auto`), `padding: 36px 30px 70px`,
+  `min-height: 100vh`, `position: relative`, `word-wrap: break-word`. Themes usually set
+  `max-width`; the side padding is what keeps text off the window edge when they don't.
+- `p.md-p`, headings, `table.md-table`: `white-space: pre-wrap`.
 - Headings: `h1` 2rem, `h2` 1.8rem, `h3` 1.6rem, `h4` 1.4rem, `h5` 1.2rem, `h6` 1rem.
   `p`, headings, math blocks, HTML blocks: `margin: 1rem 0`.
 - Lists: `li { margin: 0; position: relative }`; `li p` and math inside `li`:
@@ -199,15 +209,22 @@ theme files (10.2), never in the base CSS. `plain.css` is close to the base alon
   `table.md-table td { min-width: 32px }`. No borders or backgrounds.
 - Code: `code, pre` use `var(--monospace)`; `.md-fences { font-size: 0.9rem; display:
   block; background: inherit; position: relative }`; CodeMirror line padding `0 4px`.
-  No code colors or backgrounds (tokens are uncolored unless the theme colors them;
-  the built-in themes do).
+  `.CodeMirror.cm-s-inner { background: inherit }`. Token colors: CodeMirror 5's
+  default theme palette (MIT), scoped as `.cm-s-inner .cm-<token>`: keyword `#708`,
+  atom `#219`, number `#164`, def `#00f`, variable `#000`, variable-2 `#05a`,
+  variable-3 `#085`, string `#a11`, string-2 `#f50`, property `#000`, operator
+  `#981a1a`, comment `#a50`, meta and qualifier `#555`, builtin `#30a`, bracket `#997`,
+  tag `#170`, attribute `#00c`, header `#00f`, quote `#090`, hr `#999`, link `#00c`.
+  Light themes that only style the code block background rely on these.
 - Front matter: `pre.md-meta-block { font-size: 0.8rem; white-space: pre-wrap;
   background: #ccc; display: block }`.
 - Footnote definitions (`.footnotes`): `font-size: 0.9rem; opacity: 0.8`. Footnote
   refs: small rounded light-gray badge.
 - Images: `max-width: 100%`; an image alone in its paragraph is centered as a block.
 - `kbd`: light key-cap look; `mark`: yellow background, black text.
-- Links: `cursor: pointer` only; no color or decoration.
+- Links: no color or decoration. Cursor: in exports `pointer`; in the editor the text
+  cursor, and `pointer` only while Mod is held or when "Open links with single click"
+  is on (Q-012).
 - The heading level hint (`hN.md-focus::before`): `--heading-char-color`, thin border,
   in the left margin; size and offset per `22-visual-design.md`.
 
