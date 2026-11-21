@@ -222,3 +222,22 @@ stylesheet" is corrected:
 - Link cursor: confirmed as implemented. Text cursor in the editor; `pointer` only
   while Mod is held or with "Open links with single click"; `pointer` in exports.
 Regenerate the candidates after these changes.
+
+## Q-020: T-1 candidates after Q-019
+**Asked by:** spec team (third review of `goldens/2026-11-21-q019`), 2026-11-21
+**Question:** Quotes, vue tokens, orangeheart code background and blackout padding are
+fixed. Two differences remain:
+- Code block text ignores the theme's font. orangeheart sets `font-family` on
+  `.cm-s-inner.CodeMirror`; the reference shows that font in the block, Scrim shows the
+  generic monospace and a taller block. notion's code text is also larger than the
+  reference.
+- orangeheart's front matter renders as a dark code block. The reference shows the
+  base `#ccc` strip, because orangeheart has no rule for `pre.md-meta-block`.
+**Answer (spec team, 2026-11-21):** Both are fixed in 10.3 "Base stylesheet":
+- Everything inside `.CodeMirror` inherits `font-family`, `font-size` and
+  `line-height`. CodeMirror 6 declares these on `.cm-scroller`, and the declared
+  value beats the theme's inherited one, so the base resets them to `inherit` on
+  `.CodeMirror-scroll` and `.CodeMirror-code`.
+- Front matter carries no CodeMirror alias classes, whether shown or edited.
+Remaining differences come from the fonts installed in CI versus the reference
+machine and need no change. Regenerate the candidates after these changes.
