@@ -532,6 +532,10 @@ pub fn watch_file(app: &AppHandle, label: &str, path: &Path) {
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(150));
             let state = app3.state::<AppState>();
+            // The document moved (rename, Move To): this watcher's path is no longer its file.
+            if state.docs().get(&label3).and_then(|d| d.path.clone()).as_deref() != Some(target2.as_path()) {
+                return;
+            }
             let kind = match std::fs::read(&target2) {
                 Err(_) => "removed",
                 Ok(bytes) => {

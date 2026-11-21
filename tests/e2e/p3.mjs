@@ -72,7 +72,10 @@ test("W-2 F2 renames the open file on disk; the document follows", async (s, fil
   await press(s, ENTER);
   const target = join(docs, "w2", "renamed.md");
   await waitFor(() => existsSync(target) && !existsSync(file), "renamed on disk");
-  await waitFor(async () => (await s.title()).startsWith("renamed.md"), "title follows");
+  await waitFor(async () => (await s.title()).startsWith("renamed.md"), "title follows").catch(async (e) => {
+    const log = readFileSync(join(process.env.SCRIM_CONFIG_DIR, "app.log"), "utf8").trim().split("\n").slice(-6).join(" | ");
+    throw new Error(`${e.message}: title ${JSON.stringify(await s.title())}, notice ${JSON.stringify(await js(s, "return document.getElementById('notice').hidden ? null : document.getElementById('notice-text').textContent"))}; log: ${log}`);
+  });
   await ed(s, "view.focus()");
   await press(s, CTRL, END);
   await typeText(s, "!");
