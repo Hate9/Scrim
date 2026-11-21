@@ -80,3 +80,9 @@ async function call(base, method, path, body) {
   }
   return json.value;
 }
+export const ESCAPE = "";
+export const F2 = "";
+export const F3 = "";
+export const F5 = "";
+export const F8 = "";
+export const F9 = "";

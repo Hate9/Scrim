@@ -1,7 +1,9 @@
 // Find bar (spec 08; wireframe find-bar.svg).
 
 import type { Editor } from "../editor/editor";
-import { expandReplacement, findMatches, replaceMatch, revealMatch, setFindResults, type FindQuery, type Match } from "../editor/find";
+import {
+  displayedText,
+  expandReplacement, findMatches, replaceMatch, revealMatch, setFindResults, type FindQuery, type Match } from "../editor/find";
 
 export interface SourceSearch {
   /** In source mode the bar searches the CodeMirror source editor. */
@@ -130,7 +132,7 @@ export class FindBar {
     const { state } = this.editor.view;
     const sel = state.selection;
     if (!this.source.active() && !sel.empty && sel.$from.sameParent(sel.$to)) {
-      const t = state.doc.textBetween(sel.from, sel.to);
+      const t = displayedText(state, sel.from, sel.to, this.editor.options);
       if (!t.includes("\n")) {
         this.find.value = t;
         this.q.text = t;

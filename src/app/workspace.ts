@@ -63,6 +63,7 @@ export function watchExternalChanges(editor: Editor, hooks: WorkspaceHooks) {
     if (!hooks.isDirty()) {
       const text = await ipc.reload();
       reloadKeepingCursor(editor, text);
+      document.title = await ipc.setDirty(false);
       return;
     }
     hooks.notice("This file changed on disk.", [
@@ -71,6 +72,7 @@ export function watchExternalChanges(editor: Editor, hooks: WorkspaceHooks) {
         async () => {
           hooks.notice(null);
           reloadKeepingCursor(editor, await ipc.reload());
+          editor.view.focus();
           document.title = await ipc.setDirty(false);
         },
       ],
@@ -185,13 +187,17 @@ export function setupTypewriter(editor: Editor) {
   let keyboard = false;
   window.addEventListener("keydown", () => (keyboard = true), true);
   window.addEventListener("mousedown", () => (keyboard = false), true);
-  editor.onUpdate.push((view: EditorView) => {
+  const center = (view: EditorView) => {
     if (!document.body.classList.contains("scrim-typewriter-mode") || !keyboard || !view.hasFocus()) return;
     const scroller = view.dom.closest("content") as HTMLElement;
     const c = view.coordsAtPos(view.state.selection.head);
     const r = scroller.getBoundingClientRect();
     const delta = (c.top + c.bottom) / 2 - (r.top + r.height / 2);
     if (Math.abs(delta) > 2) scroller.scrollBy({ top: delta, behavior: "smooth" });
+  };
+  editor.onUpdate.push((view: EditorView) => {
+    // After ProseMirror's own scroll-into-view for this update.
+    requestAnimationFrame(() => center(view));
   });
 }
 

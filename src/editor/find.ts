@@ -138,6 +138,21 @@ export function findMatches(state: EditorState, q: FindQuery, opts: EditorOption
   return out;
 }
 
+/** The displayed text of a selection inside one textblock (find field pre-fill). */
+export function displayedText(state: EditorState, from: number, to: number, opts: EditorOptions): string {
+  const $f = state.doc.resolve(from);
+  const node = $f.parent;
+  const defs = inlineKey.getState(state)?.defs;
+  if (!isProse(node) || !defs) return state.doc.textBetween(from, to);
+  const proj = project(node, flatten(elementsOf(node, defs, opts)));
+  const start = $f.start();
+  let out = "";
+  for (let i = 0; i < proj.text.length; i++) {
+    if (start + proj.from[i] >= from && start + proj.to[i] <= to) out += proj.text[i];
+  }
+  return out;
+}
+
 /** Expand `$1`…`$9` and `$&` (regex replacements). */
 export function expandReplacement(rep: string, m: Match, regex: boolean): string {
   if (!regex) return rep;

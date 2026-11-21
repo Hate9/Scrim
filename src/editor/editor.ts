@@ -1,6 +1,7 @@
 // The live-preview editor: ProseMirror view over the Markdown document model.
 
 import { createFocusPlugin } from "./focus";
+import { createFindPlugin } from "./find";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { closeHistory, history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
@@ -159,6 +160,7 @@ export function createEditor(
     createBlocksPlugin({ onFrontMatter: hooks.onFrontMatter, numberFootnotes: () => options.numberFootnotes }),
     createCodeSelectionPlugin(),
     createFocusPlugin(),
+    createFindPlugin(),
   ];
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {
@@ -306,7 +308,10 @@ export function createEditor(
         for (const k of Object.keys(next.attrs)) tr.setDocAttribute(k, next.attrs[k]);
       }
       if (!addToHistory) tr.setMeta("addToHistory", false);
+      // A replaced text is its own undo step: not merged with typing before or after it.
+      else closeHistory(tr);
       view.dispatch(tr);
+      if (addToHistory) view.dispatch(closeHistory(view.state.tr));
       return view.state.doc;
     },
     copyAs(kind) {

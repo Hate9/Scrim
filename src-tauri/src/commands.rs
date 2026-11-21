@@ -219,12 +219,28 @@ pub async fn doc_save(
             if let Some(dir) = current_path.as_deref().and_then(Path::parent) {
                 dialog = dialog.set_directory(dir);
             }
-            let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
-                .await
-                .map_err(|e| e.to_string())?;
-            match picked.and_then(|p| p.into_path().ok()) {
-                Some(p) => p,
-                None => return Ok(SaveResult::Cancelled),
+            // Debug builds only: the E2E suite cannot drive the native save dialog, so it
+            // names the Save As target in a file (one use per write).
+            #[cfg(debug_assertions)]
+            let test_target = std::env::var_os("SCRIM_TEST_SAVE_AS")
+                .map(PathBuf::from)
+                .and_then(|f| std::fs::read_to_string(&f).ok().filter(|t| !t.trim().is_empty()).map(|t| (f, t)))
+                .map(|(f, t)| {
+                    let _ = std::fs::write(f, "");
+                    PathBuf::from(t.trim())
+                });
+            #[cfg(not(debug_assertions))]
+            let test_target: Option<PathBuf> = None;
+            if let Some(p) = test_target {
+                p
+            } else {
+                let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+                    .await
+                    .map_err(|e| e.to_string())?;
+                match picked.and_then(|p| p.into_path().ok()) {
+                    Some(p) => p,
+                    None => return Ok(SaveResult::Cancelled),
+                }
             }
         }
     };

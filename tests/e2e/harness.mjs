@@ -20,6 +20,10 @@ const work = mkdtempSync(join(tmpdir(), "scrim-e2e-"));
 process.env.SCRIM_CONFIG_DIR = join(work, "config");
 const docs = join(work, "docs");
 spawnSync("mkdir", ["-p", docs, process.env.SCRIM_CONFIG_DIR]);
+// Debug builds read a Save As target from this file instead of showing the dialog.
+const saveAsFile = join(work, "save-as.txt");
+process.env.SCRIM_TEST_SAVE_AS = saveAsFile;
+writeFileSync(saveAsFile, "");
 
 function fixture(name, bytes) {
   const p = join(docs, name);
@@ -69,7 +73,7 @@ const ed = (s, body, args = []) =>
 
 export const tests = [];
 export const test = (name, fn, prepare = () => null) => tests.push({ name, fn, prepare });
-export { typeText, ed, APP, docs, fixture, waitFor, nativeTitles, editorValue, sleep, spawnSync, readFileSync, readdirSync, join };
+export { saveAsFile, writeFileSync, existsSync, work, typeText, ed, APP, docs, fixture, waitFor, nativeTitles, editorValue, sleep, spawnSync, readFileSync, readdirSync, join };
 
 // ---------------------------------------------------------------------------------
 

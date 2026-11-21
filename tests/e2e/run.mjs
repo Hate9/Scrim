@@ -3,6 +3,7 @@ import { main } from "./harness.mjs";
 import "./p0.mjs";
 import "./p1.mjs";
 import "./p2.mjs";
+import "./p3.mjs";
 
 main(process.argv[2] ? new RegExp(process.argv[2]) : null).catch((e) => {
   console.error(e);

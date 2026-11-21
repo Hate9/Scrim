@@ -249,7 +249,9 @@ async function init() {
     selectSourceRange(pendingSelect);
     pendingSelect = null;
   }
-  sidebar.setFolder(d.folder);
+  // SPEC-QUESTION Q-016: without a folder, the Files tab shows the document's folder.
+  if (d.folder) sidebar.setFolder(d.folder);
+  else if (!sidebar.folder || sidebar.implicitFolder) sidebar.setFolder(d.path ? dirname(d.path) : null, true);
   if (d.recovered) document.title = await ipc.setDirty(true);
   const z = setting("zoom", 1);
   if (z !== 1) void getCurrentWebview().setZoom(z);
@@ -331,7 +333,7 @@ async function save(saveAs = false): Promise<boolean> {
             return save(false);
           }
           if (saveAs && oldDir && oldDir !== dirname(r.path)) {
-            const changed = await fixImagesAfterSaveAs(editor, oldDir, dirname(r.path), askImagePaths);
+            const changed = await fixImagesAfterSaveAs(editor, oldDir, dirname(r.path), () => (testHooks.askImagePaths ?? askImagePaths)());
             if (changed) {
               state.saving = false;
               return save(false);
@@ -430,6 +432,9 @@ void getCurrentWebview().onDragDropEvent((event) => {
   void insertFiles(editor.view, p.paths, imageHooks, "drop", at ?? undefined);
 });
 
+/** E2E stand-ins for native dialogs (set through `window.__scrim.testHooks`). */
+const testHooks: { askImagePaths?: () => Promise<"update" | "copy" | "leave"> } = {};
+
 // ---- workspace (P3) ---------------------------------------------------------------------
 
 let pendingSelect: { line: number; start: number; length: number } | null = null;
@@ -515,9 +520,14 @@ const statusBar = new StatusBar(editor, {
   setSetting,
   sourceText: () => (sourceMode.active() ? editor.markdown() : null),
 });
-editor.onUpdate.push(() => {
+let lastFindDoc: unknown = null;
+editor.onUpdate.push((view) => {
   sidebar.updateOutline();
-  if (findBar.isOpen) findBar.update();
+  // Only document edits re-run the search (its own highlight transactions must not).
+  if (findBar.isOpen && view.state.doc !== lastFindDoc) {
+    lastFindDoc = view.state.doc;
+    findBar.update();
+  }
 });
 const wsHooks = {
   isDirty: () => editor.isDirty(),
@@ -541,6 +551,7 @@ void appWindow.listen<string>("scrim://doc-moved", async (e) => {
   state.path = e.payload;
   state.fileName = e.payload.split(/[\\/]/).pop() ?? null;
   editor.options.docDir = dirname(e.payload);
+  if (sidebar.implicitFolder) sidebar.setFolder(dirname(e.payload), true);
   document.title = await ipc.setDirty(editor.isDirty());
   void sidebar.refreshFiles();
 });
@@ -610,6 +621,17 @@ const dispatcher = new Dispatcher(commandList, () => editor.view.hasFocus() || s
 dispatcher.attach(window);
 window.addEventListener("keydown", (e) => {
   if (sidebar.outlineKey(e)) e.preventDefault();
+  // Text fields of the chrome (find bar, quick open, sidebar) own Mod+Z / Mod+Shift+Z
+  // (E-18). WebKitGTK keeps an undo stack for them but binds no keys to it.
+  const t = e.target;
+  if ((t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) && e.ctrlKey && !e.altKey) {
+    const k = e.key.toLowerCase();
+    const cmd = k === "z" ? (e.shiftKey ? "redo" : "undo") : k === "y" && !e.shiftKey ? "redo" : null;
+    if (cmd) {
+      e.preventDefault();
+      document.execCommand(cmd);
+    }
+  }
 });
 
 // Unsaved changes: Save / Don't Save / Cancel (spec 07, 7.1).
@@ -652,6 +674,7 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   sourceMode,
   statusBar,
   writeDraft: () => drafts.writeDraft(),
+  testHooks,
 };
 
 void appWindow.listen("scrim://doc-reload", () => void init());

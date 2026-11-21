@@ -51,7 +51,10 @@ export class SourceMode implements SourceSearch {
     // The block at the top of the viewport stays at the top (15).
     const scroller = view.dom.closest("content") as HTMLElement;
     const top = view.posAtCoords({ left: view.dom.getBoundingClientRect().left + 40, top: scroller.getBoundingClientRect().top + 8 });
-    const topOffset = top ? posToSource(map, top.pos) : 0;
+    // Between two blocks (in a margin), the block below is the one at the top.
+    const size = view.state.doc.content.size;
+    const topPos = top ? (view.state.doc.resolve(top.pos).depth === 0 ? Math.min(top.pos + 1, size) : top.pos) : 0;
+    const topOffset = posToSource(map, topPos);
     this.cm = new EditorView({
       parent: this.host,
       state: EditorState.create({
@@ -75,7 +78,8 @@ export class SourceMode implements SourceSearch {
     document.body.classList.add("md-source-mode");
     this.cm.focus();
     const line = this.cm.lineBlockAt(Math.min(topOffset, text.length));
-    scroller.scrollTop = line.top;
+    // CodeMirror measures the lines it scrolls to (estimates would drift on wrapped lines).
+    this.cm.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 8 }) });
   }
 
   /** Apply the source editor's text to the document (save while in source mode). */
@@ -92,7 +96,7 @@ export class SourceMode implements SourceSearch {
     const cm = this.cm;
     if (!cm) return;
     const scroller = this.host.closest("content") as HTMLElement;
-    const topLine = cm.lineBlockAtHeight(scroller.scrollTop);
+    const topLine = cm.lineBlockAtHeight(scroller.getBoundingClientRect().top + 8 - cm.documentTop);
     const { anchor, head } = cm.state.selection.main;
     const text = cm.state.doc.toString();
     // The whole source-mode session is one undo step (01, "Undo across live and source").

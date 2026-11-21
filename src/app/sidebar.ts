@@ -154,10 +154,24 @@ export class Sidebar {
 
   // ---- files -------------------------------------------------------------------------
 
-  setFolder(path: string | null) {
+  /** True when the folder is the document's own (no folder opened; QA-LOG Q-016). */
+  implicitFolder = false;
+
+  setFolder(path: string | null, implicit = false) {
+    const same = path === this.folder;
     this.folder = path;
-    this.selectedDir = path;
-    if (path) {
+    this.implicitFolder = implicit;
+    if (!same) this.selectedDir = path;
+    if (implicit) {
+      if (!same && path) {
+        try {
+          this.expanded = new Set(JSON.parse(localStorage.getItem(`scrim.expanded:${path}`) ?? "[]"));
+        } catch {
+          this.expanded = new Set();
+        }
+      }
+      if (this.visible && this.tab === "files") void this.refreshFiles();
+    } else if (path) {
       try {
         this.expanded = new Set(JSON.parse(localStorage.getItem(`scrim.expanded:${path}`) ?? "[]"));
       } catch {
@@ -466,6 +480,11 @@ export class Sidebar {
   }
 
   // ---- outline -------------------------------------------------------------------------
+
+  /** The document's headings, as the outline lists them. */
+  headings(): HeadingInfo[] {
+    return headingKey.getState(this.editor.view.state)?.list ?? [];
+  }
 
   updateOutline() {
     if (this.tab === "outline" && this.visible) this.renderOutline();
