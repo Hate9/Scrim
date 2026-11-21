@@ -202,3 +202,23 @@ structure themes select on, and a new "Base stylesheet" subsection:
 - base CSS for document content is wrapped in `:where()` and carries no colors,
   borders, or backgrounds; Scrim's look lives only in its built-in theme files.
 Discard the current candidates; regenerate after these changes.
+
+## Q-019: T-1 candidates after Q-018
+**Asked by:** spec team (second review of `goldens/2026-11-21-q018`), 2026-11-21
+**Question:** Much closer. Remaining differences: blockquotes too tall in every theme;
+vue's code tokens uncolored; orangeheart's code block background missing (only its
+`::before` bar shows, code text below it); blackout's text touches the window edge;
+link cursor (implementation question).
+**Answer (spec team, 2026-11-21):** All are base-stylesheet issues; 10.3 "Base
+stylesheet" is corrected:
+- Drop the `:where()` wrapping from Q-018 (my mistake). Base rules keep their natural
+  specificity; themes are tuned against it (the quote height comes from
+  `blockquote > :last-child { margin-bottom: 0 }` losing to theme `p` margins).
+- CodeMirror 6's injected styles go in `@layer scrim-cm` so any theme rule beats them
+  (orangeheart's `.cm-s-inner.CodeMirror` background).
+- Base includes CodeMirror 5's default token palette under `.cm-s-inner` (vue relies
+  on it).
+- `#write` gets `padding: 36px 30px 70px` and `min-height: 100vh` (blackout).
+- Link cursor: confirmed as implemented. Text cursor in the editor; `pointer` only
+  while Mod is held or with "Open links with single click"; `pointer` in exports.
+Regenerate the candidates after these changes.
