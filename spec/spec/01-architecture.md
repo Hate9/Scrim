@@ -281,6 +281,21 @@ must still reach the DOM. Rules:
      write them with a Rust clipboard crate that supports HTML (for example
      `clipboard-rs`); Paste reads HTML/text/image/file-list from Rust and feeds the same
      paste pipeline as the DOM event.
+   - **Native accelerators only for focus-independent commands** (Q-017). GTK runs a
+     menu accelerator before the webview sees the key, whatever has focus, so on both
+     platforms only file, window, view, and app commands get native accelerators (New,
+     Open, Save, Close, Quit, Preferences, sidebar, quick open, view modes, zoom, and
+     the like). Every other item (formatting, block, selection, navigation, and
+     paragraph commands, e.g. Mod+Home/End, Mod+L, Mod+D, Mod+[ ], Mod+I, Mod+E,
+     Mod+Shift+K, Mod+Shift+D, Alt+Up/Down) shows its key as label text only and is
+     reached through the DOM `keydown`. The same split applies to user `shortcuts`
+     overrides (by the command's kind, not the key) and to snippet keybinds (16),
+     which are always label-only.
+   - The capturing listener runs focus-independent commands from any focus and
+     `preventDefault`s them, even inside CodeMirror (Mod+/ in source mode or a code
+     block toggles source mode; it never reaches CodeMirror's comment command).
+     Document commands run only when the live document has focus; otherwise the key
+     passes through untouched to CodeMirror or the text field.
 3. **Focus-aware rules**:
    - Focus in the document: run the command.
    - Focus in a list/picker field (quick open, snippet picker, emoji list, language box,
