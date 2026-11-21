@@ -427,16 +427,20 @@ body.scrim-dragging-text * {
 
 
 /* ---- rich blocks (spec 04): mechanics only ---- */
-#write .cm-editor {
-  background: transparent;
-  font-family: var(--monospace);
-}
-#write .cm-editor.cm-focused {
-  outline: none;
-}
-#write .cm-content {
-  padding: 0;
-  caret-color: var(--text-color);
+/* Scrim's adjustments to CodeMirror's own look share its layer (scrim-cm), so theme
+   rules of any specificity win over them too (QA-LOG Q-019). */
+@layer scrim-cm {
+  #write .cm-editor {
+    background: transparent;
+    font-family: var(--monospace);
+  }
+  #write .cm-editor.cm-focused {
+    outline: none;
+  }
+  #write .cm-content {
+    padding: 0;
+    caret-color: var(--text-color);
+  }
 }
 /* Language box: bottom-right, visible on hover or while editing. */
 .md-lang-box {

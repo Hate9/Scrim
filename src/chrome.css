@@ -620,9 +620,11 @@ footer .footer-left .footer-item {
   font-family: var(--monospace);
   font-size: 14px;
 }
+@layer scrim-cm {
 #scrim-source .cm-editor {
   background: transparent;
   outline: none;
+}
 }
 /* Focus mode (15): every leaf block but the cursor's is dimmed; inside lists the unit
    is the list item (`md-focus-container`, 10.3). */
