@@ -5,6 +5,9 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { insertFiles } from "./editor/images";
+import { hideDropLine, showDropLine, textPosAt } from "./editor/dnd";
+import { listen } from "@tauri-apps/api/event";
+import { rerenderHtmlBlocks } from "./editor/codeview";
 import { createCommands } from "./app/commands";
 import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
@@ -93,6 +96,11 @@ const editorHooks: Parameters<typeof createEditor>[2] = {
     copyText(text) {
       void ipc.clipboardWrite(text);
     },
+    embedUrl(src) {
+      // The scrim-embed URL form differs per platform (spec 19): one helper builds it.
+      const base = isWindows ? "http://scrim-embed.localhost/" : "scrim-embed://localhost/";
+      return `${base}?src=${encodeURIComponent(src)}`;
+    },
     images: {
       async insertImage(source) {
         const r = await ipc.imageInsert(source, state.imageFolder);
@@ -112,7 +120,7 @@ const editorHooks: Parameters<typeof createEditor>[2] = {
       readClipboardMedia: () => ipc.clipboardMedia(),
     },
     onFrontMatter(fm) {
-      // 4.11: title → window title (SPEC-QUESTION Q-013), root-url → image base.
+      // 4.11: title → window title (QA-LOG Q-013), root-url → image base.
       state.rootUrl = fm["root-url"] ?? null;
       state.imageFolder = fm["image-folder"] ?? null;
       void ipc.setTitleOverride(fm.title ?? null).then((t) => (document.title = t));
@@ -332,11 +340,18 @@ function askTableSize(): Promise<{ rows: number; cols: number } | null> {
 
 // Files dropped from the file manager (6.3). Tauri delivers native drops with paths.
 void getCurrentWebview().onDragDropEvent((event) => {
-  if (event.payload.type !== "drop") return;
-  const { x, y } = event.payload.position;
   const scale = window.devicePixelRatio || 1;
-  const at = editor.view.posAtCoords({ left: x / scale, top: y / scale });
-  void insertFiles(editor.view, event.payload.paths, imageHooks, "drop", at?.pos);
+  const p = event.payload;
+  if (p.type === "over" || p.type === "enter") {
+    const at = textPosAt(editor.view, p.position.x / scale, p.position.y / scale);
+    if (at === null) hideDropLine();
+    else showDropLine(editor.view, at); // drop indicator line (6.3)
+    return;
+  }
+  hideDropLine();
+  if (p.type !== "drop") return;
+  const at = textPosAt(editor.view, p.position.x / scale, p.position.y / scale);
+  void insertFiles(editor.view, p.paths, imageHooks, "drop", at ?? undefined);
 });
 
 const commandList = createCommands(editor, { save, isWindows, askTableSize, insertImage: insertImageDialog });
@@ -378,7 +393,14 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   inlineKey,
   /** Run a command by id (menus arrive in P4). */
   command: (id: string) => commandList.find((c) => c.id === id)?.run(),
+  setSetting: (key: string, value: unknown) => ipc.setSetting(key, value),
 };
 
 void appWindow.listen("scrim://doc-reload", () => void init());
+// Preferences changed in any window (P4 writes them): re-read and re-render what depends
+// on them; "Allow iframes" takes effect immediately in both directions (Q-015).
+void listen("scrim://settings-changed", async () => {
+  applySettings((await ipc.settings()) as Record<string, unknown>);
+  rerenderHtmlBlocks();
+});
 void init();

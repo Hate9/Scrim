@@ -56,6 +56,8 @@ export const ipc = {
     invoke<{ oldSrc: string; newSrc: string }[]>("image_finalize", { frontMatterFolder }),
   linkTarget: (path: string) => invoke<string>("link_target", { path }),
   pathKind: (path: string) => invoke<"dir" | "image" | "file">("path_kind", { path }),
+  settings: () => invoke<Record<string, unknown>>("settings_get"),
+  setSetting: (key: string, value: unknown) => invoke<void>("settings_set", { key, value }),
   allowFiles: (paths: string[]) => invoke<void>("scope_allow_files", { paths }),
   clipboardText: () => invoke<string | null>("clipboard_read_text"),
   clipboardMedia: () => invoke<{ imageBase64: string | null; files: string[] }>("clipboard_read_media"),

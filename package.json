@@ -45,7 +45,6 @@
     "micromark-extension-gfm-task-list-item": "^2.1.0",
     "micromark-extension-math": "^3.1.0",
     "prosemirror-commands": "^1.7.2",
-    "prosemirror-dropcursor": "^1.8.4",
     "prosemirror-history": "^1.5.2",
     "prosemirror-keymap": "^1.2.3",
     "prosemirror-model": "^1.25.13",

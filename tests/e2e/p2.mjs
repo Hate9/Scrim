@@ -174,3 +174,33 @@ test("D-4 insert footnote", async (s) => {
   await press(s, ""); // Escape: back to the reference
   await waitFor(() => ed(s, "return view.state.selection.$head.parent.textContent.startsWith('Text')"), "back at the reference");
 }, () => fixture("d4.md", "Text here.\n"));
+
+test("C-6 drag a selected word to another paragraph (pointer drag, one undo step)", async (s) => {
+  await ready(s);
+  // Select "beta" in the first paragraph.
+  await ed(s, `let at = -1; view.state.doc.descendants((n, p) => { if (at < 0 && n.isText && n.text.includes('beta')) at = p + n.text.indexOf('beta'); return at < 0; });
+    view.focus(); view.dispatch(view.state.tr.setSelection(view.state.selection.constructor.create(view.state.doc, at, at + 4)));`);
+  const [x0, y0] = await ed(s, "const c = view.coordsAtPos(view.state.selection.from + 1); return [Math.round(c.left + 2), Math.round((c.top + c.bottom) / 2)]");
+  const [x1, y1] = await ed(s, `let at = -1; view.state.doc.descendants((n, p) => { if (at < 0 && n.isText && n.text.includes('second')) at = p + n.text.indexOf('second') + 6; return at < 0; });
+    const c = view.coordsAtPos(at); return [Math.round(c.left), Math.round((c.top + c.bottom) / 2)]`);
+  await s.cmd("POST", "/actions", {
+    actions: [{ type: "pointer", id: "mouse", parameters: { pointerType: "mouse" }, actions: [
+      { type: "pointerMove", x: x0, y: y0, origin: "viewport" }, { type: "pointerDown", button: 0 },
+      { type: "pointerMove", x: x0 + 10, y: y0, origin: "viewport", duration: 50 },
+      { type: "pointerMove", x: x1, y: y1, origin: "viewport", duration: 100 },
+      { type: "pointerUp", button: 0 }] }],
+  });
+  await expectMd(s, "alpha  gamma\n\nsecondbeta\n", "moved");
+  await press(s, CTRL, "z");
+  await expectMd(s, "alpha beta gamma\n\nsecond\n", "one undo restores");
+}, () => fixture("c6.md", "alpha beta gamma\n\nsecond\n"));
+
+test("Q-015 iframes go through scrim-embed; the setting re-renders immediately", async (s) => {
+  await ready(s);
+  const src = () => js(s, "return document.querySelector('#write .md-htmlblock-container iframe')?.getAttribute('src') ?? null");
+  await waitFor(async () => (await src())?.startsWith("scrim-embed://localhost/?src=https%3A%2F%2F127.0.0.1%3A9%2F"), "wrapper URL");
+  await js(s, "document.querySelector('#write .md-htmlblock-container iframe').__old = true");
+  await js(s, "window.__scrim.setSetting('allowIframes', true)");
+  await waitFor(() => js(s, "const f = document.querySelector('#write .md-htmlblock-container iframe'); return !!f && !f.__old"), "re-rendered after the change");
+  await js(s, "window.__scrim.setSetting('allowIframes', null)");
+}, () => fixture("q015.md", '<iframe src="https://127.0.0.1:9/" width="300" height="80" onload="x()"></iframe>\n\nafter\n'));

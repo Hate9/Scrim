@@ -239,8 +239,20 @@ body.md-soft-breaks .md-inline-break + .md-br br {
   cursor: pointer;
 }
 
-.scrim-drop-cursor {
+/* Drop indicator line (6.3) */
+.scrim-drop-line {
+  position: fixed;
+  z-index: 25;
+  width: 2px;
   background: var(--primary-color);
+  pointer-events: none;
+}
+.scrim-drop-line[hidden] {
+  display: none;
+}
+body.scrim-dragging-text,
+body.scrim-dragging-text * {
+  cursor: default !important;
 }
 
 .scrim-emoji-popup {
@@ -644,4 +656,8 @@ body.md-soft-breaks .md-inline-break + .md-br br {
 }
 #write .md-widget-image.md-expand img {
   outline: 2px solid var(--primary-color);
+}
+#write .md-htmlblock-container iframe.md-iframe {
+  border: 0;
+  max-width: 100%;
 }

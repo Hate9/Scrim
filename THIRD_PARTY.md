@@ -11,7 +11,7 @@ are not listed.
 | CommonMark Spec 0.31.2 examples (John MacFarlane) | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 | GitHub Flavored Markdown Spec 0.29 extension examples | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 
-## npm packages bundled into the frontend (137)
+## npm packages bundled into the frontend (136)
 
 | Package | Version | License |
 |---|---|---|
@@ -133,7 +133,6 @@ are not listed.
 | ms | 2.1.3 | MIT |
 | orderedmap | 2.1.1 | MIT |
 | prosemirror-commands | 1.7.2 | MIT |
-| prosemirror-dropcursor | 1.8.4 | MIT |
 | prosemirror-history | 1.5.2 | MIT |
 | prosemirror-keymap | 1.2.3 | MIT |
 | prosemirror-model | 1.25.13 | MIT |

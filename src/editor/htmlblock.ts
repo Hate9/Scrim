@@ -39,9 +39,12 @@ export function scopeCss(css: string): string {
 }
 
 export interface HtmlRenderOptions {
-  allowIframes: boolean;
   setImageSource(img: HTMLImageElement, src: string): void;
+  /** URL of the `scrim-embed` wrapper for an iframe source (spec 19, Q-015). */
+  embedUrl(src: string): string;
 }
+
+const IFRAME_KEEP = new Set(["width", "height", "title", "style"]);
 
 export function renderHtmlBlock(html: string, el: HTMLElement, opts: HtmlRenderOptions) {
   // A lone comment shows as a faint placeholder so it can be found and edited.
@@ -49,16 +52,21 @@ export function renderHtmlBlock(html: string, el: HTMLElement, opts: HtmlRenderO
     el.innerHTML = '<div class="md-comment">HTML comment</div>';
     return;
   }
-  const forbid = opts.allowIframes ? FORBID : [...FORBID, "iframe"];
   const frag = DOMPurify.sanitize(html, {
     RETURN_DOM_FRAGMENT: true,
-    FORBID_TAGS: forbid,
-    ADD_TAGS: ["style", ...(opts.allowIframes ? ["iframe"] : [])],
+    FORBID_TAGS: FORBID,
+    ADD_TAGS: ["style", "iframe"],
     FORCE_BODY: true,
     ALLOW_UNKNOWN_PROTOCOLS: false,
   }) as DocumentFragment;
   frag.querySelectorAll("style").forEach((s) => (s.textContent = scopeCss(s.textContent ?? "")));
-  frag.querySelectorAll("iframe").forEach((f) => f.setAttribute("sandbox", ""));
+  // Iframes go through the scrim-embed wrapper, which applies "Allow iframes" (Q-015).
+  frag.querySelectorAll("iframe").forEach((f) => {
+    const src = f.getAttribute("src") ?? "";
+    for (const a of [...f.attributes]) if (!IFRAME_KEEP.has(a.name)) f.removeAttribute(a.name);
+    f.setAttribute("src", opts.embedUrl(src));
+    f.classList.add("md-iframe");
+  });
   frag.querySelectorAll("[id]").forEach((n) => (n.id = `user-${n.id}`));
   frag.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src");

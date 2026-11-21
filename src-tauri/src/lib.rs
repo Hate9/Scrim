@@ -2,6 +2,7 @@
 //! wires it to windows, IPC commands, the `scrim-file` protocol, and the webviews.
 
 mod commands;
+mod embed;
 mod hardening;
 mod images;
 mod pdf_proto;
@@ -48,6 +49,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(state)
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
+        .register_asynchronous_uri_scheme_protocol(embed::SCHEME, embed::handle)
         .invoke_handler(tauri::generate_handler![
             commands::doc_init,
             commands::doc_set_dirty,
@@ -63,6 +65,8 @@ pub fn run() {
             commands::clipboard_read_media,
             commands::doc_open_path,
             commands::open_external,
+            commands::settings_get,
+            commands::settings_set,
             images::image_insert,
             images::image_finalize,
             images::link_target,

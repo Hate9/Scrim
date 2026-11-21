@@ -2,7 +2,6 @@
 
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { closeHistory, history, redo, undo } from "prosemirror-history";
-import { dropCursor } from "prosemirror-dropcursor";
 import { keymap } from "prosemirror-keymap";
 import type { Node } from "prosemirror-model";
 import { EditorState, type Command, type Transaction } from "prosemirror-state";
@@ -26,6 +25,7 @@ import {
 import { defaultOptions, type EditorOptions } from "./context";
 import { createInlinePlugin, type RenderHooks } from "./decorations";
 import { copyFlavors, handlePaste } from "./clipboard";
+import { createTextDragPlugin } from "./dnd";
 import { createEscapePlugin, flushEscapes } from "./escapes";
 import { createEmojiPlugin } from "./emoji";
 import { createHeadingPlugin } from "./headings";
@@ -76,7 +76,12 @@ export function createEditor(
   mount: HTMLElement,
   opts: Partial<EditorOptions>,
   hooks: RenderHooks &
-    LinkHooks & { copyText(text: string): void; onFrontMatter(fm: Record<string, string>): void; images: ImageHooks },
+    LinkHooks & {
+      copyText(text: string): void;
+      onFrontMatter(fm: Record<string, string>): void;
+      images: ImageHooks;
+      embedUrl(src: string): string;
+    },
   onChange: (dirty: boolean) => void,
 ): Editor {
   const options: EditorOptions = { ...defaultOptions, ...opts };
@@ -112,6 +117,7 @@ export function createEditor(
   });
 
   const plugins = [
+    createTextDragPlugin(),
     createEmojiPlugin(() => options.emojiAutocomplete),
     createLinkPlugin(options, hooks),
     history({ newGroupDelay: 1000 }),
@@ -128,7 +134,6 @@ export function createEditor(
       prettyTables: () => options.prettyTables,
     }),
     createBlocksPlugin({ onFrontMatter: hooks.onFrontMatter, numberFootnotes: () => options.numberFootnotes }),
-    dropCursor({ class: "scrim-drop-cursor", width: 2 }),
     createCodeSelectionPlugin(),
   ];
 
@@ -151,7 +156,7 @@ export function createEditor(
   const codeHooks: CodeViewHooks = {
     renderMath: (tex, el, display) => hooks.renderMath(numbered(tex, el), el, display),
     renderHtml: (html, el) =>
-      renderHtmlBlock(html, el, { allowIframes: options.allowIframes, setImageSource: hooks.setImageSource }),
+      renderHtmlBlock(html, el, { setImageSource: hooks.setImageSource, embedUrl: hooks.embedUrl }),
     copyText: hooks.copyText,
   };
   /** Auto-numbering of display equations (4.6, default off). */

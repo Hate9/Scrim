@@ -286,6 +286,10 @@ export class CodeBlockView implements NodeView {
     this.previewTimer = window.setTimeout(() => this.renderPreview(), 150); // 4.6: debounced
   }
 
+  rerenderPreview() {
+    if (this.kind === "html") this.renderPreview();
+  }
+
   private renderPreview() {
     if (!this.preview) return;
     const text = this.cm.state.doc.toString();
@@ -570,6 +574,11 @@ export function fuzzyScore(q: string, name: string): number {
   let j = 0;
   for (const c of name) if (c === q[j]) j++;
   return j === q.length ? 1000 + name.length : Infinity;
+}
+
+/** Re-render every HTML block preview (after "Allow iframes" changes, Q-015). */
+export function rerenderHtmlBlocks() {
+  for (const v of liveViews) v.rerenderPreview();
 }
 
 /** Keeps CodeMirror selections in step with ProseMirror's (programmatic selections,

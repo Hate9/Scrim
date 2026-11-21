@@ -22,8 +22,7 @@ paste, drop, zoom). See `spec/spec/00-overview.md` for the phases.
   "Performance status").
 - **Open time for large files.** Block parsing (micromark) needs a faster path for the
   1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
-- **Manual tests.** E-9 (IME with Japanese input) and C-6 (drag a word) need a person.
-- **Drag and drop on Windows (QA-LOG Q-014)** and **iframes versus the CSP (Q-015)**.
+- **Manual tests.** E-9 (IME with Japanese input) needs a person.
 
 ## Documents
 

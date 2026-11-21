@@ -59,7 +59,8 @@ Implementation decisions and deviations from the spec's "recommended" designs
   editing, preview debounced 150 ms; errors show red source with the message as a
   tooltip. Auto numbering appends `\tag{n}` when enabled.
 - **HTML blocks** preview through DOMPurify (no `script`, `object`, `embed`, event
-  handlers, `javascript:`; `iframe` only with the setting, sandboxed, Q-015); `<style>`
+  handlers, `javascript:`); every `iframe` is rewritten to the `scrim-embed` wrapper
+  (below), keeping only `width`, `height`, `title`, `style`; `<style>`
   rules are rewritten with a `#write` prefix through CSSOM; ids get `user-`; a lone
   comment shows as "HTML comment".
 - **Tables**: grid operations rebuild the table in one step (row attributes travel with
@@ -76,7 +77,7 @@ Implementation decisions and deviations from the spec's "recommended" designs
 - **Task checkboxes** are widgets at the start of the item's first paragraph (inside the
   `li`, as the theme contract asks); a node view's own `<input>` was removed by
   ProseMirror when it re-rendered the content.
-- **Front matter** `title` replaces the file name in the window title (Q-013 interim),
+- **Front matter** `title` replaces the file name in the window title (Q-013),
   `root-url` is the base for relative images, `image-folder` overrides the image folder.
 
 ### Images and files (6.2–6.4)
@@ -93,7 +94,31 @@ Implementation decisions and deviations from the spec's "recommended" designs
   clipboard through `clipboard-rs` (the same path as menu paste in 01).
 - File drops use Tauri's native drop events (paths and position): images per policy,
   `.md` files open (a new window if the current document has unsaved changes), other
-  files become relative links, folders wait for the sidebar (P3). Windows: Q-014.
+  files become relative links, folders wait for the sidebar (P3). Tauri's "over" events
+  drive the same drop line as text drags.
+- **Text drag-move uses pointer events on every platform (Q-014)**, not HTML5 drag and
+  drop, so it coexists with native file drops on Windows and WebDriver can drive it
+  (C-6). `src/editor/dnd.ts`: press inside a non-empty selection, move more than 4 px,
+  a drop line follows the pointer, Escape cancels, a drop inside the range does nothing,
+  Mod at the drop copies; one transaction, one undo step. HTML5 `dragstart` on text is
+  cancelled. Dragging text out to other apps is not supported (v1).
+
+### Iframes: the `scrim-embed` wrapper (Q-015)
+
+- The app pages' CSP has `frame-src scrim-embed:` (Windows `http://scrim-embed.localhost`)
+  and nothing else. The sanitizer rewrites each iframe's `src` to
+  `scrim-embed://localhost/?src=<url>`; one helper in `main.ts` builds the URL per
+  platform.
+- `src-tauri/src/embed.rs` reads "Allow iframes" (`allowIframes`) on every request. On,
+  with an `https:` source: a static page with its own CSP
+  (`default-src 'none'; style-src 'unsafe-inline'; frame-src https:`) and the real
+  iframe at 100% size, `sandbox` empty or, for `iframeAllowlist` domains (read from
+  `settings.json` until P4 moves it to `config.jsonc`), `allow-scripts allow-same-origin
+  allow-popups`; `referrerpolicy=no-referrer`. Off, or not `https:`: a static "Iframe
+  blocked" placeholder with the URL.
+- `settings_set` writes `settings.json` (unknown keys kept) and emits
+  `scrim://settings-changed`; every window re-reads its settings and re-renders its HTML
+  blocks, so the setting applies immediately in both directions.
 - Image paragraphs get `p.md-image-paragraph`; missing images show a dashed placeholder
   with the alt text and path; double-click opens the image with the system viewer; zoom
   commands rewrite `![]()` as `<img … style="zoom: N%">` and back ("Original size").
@@ -108,8 +133,6 @@ Implementation decisions and deviations from the spec's "recommended" designs
 
 ### Not yet / manual
 
-- C-6 (drag a word to another paragraph) is manual: WebKitWebDriver cannot drive HTML5
-  drag and drop.
 - D-7 (Save As image prompt) belongs with Save As in P3.
 - Mermaid stays a normal code block (4.15, deferred past v1).
 

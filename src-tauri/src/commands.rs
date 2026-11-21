@@ -425,7 +425,7 @@ pub async fn clipboard_write_text(text: String) -> Result<(), String> {
 }
 
 /// Front matter `title` (spec 04, 4.11): shown in the window title instead of the file
-/// name; `None` restores the file name. SPEC-QUESTION Q-013.
+/// name; `None` restores the file name (QA-LOG Q-013).
 #[tauri::command]
 pub async fn doc_set_title_override(window: WebviewWindow, state: State<'_, AppState>, title: Option<String>) -> Result<String, String> {
     let label = window.label().to_string();
@@ -474,4 +474,29 @@ pub async fn clipboard_read_media() -> Result<ClipboardMedia, String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// The current preferences (`settings.json`), for windows refreshing after a change.
+#[tauri::command]
+pub async fn settings_get(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    Ok(serde_json::Value::Object(state.settings().values.clone()))
+}
+
+/// Change one preference: written to `settings.json` and applied in every window
+/// (spec 11: "Settings changes made in one window apply to all open windows
+/// immediately"). The preferences window (P4) uses this.
+#[tauri::command]
+pub async fn settings_set(app: AppHandle, state: State<'_, AppState>, key: String, value: serde_json::Value) -> Result<(), String> {
+    {
+        let mut settings = state.settings();
+        if value.is_null() {
+            settings.values.remove(&key);
+        } else {
+            settings.values.insert(key.clone(), value);
+        }
+        settings.save(&state.config_dir).map_err(|e| e.to_string())?;
+    }
+    state.logger.info(&format!("setting changed: {key}"));
+    use tauri::Emitter;
+    app.emit("scrim://settings-changed", key).map_err(|e| e.to_string())
 }

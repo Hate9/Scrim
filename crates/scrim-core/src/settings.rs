@@ -32,6 +32,14 @@ impl Settings {
         }
     }
 
+    /// Write `settings.json` atomically (spec 11, "Storage": unknown keys are preserved
+    /// because they stay in `values`).
+    pub fn save(&self, config_dir: &Path) -> std::io::Result<()> {
+        let mut text = serde_json::to_string_pretty(&Value::Object(self.values.clone()))?;
+        text.push('\n');
+        crate::save::save(&config_dir.join(SETTINGS_FILE), text.as_bytes()).map(|_| ())
+    }
+
     pub fn default_line_ending(&self) -> LineEnding {
         match self.values.get(DEFAULT_LINE_ENDING).and_then(Value::as_str) {
             Some("lf") => LineEnding::Lf,
@@ -54,6 +62,12 @@ mod tests {
         std::fs::write(dir.path().join(SETTINGS_FILE), r#"{"defaultLineEnding":"crlf","x":1}"#)
             .unwrap();
         assert_eq!(Settings::load(dir.path()).0.default_line_ending(), LineEnding::CrLf);
+        let (mut s2, _) = Settings::load(dir.path());
+        s2.values.insert("allowIframes".into(), Value::Bool(true));
+        s2.save(dir.path()).unwrap();
+        let (s3, _) = Settings::load(dir.path());
+        assert_eq!(s3.values.get("x"), Some(&Value::from(1)));
+        assert_eq!(s3.values.get("allowIframes"), Some(&Value::Bool(true)));
         std::fs::write(dir.path().join(SETTINGS_FILE), "{oops").unwrap();
         let (s, err) = Settings::load(dir.path());
         assert!(err.is_some());

@@ -221,7 +221,10 @@ title". Options: (a) the front matter title replaces the name part for every doc
 (`X - Scrim`, `• X - Scrim` when dirty); (b) only for untitled documents; (c) the whole
 title becomes exactly `X`.
 **Interim:** (a). `SPEC-QUESTION Q-013` in `src-tauri/src/commands.rs`.
-**Answer:** pending.
+**Answer (spec team, 2026-11-21):** (a), as in the interim. The front matter `title`
+replaces the name part for every document, saved or untitled: `X - Scrim`, and
+`• X - Scrim` when dirty. Without it, the file name with extension, or `Untitled`.
+`07-files-and-workspace.md` 7.1 and B-11 are updated.
 
 ## Q-014: Dragging text and dropping files on Windows
 **Asked by:** implementation team, 2026-11-21
@@ -236,7 +239,15 @@ data, other files not linked); (c) accept that text drag-move does not work on W
 in v1.
 **Interim:** native file drops on, nothing Windows-specific yet (untested on Windows,
 Q-006). C-6 is a manual test on Linux, where WebDriver cannot drive HTML5 drag and drop.
-**Answer:** pending.
+**Answer (spec team, 2026-11-21):** (a), on all platforms. Keep native file drops on.
+Implement text drag-move (and Mod+drag copy) with pointer events everywhere, not only on
+Windows: one code path, and WebDriver can drive it, so C-6 becomes an automated test.
+Behavior to match: the drag starts only after pressing inside a non-empty selection and
+moving more than 4 px; the drop indicator line (6.3) follows the pointer; Escape cancels;
+dropping inside the dragged range does nothing. Dragging text out of Scrim into other
+apps is not required in v1. Dropping text from other apps is supported where the
+platform delivers it with the native handler on; elsewhere it is out of scope for v1.
+`06-clipboard-and-dnd.md` 6.3 is updated.
 
 ## Q-015: "Allow iframes in HTML" versus the Content-Security-Policy
 **Asked by:** implementation team, 2026-11-21
@@ -248,4 +259,18 @@ are recreated with a different CSP when the setting changes. Which is preferred?
 **Interim:** `frame-src 'none'`; iframes are removed by the sanitizer unless the setting
 is on, and when it is on they are sandboxed but still blocked by the CSP. To be resolved
 with the preferences window (P4).
-**Answer:** pending.
+**Answer (spec team, 2026-11-21, revised same day):** Neither; route iframes through
+an app-served wrapper so the setting applies live in both directions without
+recreating windows. (The first version of this answer used a runtime meta-tag CSP and
+"Applies to new windows"; it is withdrawn.)
+- App pages' CSP: `frame-src` lists only the new `scrim-embed` protocol, never `https:`.
+- The sanitizer rewrites each iframe in an HTML block to
+  `scrim-embed://localhost/?src=<url>` (Windows form `http://scrim-embed.localhost/…`),
+  copying `width`, `height`, `title`, and `style` onto that outer frame.
+- The Rust handler checks the current setting on every request. On (and `https:`
+  source): a static, script-free page whose own CSP allows `frame-src https:`, holding
+  the real iframe at 100% size with the 4.10 sandbox rules (`allow-scripts` only for
+  `iframeAllowlist` domains). Off: a static "Iframe blocked" placeholder with the URL.
+- Changing the setting re-renders HTML blocks in every open window.
+- Exports emit the original iframe with the sandbox rules, no wrapper.
+`19-privacy-and-network.md` and `11-preferences.md` are updated.

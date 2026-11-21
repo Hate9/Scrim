@@ -22,19 +22,31 @@
         "style-src": "'self' 'unsafe-inline' tauri: scrim-file: https:",
         "font-src": "'self' data: scrim-file: https:",
         "connect-src": "'self' ipc: http://ipc.localhost",
-        "frame-src": "'none'",
+        "frame-src": "scrim-embed:",
         "object-src": "'none'",
         "base-uri": "'self'",
         "form-action": "'none'"
       },
-      "dangerousDisableAssetCspModification": ["style-src"],
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ],
       "freezePrototype": false
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage", "deb", "msi", "nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png", "icons/icon.ico"],
+    "targets": [
+      "appimage",
+      "deb",
+      "msi",
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
     "category": "Productivity",
     "shortDescription": "Live-preview Markdown editor"
   }
