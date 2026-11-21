@@ -21,6 +21,8 @@ export class ThemeLoader {
   themes: ThemeInfo[] = [];
   /** The theme actually applied (after dark-mode selection and fallback). */
   current = "";
+  /** The theme whose CSS is in the page (after its files loaded). */
+  loaded = "";
   private version = 0;
   private dark = window.matchMedia("(prefers-color-scheme: dark)");
   private applied: string[] = [];
@@ -63,6 +65,8 @@ export class ThemeLoader {
     this.current = id;
     this.applied = hrefs;
     await Promise.all(SLOTS.map((slot, i) => swapLink(slot, hrefs[i])));
+    if (this.current !== id) return; // a newer apply() took over
+    this.loaded = id;
     this.afterLoad();
   }
 

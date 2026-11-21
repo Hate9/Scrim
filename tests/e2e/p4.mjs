@@ -3,7 +3,7 @@ import { CTRL, SHIFT } from "./webdriver.mjs";
 import { Session } from "./webdriver.mjs";
 import { APP, docs, ed, editorValue, existsSync, fixture, join, readFileSync, readdirSync, sleep, spawnSync, test, typeText, waitFor, writeFileSync } from "./harness.mjs";
 
-const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.current)"), "editor and theme");
+const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded)"), "editor and theme");
 const js = (s, body) => s.exec(body);
 const press = (s, ...keys) => s.chord(...keys);
 const themesDir = () => join(process.env.SCRIM_CONFIG_DIR, "themes");
@@ -93,7 +93,7 @@ test("T-6 compatibility rewrite: sidebar red; url() and strings untouched", asyn
   writeFileSync(join(themesDir(), "compat-test", "extra.css"), ".typora-node #write { letter-spacing: 1px; }\n");
   await ready(s);
   await js(s, "window.__scrim.setSetting('theme', 'compat-test'); return true");
-  await waitFor(() => js(s, "return window.__scrim.themes.current === 'compat-test'"), "theme applied");
+  await waitFor(() => js(s, "return window.__scrim.themes.loaded === 'compat-test'"), "theme applied");
   await js(s, "window.__scrim.sidebar.toggle(true); return true");
   await waitFor(async () => (await style(s, "#scrim-sidebar", ["background-color"]))["background-color"] === "rgb(255, 0, 0)", "sidebar red").catch(async (e) => {
     throw new Error(`${e.message}: ${await js(s, "return [...document.styleSheets].map((x) => (x.href || 'inline') + ' ' + (x.cssRules?.length ?? '?') + ' ' + [...(x.cssRules || [])].slice(0, 3).map((r) => r.cssText.slice(0, 60)).join(' | ')).join('\\n')")} ${await style(s, "#scrim-sidebar", ["background-color"]).then(JSON.stringify)}`);
@@ -234,11 +234,8 @@ test("menu: commands run by id; Paragraph inserts; Help opens a local document",
 // and the test fails until approved. Remote loads are blocked (SCRIM_TEST_NO_REMOTE).
 const FIXTURES = join(import.meta.dirname, "../fixtures/themes");
 const LOCK = join(import.meta.dirname, "../../spec/fixtures/themes.lock.json");
-test("T-1 fixture themes appear in the Themes menu and match approved screenshots", async (s) => {
-  if (!existsSync(FIXTURES)) {
-    console.log("     skipped: no tests/fixtures/themes/");
-    return;
-  }
+test("T-1 fixture themes appear in the Themes menu and match approved screenshots", async (s, _file, fetched) => {
+  if (!fetched.ok) throw new Error(`fixture themes could not be fetched: ${fetched.message}`);
   const css = JSON.parse(readFileSync(LOCK, "utf8")).themes.flatMap((r) => r.themes);
   const missing = css.filter((f) => !existsSync(join(FIXTURES, f)));
   if (missing.length) throw new Error(`missing fixtures ${missing} (run scripts/fetch-fixture-themes.mjs)`);
@@ -250,8 +247,8 @@ test("T-1 fixture themes appear in the Themes menu and match approved screenshot
     const id = f.slice(0, -4);
     await waitFor(() => js(s, `return window.__scrim.themes.themes.some((t) => t.id === ${JSON.stringify(id)})`), `${id} listed`);
     await js(s, `window.__scrim.setSetting('theme', ${JSON.stringify(id)}); return true`);
-    await waitFor(() => js(s, `return window.__scrim.themes.current === ${JSON.stringify(id)}`), `${id} applied`);
-    await sleep(800);
+    await waitFor(() => js(s, `return window.__scrim.themes.loaded === ${JSON.stringify(id)}`), `${id} loaded`);
+    await sleep(800); // web fonts from the theme's folder
     const png = Buffer.from(await s.cmd("GET", "/screenshot"), "base64");
     const shot = join(process.env.SCRIM_CONFIG_DIR, `${id}.png`);
     writeFileSync(shot, png);
@@ -268,6 +265,13 @@ test("T-1 fixture themes appear in the Themes menu and match approved screenshot
     const ratio = diff / (size[0] * size[1]);
     if (!(ratio <= 0.01)) throw new Error(`${id}: ${(ratio * 100).toFixed(2)}% of pixels differ from the approved screenshot`);
   }
+  // Remote loads are blocked (SCRIM_TEST_NO_REMOTE): nothing was fetched from the web.
+  const remote = await js(s, "return performance.getEntriesByType('resource').map((e) => e.name).filter((n) => /^https?:/.test(n) && !/^https?:\\/\\/(tauri|scrim-[a-z]+)\\.localhost/.test(n))");
+  if (remote.length) throw new Error(`remote resources were loaded: ${remote.join(", ")}`);
   await js(s, "window.__scrim.setSetting('theme', 'paper'); return true");
   if (pending.length) throw new Error(`no approved screenshot for ${pending.join(", ")}: candidates in tests/fixtures/themes/golden-candidates/`);
-}, () => fixture("t1.md", FEATURES));
+}, () => {
+  // The helper runs first: downloads anything missing and verifies every SHA-256.
+  const r = spawnSync("node", [join(import.meta.dirname, "../../scripts/fetch-fixture-themes.mjs")], { encoding: "utf8", timeout: 300000 });
+  return [fixture("t1.md", FEATURES), { ok: r.status === 0, message: (r.stderr || r.stdout || "").trim().split("\n").slice(-3).join("; ") }];
+});
