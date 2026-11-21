@@ -33,6 +33,10 @@ pub struct DocState {
     pub title_override: Option<String>,
     /// Images saved for this untitled document, moved on its first save (6.4).
     pub temp_images: Vec<PathBuf>,
+    /// The sidebar folder of this window (7.4).
+    pub folder: Option<PathBuf>,
+    /// Id of this document's draft in the recovery store (7.6).
+    pub draft_id: Option<String>,
 }
 
 pub struct AppState {

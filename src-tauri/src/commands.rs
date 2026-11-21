@@ -40,12 +40,14 @@ pub struct DocInit {
     pub title: String,
     /// The preferences (`settings.json`), as stored.
     pub settings: serde_json::Value,
+    /// The window's sidebar folder, if any (7.4).
+    pub folder: Option<String>,
 }
 
 #[tauri::command]
 pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Result<DocInit, String> {
     let label = window.label().to_string();
-    let path = state.docs().get(&label).and_then(|d| d.path.clone());
+    let (path, folder) = state.docs().get(&label).map(|d| (d.path.clone(), d.folder.clone())).unwrap_or_default();
     let default_line_ending = state.settings().default_line_ending();
     let mut init = DocInit {
         path: None,
@@ -59,8 +61,10 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         error: None,
         title: String::new(),
         settings: serde_json::Value::Object(state.settings().values.clone()),
+        folder: None,
     };
-    let mut doc = DocState { initialized: true, ..Default::default() };
+    let mut doc = DocState { initialized: true, folder: folder.clone(), ..Default::default() };
+    init.folder = folder.map(|f| f.to_string_lossy().into_owned());
     if let Some(path) = path {
         let read = {
             let p = path.clone();
@@ -90,6 +94,8 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
                 doc.saved_bytes = Some(bytes);
                 doc.malformed = decoded.malformed;
                 doc.path = Some(path.clone());
+                crate::workspace::remember(&state, &path, false);
+                crate::workspace::watch_file(window.app_handle(), &label, &path);
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 // QA-LOG Q-003: a path that does not exist opens as an empty document
@@ -256,6 +262,10 @@ pub async fn doc_save(
                     reason.as_deref().unwrap_or("?")
                 )),
             }
+            crate::workspace::remember(&state, &path, false);
+            if current_path.as_ref() != Some(&path) {
+                crate::workspace::watch_file(window.app_handle(), &label, &path);
+            }
             if let Some(doc) = state.docs().get_mut(&label) {
                 doc.path = Some(path.clone());
                 doc.encoding = Some(target_enc.clone());
@@ -311,7 +321,8 @@ pub async fn doc_new(window: WebviewWindow, state: State<'_, AppState>, new_wind
     let reuse = !new_window && state.docs().get(&label).is_some_and(|d| d.initialized && !d.dirty);
     let app = window.app_handle().clone();
     if reuse {
-        state.docs().insert(label.clone(), DocState::default());
+        let folder = state.docs().get(&label).and_then(|d| d.folder.clone());
+        state.docs().insert(label.clone(), DocState { folder, ..Default::default() });
         windows::update_title(&app, &label);
         use tauri::Emitter;
         let _ = app.emit_to(&label, windows::EVENT_RELOAD, ());

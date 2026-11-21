@@ -134,6 +134,30 @@ pub fn open_paths(app: &AppHandle, paths: &[PathBuf], reuse: Reuse) {
     let state = app.state::<AppState>();
     let mut reuse = Some(reuse);
     for path in paths {
+        if path.is_dir() {
+            // A folder opens as the sidebar folder of a new window (7.8).
+            let reusable_label = reuse.take().and_then(|r| reuse_target(app, &r));
+            let label = match reusable_label {
+                Some(l) => l,
+                None => match create_window(app, None) {
+                    Ok(w) => w.label().to_string(),
+                    Err(e) => {
+                        state.logger.error(&format!("cannot open window: {e}"));
+                        continue;
+                    }
+                },
+            };
+            if let Some(d) = state.docs().get_mut(&label) {
+                d.folder = Some(path.clone());
+            }
+            crate::workspace::remember(&state, path, true);
+            if let Ok(c) = std::fs::canonicalize(path) {
+                state.scope().dirs.insert(c);
+            }
+            crate::workspace::watch_folder(app, &label, path);
+            let _ = app.emit_to(&label, "scrim://folder-opened", path.to_string_lossy().to_string());
+            continue;
+        }
         if let Some(label) = state.window_for_path(path) {
             state.logger.info(&format!("focus window for {}", path.display()));
             focus(app, &label);
@@ -145,7 +169,8 @@ pub fn open_paths(app: &AppHandle, paths: &[PathBuf], reuse: Reuse) {
                 state.logger.info(&format!("open {} in {label}", path.display()));
                 {
                     let mut docs = state.docs();
-                    docs.insert(label.clone(), DocState { path: Some(canonical_or(path)), ..Default::default() });
+                    let folder = docs.get(&label).and_then(|d| d.folder.clone());
+                    docs.insert(label.clone(), DocState { path: Some(canonical_or(path)), folder, ..Default::default() });
                 }
                 update_title(app, &label);
                 let _ = app.emit_to(&label, EVENT_RELOAD, ());

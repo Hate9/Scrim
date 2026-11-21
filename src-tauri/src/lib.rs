@@ -9,6 +9,7 @@ mod pdf_proto;
 mod protocol;
 mod state;
 mod windows;
+mod workspace;
 
 use std::path::PathBuf;
 
@@ -48,6 +49,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(state)
+        .manage(workspace::Watchers::default())
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
         .register_asynchronous_uri_scheme_protocol(embed::SCHEME, embed::handle)
         .invoke_handler(tauri::generate_handler![
@@ -71,15 +73,40 @@ pub fn run() {
             images::image_finalize,
             images::link_target,
             images::path_kind,
+            workspace::fs_list_dir,
+            workspace::fs_walk,
+            workspace::fs_create_file,
+            workspace::fs_create_dir,
+            workspace::fs_rename,
+            workspace::fs_move,
+            workspace::fs_duplicate,
+            workspace::fs_trash,
+            workspace::fs_reveal,
+            workspace::recent_get,
+            workspace::recent_clear,
+            workspace::folder_get,
+            workspace::folder_open,
+            workspace::folder_dialog,
+            workspace::doc_reload,
+            workspace::search_start,
+            workspace::search_cancel,
+            workspace::recovery_write,
+            workspace::recovery_remove,
+            workspace::recovery_list,
+            workspace::recovery_read,
+            workspace::recovery_discard,
+            workspace::recovery_adopt,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
+                workspace::unwatch(window.app_handle(), window.label());
                 let state = window.state::<AppState>();
                 state.docs().remove(window.label());
                 state.logger.info(&format!("window {} closed", window.label()));
             }
         })
         .setup(|app| {
+            workspace::purge_discarded(&app.state::<AppState>());
             let cwd = std::env::current_dir().unwrap_or_default();
             let args: Vec<String> = std::env::args().skip(1).collect();
             let paths = windows::paths_from_args(args.clone(), &cwd);

@@ -152,7 +152,7 @@ are not listed.
 | w3c-keyname | 2.2.8 | MIT |
 | zwitch | 2.0.4 | MIT |
 
-## Rust crates compiled into the app (346, Linux and Windows targets)
+## Rust crates compiled into the app (365, Linux and Windows targets)
 
 | Package | Version | License |
 |---|---|---|
@@ -184,6 +184,7 @@ are not listed.
 | blocking | 1.7.0 | Apache-2.0 OR MIT |
 | brotli | 9.1.3 | BSD-3-Clause AND MIT |
 | brotli-decompressor | 6.3.2 | BSD-3-Clause/MIT |
+| bstr | 1.14.0 | MIT OR Apache-2.0 |
 | bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT |
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
@@ -205,6 +206,8 @@ are not listed.
 | cpufeatures | 0.3.1 | MIT OR Apache-2.0 |
 | crc32fast | 1.5.5 | MIT OR Apache-2.0 |
 | crossbeam-channel | 0.5.17 | MIT OR Apache-2.0 |
+| crossbeam-deque | 0.8.8 | MIT OR Apache-2.0 |
+| crossbeam-epoch | 0.9.21 | MIT OR Apache-2.0 |
 | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 |
 | crypto-common | 0.2.2 | MIT OR Apache-2.0 |
 | cssparser | 0.37.0 | MPL-2.0 |
@@ -230,6 +233,7 @@ are not listed.
 | dunce | 1.0.5 | CC0-1.0 OR MIT-0 OR Apache-2.0 |
 | dyn-clone | 1.0.20 | MIT OR Apache-2.0 |
 | encoding_rs | 0.8.44 | (Apache-2.0 OR MIT) AND BSD-3-Clause |
+| encoding_rs_io | 0.1.8 | MIT OR Apache-2.0 |
 | endi | 1.1.1 | MIT |
 | enumflags2 | 0.7.12 | MIT OR Apache-2.0 |
 | enumflags2_derive | 0.7.12 | MIT OR Apache-2.0 |
@@ -270,7 +274,11 @@ are not listed.
 | glib-macros | 0.18.5 | MIT |
 | glib-sys | 0.18.1 | MIT |
 | glob | 0.3.4 | MIT OR Apache-2.0 |
+| globset | 0.4.21 | Unlicense OR MIT |
 | gobject-sys | 0.18.0 | MIT |
+| grep-matcher | 0.1.9 | Unlicense OR MIT |
+| grep-regex | 0.1.14 | Unlicense OR MIT |
+| grep-searcher | 0.1.17 | Unlicense OR MIT |
 | gtk | 0.18.2 | MIT |
 | gtk-sys | 0.18.2 | MIT |
 | gtk3-macros | 0.18.2 | MIT |
@@ -293,15 +301,20 @@ are not listed.
 | ident_case | 1.0.1 | MIT/Apache-2.0 |
 | idna | 1.1.0 | MIT OR Apache-2.0 |
 | idna_adapter | 1.2.2 | Apache-2.0 OR MIT |
+| ignore | 0.4.34 | Unlicense OR MIT |
 | image | 0.25.10 | MIT OR Apache-2.0 |
 | indexmap | 1.9.3 | Apache-2.0 OR MIT |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT |
 | infer | 0.22.0 | MIT |
+| inotify | 0.11.5 | ISC |
+| inotify-sys | 0.1.8 | ISC |
 | is-docker | 0.2.0 | MIT |
 | is-wsl | 0.4.0 | MIT |
 | itoa | 1.0.19 | MIT OR Apache-2.0 |
 | javascriptcore-rs | 1.1.2 | MIT |
 | javascriptcore-rs-sys | 1.1.1 | MIT |
+| jiff | 1.0.1 | Unlicense OR MIT |
+| jiff-core | 1.0.1 | Unlicense OR MIT |
 | json-patch | 4.2.0 | MIT/Apache-2.0 |
 | jsonptr | 0.7.1 | MIT OR Apache-2.0 |
 | keyboard-types | 0.8.3 | MIT OR Apache-2.0 |
@@ -313,6 +326,7 @@ are not listed.
 | log | 0.4.35 | MIT OR Apache-2.0 |
 | markup5ever | 0.39.0 | MIT OR Apache-2.0 |
 | memchr | 2.8.3 | Unlicense OR MIT |
+| memmap2 | 0.9.12 | MIT OR Apache-2.0 |
 | memoffset | 0.9.1 | MIT |
 | mime | 0.3.18 | MIT OR Apache-2.0 |
 | miniz_oxide | 0.8.9 | MIT OR Zlib OR Apache-2.0 |
@@ -321,7 +335,10 @@ are not listed.
 | moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 |
 | muda | 0.20.0 | Apache-2.0 OR MIT |
 | multiversion_no_op | 1.0.0 | Apache-2.0 OR MIT |
+| natord | 1.0.9 | MIT |
 | new_debug_unreachable | 1.0.6 | MIT |
+| notify | 8.2.2 | CC0-1.0 |
+| notify-types | 2.3.1 | MIT OR Apache-2.0 |
 | num-conv | 0.2.2 | MIT OR Apache-2.0 |
 | num-traits | 0.2.19 | MIT OR Apache-2.0 |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 |
@@ -432,11 +449,13 @@ are not listed.
 | tracing | 0.1.44 | MIT |
 | tracing-attributes | 0.1.31 | MIT |
 | tracing-core | 0.1.36 | MIT |
+| trash | 5.4.0 | MIT |
 | typeid | 1.0.3 | MIT OR Apache-2.0 |
 | typenum | 1.20.1 | MIT OR Apache-2.0 |
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | unicode-segmentation | 1.13.3 | MIT OR Apache-2.0 |
 | url | 2.5.9 | MIT OR Apache-2.0 |
+| urlencoding | 2.1.3 | MIT |
 | urlpattern | 0.6.0 | MIT |
 | utf8_iter | 1.1.0 | Apache-2.0 OR MIT |
 | utf_types | 1.0.0 | Apache-2.0 OR MIT |
