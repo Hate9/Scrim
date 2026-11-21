@@ -97,7 +97,7 @@ draft-recovery writes, export, copy, and switching to source mode.
 
 ## Q-011: How should E-14 (typing latency) be measured?
 **Asked by:** implementation team (owner decision), 2026-11-21
-**Answer (spec team recommendation, 2026-11-21; owner may override):** (a) + (c). Keep the
+**Answer (spec team recommendation, approved by project owner 2026-11-21):** (a) + (c). Keep the
 interim (report in CI, enforce with `SCRIM_PERF_STRICT=1`); the owner runs E-14 on a real
 laptop before P8. Treat large-document layout as P8 performance work. First thing to
 try there, before any virtualization: CSS containment on top-level blocks
