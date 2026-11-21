@@ -52,6 +52,10 @@ export interface Editor {
   run(cmd: Command): boolean;
   /** Copy the selection with the given text/plain flavor (Edit menu variants). */
   copyAs(kind: "markdown" | "plain"): void;
+  /** The clipboard flavors for the selection (menu-driven Copy/Cut, 01 rule 2). */
+  flavors(kind?: "markdown" | "plain"): { text: string; html: string } | null;
+  /** Feed clipboard contents read through Rust into the paste pipeline (menu Paste). */
+  pasteFrom(text: string | null, html: string | null, plain: boolean): void;
   /**
    * Replace the document with `text` as one undoable step (source mode, external
    * reload). Unchanged top-level blocks keep their identity; the result serializes to
@@ -226,7 +230,7 @@ export function createEditor(
         return false;
       },
       handlePaste(v, event) {
-        const plain = plainPaste;
+        const plain = plainPaste || options.pasteHtmlAsPlain;
         plainPaste = false;
         return handlePaste(v, event, options, plain, hooks.images);
       },
@@ -313,6 +317,22 @@ export function createEditor(
       view.dispatch(tr);
       if (addToHistory) view.dispatch(closeHistory(view.state.tr));
       return view.state.doc;
+    },
+    flavors(kind) {
+      if (view.state.selection.empty) return null;
+      flushEscapes(view, options);
+      const prev = options.copyMarkdown;
+      if (kind === "markdown") options.copyMarkdown = true;
+      const f = copyFlavors(view.state, options, kind === "plain");
+      options.copyMarkdown = prev;
+      return f;
+    },
+    pasteFrom(text, html, plain) {
+      const dt = new DataTransfer();
+      if (text) dt.setData("text/plain", text);
+      if (html && !plain) dt.setData("text/html", html);
+      const event = new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true });
+      if (!handlePaste(view, event, options, plain, hooks.images) && text) view.dispatch(view.state.tr.insertText(text).scrollIntoView());
     },
     copyAs(kind) {
       copyPlain = kind === "plain";

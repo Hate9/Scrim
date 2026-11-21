@@ -67,8 +67,9 @@ pub fn handle<R: tauri::Runtime>(ctx: UriSchemeContext<'_, R>, request: Request<
     let (allow, allowlist) = {
         let settings = state.settings();
         let allow = settings.values.get("allowIframes").and_then(|v| v.as_bool()).unwrap_or(false);
-        let list = settings
-            .values
+        // `iframeAllowlist` lives in config.jsonc (11, "Storage").
+        let (config, _) = scrim_core::config::load(&state.config_dir);
+        let list = config
             .get("iframeAllowlist")
             .and_then(|v| v.as_array())
             .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect::<Vec<_>>())

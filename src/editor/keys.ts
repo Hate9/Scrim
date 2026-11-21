@@ -84,12 +84,94 @@ export interface CommandDef {
   run(): boolean | void | Promise<unknown>;
 }
 
+const KEY_ALIASES: Record<string, string> = {
+  ESCAPE: "Esc", ESC: "Esc", RETURN: "Enter", ENTER: "Enter", TAB: "Tab", SPACE: "Space",
+  BACKSPACE: "Backspace", DELETE: "Delete", DEL: "Delete", HOME: "Home", END: "End",
+  PAGEUP: "PageUp", PAGEDOWN: "PageDown", INSERT: "Insert", UP: "Up", DOWN: "Down",
+  LEFT: "Left", RIGHT: "Right", ARROWUP: "Up", ARROWDOWN: "Down", ARROWLEFT: "Left",
+  ARROWRIGHT: "Right", PLUS: "=", EQUAL: "=", MINUS: "-", BACKQUOTE: "`", COMMA: ",",
+  PERIOD: ".", SLASH: "/", BACKSLASH: "\\", SEMICOLON: ";", QUOTE: "'", BRACKETLEFT: "[",
+  BRACKETRIGHT: "]",
+};
+
+/**
+ * Normalize a user-written accelerator ("ctrl+shift+b", "CmdOrCtrl+B", "Mod+Alt+Up") to
+ * the dispatcher's form (`Ctrl+Alt+Shift+Key`), or null when it cannot be read.
+ */
+export function normalizeAccelerator(text: string): string | null {
+  const parts = text.trim().split(/\s*\+\s*(?=.)/);
+  if (!parts.length || !parts[0]) return null;
+  let ctrl = false, alt = false, shift = false;
+  let key: string | null = null;
+  for (const raw of parts) {
+    const p = raw.toUpperCase();
+    if (["CTRL", "CONTROL", "MOD", "CMD", "CMDORCTRL", "COMMANDORCONTROL", "COMMAND", "META", "SUPER"].includes(p)) ctrl = true;
+    else if (p === "ALT" || p === "OPTION") alt = true;
+    else if (p === "SHIFT") shift = true;
+    else if (key !== null) return null;
+    else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(p)) key = p;
+    else if (KEY_ALIASES[p]) key = KEY_ALIASES[p];
+    else if (/^(KEY)?[A-Z]$/.test(p)) key = p.slice(-1);
+    else if (/^(DIGIT)?[0-9]$/.test(p)) key = p.slice(-1);
+    else if (raw.length === 1 && /[\x21-\x7e]/.test(raw)) key = raw;
+    else return null;
+  }
+  if (key === null) return null;
+  return [ctrl && "Ctrl", alt && "Alt", shift && "Shift", key].filter(Boolean).join("+");
+}
+
 export class Dispatcher {
   private byKey = new Map<string, CommandDef>();
+  readonly byId = new Map<string, CommandDef>();
   private last: { acc: string; time: number; source: Source } | null = null;
 
+  /** Default keys, so overrides can be undone when config.jsonc changes again. */
+  private defaults = new Map<string, string>();
+
   constructor(commands: CommandDef[], private isDocumentFocused: () => boolean) {
-    for (const c of commands) if (c.key) this.byKey.set(c.key, c);
+    for (const c of commands) {
+      this.byId.set(c.id, c);
+      this.defaults.set(c.id, c.key);
+      if (c.key) this.byKey.set(c.key, c);
+    }
+  }
+
+  /** The current key of a command ("" when unbound). */
+  keyOf(id: string): string {
+    return this.byId.get(id)?.key ?? "";
+  }
+
+  /** Apply `shortcuts` overrides (id → normalized key, "" unbinds) on top of the
+   * defaults (12). A key taken by an override is removed from its default owner. */
+  rebind(overrides: Map<string, string>) {
+    this.byKey.clear();
+    for (const [id, c] of this.byId) c.key = overrides.has(id) ? overrides.get(id)! : this.defaults.get(id)!;
+    const taken = new Set([...overrides.values()].filter(Boolean));
+    for (const [id, c] of this.byId) {
+      if (!c.key) continue;
+      if (taken.has(c.key) && !overrides.has(id)) {
+        c.key = "";
+        continue;
+      }
+      this.byKey.set(c.key, c);
+    }
+  }
+
+  /** Run a command by id (menu clicks). Same scope rule as keys; false if it did not run. */
+  runId(id: string, source: Source = "native"): boolean {
+    const cmd = this.byId.get(id);
+    if (!cmd) return false;
+    if (cmd.key) {
+      const now = performance.now();
+      if (this.last && this.last.acc === cmd.key && this.last.source !== source && now - this.last.time < 100) {
+        this.last = null;
+        return true;
+      }
+      this.last = { acc: cmd.key, time: now, source };
+    }
+    if (cmd.scope === "document" && !this.isDocumentFocused()) return false;
+    void cmd.run();
+    return true;
   }
 
   /**

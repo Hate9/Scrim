@@ -343,9 +343,15 @@ pub async fn doc_open_dialog(window: WebviewWindow, state: State<'_, AppState>) 
         .map_err(|e| e.to_string())?;
     if let Some(path) = picked.and_then(|p| p.into_path().ok()) {
         let app = window.app_handle().clone();
-        open_on_main(app, vec![path], windows::Reuse::Current(label));
+        let reuse = if always_new_window(&state) { windows::Reuse::Never } else { windows::Reuse::Current(label) };
+        open_on_main(app, vec![path], reuse);
     }
     Ok(())
+}
+
+/// Preferences → General → "Open files in: always new window" (7.1).
+fn always_new_window(state: &AppState) -> bool {
+    state.settings().values.get("openFilesIn").and_then(|v| v.as_str()) == Some("new")
 }
 
 /// New file (Mod+N) follows the "open files in" rule; new window (Mod+Shift+N) always
@@ -353,7 +359,7 @@ pub async fn doc_open_dialog(window: WebviewWindow, state: State<'_, AppState>) 
 #[tauri::command]
 pub async fn doc_new(window: WebviewWindow, state: State<'_, AppState>, new_window: bool) -> Result<(), String> {
     let label = window.label().to_string();
-    let reuse = !new_window && state.docs().get(&label).is_some_and(|d| d.initialized && !d.dirty);
+    let reuse = !new_window && !always_new_window(&state) && state.docs().get(&label).is_some_and(|d| d.initialized && !d.dirty);
     let app = window.app_handle().clone();
     if reuse {
         let folder = state.docs().get(&label).and_then(|d| d.folder.clone());
@@ -545,4 +551,33 @@ pub async fn settings_set(app: AppHandle, state: State<'_, AppState>, key: Strin
     state.logger.info(&format!("setting changed: {key}"));
     use tauri::Emitter;
     app.emit("scrim://settings-changed", key).map_err(|e| e.to_string())
+}
+
+/// Put text and HTML on the clipboard (menu-driven Copy/Cut, spec 01 "Keyboard routing"
+/// rule 2: no DOM clipboard event fires for a menu click).
+#[tauri::command]
+pub async fn clipboard_write_flavors(text: String, html: Option<String>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use clipboard_rs::{Clipboard, ClipboardContent, ClipboardContext};
+        let ctx = ClipboardContext::new().map_err(|e| e.to_string())?;
+        let mut parts = vec![ClipboardContent::Text(text)];
+        if let Some(h) = html {
+            parts.push(ClipboardContent::Html(h));
+        }
+        ctx.set(parts).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// HTML from the clipboard, if any (menu-driven Paste).
+#[tauri::command]
+pub async fn clipboard_read_html() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        use clipboard_rs::{Clipboard, ClipboardContext};
+        let ctx = ClipboardContext::new().map_err(|e| e.to_string())?;
+        Ok(ctx.get_html().ok())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

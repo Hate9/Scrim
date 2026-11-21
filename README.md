@@ -3,12 +3,13 @@
 A desktop Markdown editor for Linux and Windows that edits the document in its rendered
 form, showing Markdown syntax only where the cursor is. Built with Tauri 2.
 
-Status: **P3 (workspace)**. Live-preview editing with byte-exact round trips, rich
-blocks (code, math, tables, HTML, front matter, footnotes, TOC, images), and the
-workspace: sidebar (file tree, file list, outline, search in files), quick open,
-find/replace, source code mode, status bar with counts, focus and typewriter modes,
-external-change handling, autosave, and draft recovery. See `spec/spec/00-overview.md`
-for the phases.
+Status: **P4 (look and settings)**. Live-preview editing with byte-exact round trips,
+rich blocks, the workspace (sidebar, quick open, find/replace, source mode, status bar,
+focus and typewriter modes, autosave, draft recovery), themes (four built-in themes,
+user themes and user CSS with live reload, support for themes written for other popular
+live-preview Markdown editors, a separate dark-mode theme), the preferences panel,
+`config.jsonc` with rebindable shortcuts, the native menu bar, the document context
+menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
 
 ## Open items
 
@@ -23,6 +24,15 @@ for the phases.
   "Performance status").
 - **Open time for large files.** Block parsing (micromark) needs a faster path for the
   1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
+- **Settings stored but not yet in effect.** Strict mode, the subscript, superscript,
+  highlight, diagram, and smart punctuation switches, writing style, code indent, cursor
+  blink, window style (custom title bar), language, spell check (P6), export (P5), and
+  `global:` shortcuts. They are saved and shown; the features behind them are pending.
+- **Window size and position per screen configuration (7.1)** are not remembered yet.
+- **Native menu accelerators (QA-LOG Q-017).** Interim: editing keys stay with the
+  webview.
+- **T-1 fixture themes** need the owner's local fixture folder (`tests/fixtures/themes/`)
+  and approved screenshots; the test skips without them.
 - **Manual tests.** E-9 (IME with Japanese input) needs a person.
 
 ## Documents

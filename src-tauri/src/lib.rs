@@ -2,8 +2,10 @@
 //! wires it to windows, IPC commands, the `scrim-file` protocol, and the webviews.
 
 mod commands;
+mod config;
 mod embed;
 mod hardening;
+mod help;
 mod images;
 mod pdf_proto;
 mod protocol;
@@ -52,6 +54,7 @@ pub fn run() {
         .manage(state)
         .manage(workspace::Watchers::default())
         .manage(themes::ThemeWatcher(std::sync::Mutex::new(None)))
+        .manage(config::ConfigWatcher(std::sync::Mutex::new(None)))
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
         .register_asynchronous_uri_scheme_protocol(embed::SCHEME, embed::handle)
         .invoke_handler(tauri::generate_handler![
@@ -90,6 +93,14 @@ pub fn run() {
             workspace::folder_open,
             workspace::folder_watch_implicit,
             themes::themes_list,
+            config::config_get,
+            commands::clipboard_write_flavors,
+            commands::clipboard_read_html,
+            help::help_open,
+            help::log_folder_open,
+            help::devtools_toggle,
+            help::emoji_panel,
+            config::config_reset,
             themes::themes_open_folder,
             workspace::folder_dialog,
             workspace::doc_reload,
@@ -109,6 +120,7 @@ pub fn run() {
             if let tauri::WindowEvent::Destroyed = event {
                 workspace::unwatch(window.app_handle(), window.label());
                 let state = window.state::<AppState>();
+                workspace::note_window_closed(&state, window.label());
                 state.docs().remove(window.label());
                 state.logger.info(&format!("window {} closed", window.label()));
             }
@@ -117,12 +129,16 @@ pub fn run() {
             workspace::purge_discarded(&app.state::<AppState>());
             themes::install_builtin(&app.state::<AppState>());
             themes::watch(app.handle());
+            config::setup(app.handle());
             let cwd = std::env::current_dir().unwrap_or_default();
             let args: Vec<String> = std::env::args().skip(1).collect();
             let paths = windows::paths_from_args(args.clone(), &cwd);
             let handle = app.handle().clone();
-            if paths.is_empty() {
+            let launch = if paths.is_empty() { workspace::launch_paths(&app.state::<AppState>()) } else { vec![] };
+            if paths.is_empty() && launch.is_empty() {
                 windows::open_untitled(&handle)?;
+            } else if paths.is_empty() {
+                windows::open_paths(&handle, &launch, windows::Reuse::Never);
             } else {
                 windows::open_paths(&handle, &paths, windows::reuse_for_args(&args));
             }

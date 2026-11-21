@@ -15,10 +15,74 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `src/app/` | Command table (ids and default keys) and the window chrome: sidebar, find bar, quick open, source mode, status bar, workspace behavior (external changes, autosave, recovery, view modes). |
 | `src/main.ts` | Window glue: load/save, dialogs, link opening, settings, wiring of the chrome. |
 | `src/chrome.css` | Layout and look of the chrome, from the theme custom properties (10, 22.1). |
+| `src-tauri/themes/`, `src-tauri/help/` | Built-in themes and help documents (written for Scrim). |
 | `tests/corpus/` | Round-trip corpus (R-1). Marked `-text` in `.gitattributes` so git never touches line endings. |
 | `tests/e2e/` | WebDriver acceptance tests (tauri-driver + WebKitWebDriver). |
 | `scripts/` | Test wrappers (`e2e.sh`, `n1-network.sh`, `check-no-http.sh`) and generators. |
 | `spec/` | The specification (read-only for the implementation team). |
+
+## P4: look and settings
+
+### Themes (`src-tauri/src/themes.rs`, `src/app/themes.ts`, `crates/scrim-core/src/theme_css.rs`)
+
+- The built-in themes (`src-tauri/themes/`: paper, clean, night, plain) are written from
+  22.2–22.4 and installed into `<config>/themes/` on first run and when missing. A
+  `.builtin-hashes.json` records the hash of each file as installed: a later version
+  replaces a built-in file only while its hash still matches (the user has not edited
+  it).
+- Theme and user CSS load as `<link>`s after the app's CSS, in the order theme →
+  `base.user.css` → `<theme>.user.css`. Their URLs are `scrim-file` URLs with real path
+  segments (`convertFileSrc` makes the whole path one encoded segment, which breaks
+  relative `@import` and `url()`). Swapping themes replaces the links after the new
+  ones loaded: no reload, no flash, cursor and scroll untouched (T-7).
+- The compatibility rewrite (10.3) runs in the `scrim-file` handler for CSS files in the
+  theme folder (01 asks for it there), so `@import`ed files are rewritten too. It is a
+  CSS Syntax 3 tokenizer plus the rule structure (style rules, conditional group rules,
+  nesting), in scrim-core so P5's exports can use it. Only ID and class selectors in
+  style-rule preludes change; everything else is copied byte for byte (tests: T-6 and
+  `theme_css::tests`). The build flag is the cargo feature `theme-compat-rewrite`.
+- The theme folder is watched; any change re-applies the theme in every window (T-2).
+  "Use separate theme in dark mode" follows `prefers-color-scheme`. A theme that sets
+  `--color-scheme: dark` gets `body.dark` and asks for the dark native title bar
+  (unless the separate dark theme is on: then the system already chose).
+- The base CSS keeps only mechanics and neutral fallbacks; colors and fonts come from
+  the theme. CodeMirror token defaults use `:where(#write)` so `.cm-s-inner .cm-*` in
+  any theme wins (10.3, "Code block theme hooks").
+
+### Preferences (`src/app/preferences.ts`, `src/app/prefsections.ts`)
+
+An overlay over the editor area, generated from a table of sections, groups, and
+controls, so search (T-4) filters the same data it renders. Every change writes
+`settings.json` through Rust, which tells every window (`scrim://settings-changed`).
+
+### config.jsonc (`crates/scrim-core/src/config.rs`, `src-tauri/src/config.rs`)
+
+Written fully commented on first run; read as JSONC (comments, trailing commas) and
+overlaid on the defaults; the config folder is watched and every window reloads it
+when the file is saved. A broken file keeps the defaults and shows the parse error.
+`setting()` in the frontend falls back to config.jsonc, so `fileListLimit` works where
+the sidebar asks for it; `iframeAllowlist` is read by the `scrim-embed` handler.
+
+### Menus and shortcuts (`src/app/menu.ts`, `src/app/menutree.ts`)
+
+- The menu bar is built per window with Tauri's JS menu API from one tree of labels and
+  command ids. Clicks run commands through the dispatcher (`runId`, with the same
+  cross-source deduplication as keys). The menu is rebuilt when shortcuts, themes, or
+  recent files change; checkmarks update after edits (300 ms debounce).
+- `shortcuts` in config.jsonc map English labels to accelerators. They are normalized
+  to the dispatcher's form and applied with `Dispatcher.rebind`: an override takes its
+  key from any default owner, and an empty string unbinds (T-5). `global:` entries are
+  logged as unsupported for now.
+- Native accelerators: GTK runs them before the webview sees the key, regardless of
+  focus. Rule 2's keys and the editing keys of QA-LOG Q-017 get none (shown in the
+  label only), so CodeMirror and text fields keep them. Document commands run only with
+  focus in the live document.
+- Menu-driven Copy/Cut/Paste go through Rust (`clipboard_write_flavors`,
+  `clipboard_read_html`), feeding the same flavors and paste pipeline as the DOM events
+  (01, rule 2).
+- The document context menu is HTML (`src/app/contextmenu.ts`) with the items of 12.
+- Help documents ship inside the app (`src-tauri/help/`), are written to
+  `<config>/help/` when opened, and open as documents.
 
 ## P3: workspace
 
@@ -450,7 +514,7 @@ SCRIM_PROTO_PRINT_PDF=/tmp/out.pdf xvfb-run -a dbus-run-session -- target/debug/
 | `npm test` (src/md, src/editor) | R-1 parse/serialize form, R-2/R-5/R-6, R-4/R-9, structural edits, clipboard, key identity |
 | `cargo test --workspace` | Rust unit tests, S-2 (kill -9 during save, via re-running the test binary as a child), R-1 file layer over the corpus and spec examples |
 | `npm test` | Frontend unit tests, including R-1 line bookkeeping over the corpus |
-| `scripts/e2e.sh` | S-1, S-3, save round trips, CSP; P3: W-1..W-12, E-18, E-19, D-6, D-7; P2: B-1..B-11, C-3, C-4, D-4; P1: E-1..E-8, E-10..E-17, R-4/R-9 live, KB-1 (DOM part), emoji (needs Xvfb, D-Bus, tauri-driver, WebKitWebDriver, xclip). `node tests/e2e/run.mjs <regex>` runs a subset. |
+| `scripts/e2e.sh` | S-1, S-3, save round trips, CSP; P4: T-2..T-8, menu commands; P3: W-1..W-12, E-18, E-19, D-6, D-7; P2: B-1..B-11, C-3, C-4, D-4; P1: E-1..E-8, E-10..E-17, R-4/R-9 live, KB-1 (DOM part), emoji (needs Xvfb, D-Bus, tauri-driver, WebKitWebDriver, xclip). `node tests/e2e/run.mjs <regex>` runs a subset. |
 | `scripts/n1-network.sh` | N-1: the e2e suite under a connection trace |
 | `scripts/check-no-http.sh` | No HTTP client crate in the Rust graph |
 

@@ -326,6 +326,68 @@ pub async fn fs_reveal(app: AppHandle, path: String) -> Result<(), String> {
 pub struct History {
     pub files: Vec<String>,
     pub folders: Vec<String>,
+    /// The files and folders open when the last window closed ("On launch: restore
+    /// last closed files and folders", 7.1).
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "lastSession")]
+    pub last_session: Option<Session>,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+pub struct Session {
+    pub files: Vec<String>,
+    pub folders: Vec<String>,
+}
+
+/// Windows closed in the last few seconds (a Quit closes them one after another).
+static CLOSING: Mutex<Vec<(std::time::Instant, Option<PathBuf>, Option<PathBuf>)>> = Mutex::new(Vec::new());
+
+/// Called when a window is destroyed, before its state is dropped. When it was the last
+/// window, the files and folders of the windows closed together with it become the
+/// remembered session.
+pub fn note_window_closed(state: &AppState, label: &str) {
+    let (path, folder) = state.docs().get(label).map(|d| (d.path.clone(), d.folder.clone())).unwrap_or_default();
+    let mut closing = CLOSING.lock().unwrap();
+    closing.retain(|(t, _, _)| t.elapsed() < Duration::from_secs(10));
+    closing.push((std::time::Instant::now(), path, folder));
+    let others = state.docs().keys().filter(|l| l.as_str() != label).count();
+    if others > 0 {
+        return;
+    }
+    let mut session = Session::default();
+    for (_, p, f) in closing.drain(..) {
+        if let Some(f) = f.map(|f| f.to_string_lossy().into_owned()) {
+            if !session.folders.contains(&f) {
+                session.folders.push(f);
+            }
+        } else if let Some(p) = p.filter(|p| p.exists()).map(|p| p.to_string_lossy().into_owned()) {
+            session.files.push(p);
+        }
+    }
+    let mut h = load_history(state);
+    h.last_session = Some(session);
+    save_history(state, &h);
+}
+
+/// What to open at launch without paths (7.1, Preferences → General → On launch).
+pub fn launch_paths(state: &AppState) -> Vec<PathBuf> {
+    let mode = state.settings().values.get("onLaunch").and_then(|v| v.as_str()).unwrap_or("newFile").to_string();
+    let h = load_history(state);
+    let existing = |v: Vec<String>| v.into_iter().map(PathBuf::from).filter(|p| p.exists()).collect::<Vec<_>>();
+    match mode.as_str() {
+        "lastFolder" => existing(h.last_session.map(|s| s.folders).filter(|f| !f.is_empty()).unwrap_or_else(|| h.folders.into_iter().take(1).collect()))
+            .into_iter()
+            .take(1)
+            .collect(),
+        "lastSession" => h.last_session.map(|s| existing([s.folders, s.files].concat())).unwrap_or_default(),
+        "customFolder" => state
+            .settings()
+            .values
+            .get("onLaunchFolder")
+            .and_then(|v| v.as_str())
+            .map(|f| existing(vec![f.to_string()]))
+            .unwrap_or_default(),
+        _ => vec![],
+    }
 }
 
 fn history_path(state: &AppState) -> PathBuf {

@@ -34,10 +34,13 @@ export interface EditorOptions {
   prettyTables: boolean;
   /** Show footnote references as numbers in document order (default on). */
   numberFootnotes: boolean;
+  /** Paste HTML as plain text (11, Editor). */
+  pasteHtmlAsPlain: boolean;
 }
 
 export const defaultOptions: EditorOptions = {
   inlineMath: false,
+  pasteHtmlAsPlain: false,
   preserveLineBreaks: true,
   autoPairBrackets: true,
   autoPairMarkdown: false,

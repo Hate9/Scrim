@@ -7,7 +7,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { insertFiles } from "./editor/images";
 import * as mapModule from "./md/serialize";
 import { hideDropLine, showDropLine, textPosAt } from "./editor/dnd";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { rerenderHtmlBlocks } from "./editor/codeview";
 import { TextSelection } from "prosemirror-state";
 import { FindBar } from "./app/findbar";
@@ -25,7 +25,6 @@ import {
   toggleAlwaysOnTop,
   toggleFocusMode,
   toggleFullscreen,
-  toggleTypewriter,
   watchExternalChanges,
   zoom,
 } from "./app/workspace";
@@ -35,6 +34,25 @@ import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
 import { createEditor, recordUpdates } from "./editor/editor";
 import { Dispatcher } from "./editor/keys";
+import { AppMenu, shortcutOverrides } from "./app/menu";
+import { menuTree } from "./app/menutree";
+import { DocumentMenu } from "./app/contextmenu";
+import { Preferences } from "./app/preferences";
+import { preferenceSections } from "./app/prefsections";
+import { redo, undo } from "prosemirror-history";
+import { Selection } from "prosemirror-state";
+import {
+  insertCodeFences,
+  insertFrontMatter,
+  insertHr,
+  insertLinkReference,
+  insertMathBlock,
+  insertParagraph,
+  insertToc,
+  selectAll,
+  toggleFormat,
+  wrapWith,
+} from "./editor/commands";
 import { ipc, type LineEndingName, type SaveRequest } from "./ipc";
 
 const EOLS: Record<LineEndingName, string> = { lf: "\n", crlf: "\r\n", cr: "\r" };
@@ -73,8 +91,12 @@ function showNotice(text: string | null, buttons: [string, () => void][] = []) {
 
 /** Preferences as last read; `setSetting` writes through to settings.json. */
 let settings: Record<string, unknown> = {};
+/** A preference: settings.json first, then config.jsonc (advanced options such as
+ * `fileListLimit`), then the default. */
 function setting<T>(key: string, fallback: T): T {
-  return (key in settings ? (settings[key] as T) : fallback) ?? fallback;
+  if (key in settings) return (settings[key] as T) ?? fallback;
+  const cfg = typeof config !== "undefined" ? config : {};
+  return key in cfg ? ((cfg[key] as T) ?? fallback) : fallback;
 }
 function setSetting(key: string, value: unknown) {
   settings = { ...settings, [key]: value };
@@ -227,6 +249,13 @@ function applySettings(next: Record<string, unknown>) {
   o.prettyTables = bool("prettyPrintTables", true);
   o.numberFootnotes = bool("numberFootnotes", true);
   document.body.classList.toggle("md-soft-breaks", !o.preserveLineBreaks);
+  // Preferences that are view state (11): mirrored by the View menu toggles.
+  const focusOn = bool("focusMode", false);
+  if (document.body.classList.contains("on-focus-mode") !== focusOn) toggleFocusMode(editor);
+  document.body.classList.toggle("scrim-typewriter-mode", bool("typewriterMode", false));
+  document.body.classList.toggle("scrim-no-heading-hint", !bool("headingHint", true));
+  document.body.classList.toggle("scrim-no-word-count", !bool("showWordCount", true));
+  o.pasteHtmlAsPlain = bool("pasteHtmlAsPlain", false);
   if (typeof statusBar !== "undefined") statusBar.syncButtons();
   sourceMode?.setLineNumbers(setting("sourceLineNumbers", false));
   // Font size: "auto" lets the theme decide (11, Appearance).
@@ -268,6 +297,13 @@ async function init() {
   if (z !== zoomLevel) {
     zoomLevel = z;
     void getCurrentWebview().setZoom(z);
+  }
+  if (!launchApplied) {
+    launchApplied = true;
+    if (setting("showSidebarOnLaunch", false)) {
+      if (setting<string>("sidebarView", "tree") === "list") sidebar.showFiles(true);
+      else sidebar.toggle(true);
+    }
   }
   if (appWindow.label === "doc-1" && !recoveryOffered) {
     recoveryOffered = true;
@@ -456,6 +492,7 @@ const testHooks: { askImagePaths?: () => Promise<"update" | "copy" | "leave"> } 
 
 let pendingSelect: { line: number; start: number; length: number } | null = null;
 let recoveryOffered = false;
+let launchApplied = false;
 
 /** Select a source range given as line (1-based), column and length (search results). */
 function selectSourceRange(sel: { line: number; start: number; length: number }) {
@@ -609,8 +646,8 @@ const workspaceCommands: CommandDef[] = [
   global("edit.findNextClosed", "Ctrl+G", () => findBar.again(1)),
   global("edit.findPreviousClosed", "Ctrl+Shift+G", () => findBar.again(-1)),
   global("view.sourceMode", "Ctrl+/", () => sourceMode.toggle()),
-  global("view.focusMode", "F8", () => toggleFocusMode(editor)),
-  global("view.typewriterMode", "F9", toggleTypewriter),
+  global("view.focusMode", "F8", () => setSetting("focusMode", !setting("focusMode", false))),
+  global("view.typewriterMode", "F9", () => setSetting("typewriterMode", !setting("typewriterMode", false))),
   global("view.zoomIn", "Ctrl+Shift+=", async () => (zoomLevel = await zoom(0.1, setSetting, zoomLevel))),
   global("view.zoomOut", "Ctrl+Shift+-", async () => (zoomLevel = await zoom(-0.1, setSetting, zoomLevel))),
   global("view.actualSize", "Ctrl+Shift+0", async () => (zoomLevel = await zoom(null, setSetting, zoomLevel))),
@@ -642,12 +679,272 @@ const workspaceCommands: CommandDef[] = [
   }),
   global("file.clearRecent", "", () => ipc.recentClear()),
 ];
+
+// ---- menus, config.jsonc, Edit/Help/Themes commands (P4, spec 11, 12) --------------------
+
+/** The element that owns editing keys right now: the document, source mode, or a field. */
+function focusOwner(): "doc" | "source" | "field" | "none" {
+  if (editor.view.hasFocus()) return "doc";
+  if (sourceMode.hasFocus()) return "source";
+  const a = document.activeElement;
+  return a instanceof HTMLInputElement || a instanceof HTMLTextAreaElement ? "field" : "none";
+}
+/** Menu-driven Copy/Cut (01 rule 2: no DOM clipboard event; written through Rust). */
+async function menuCopy(cut: boolean, kind?: "markdown" | "plain" | "html") {
+  const owner = focusOwner();
+  if (owner === "doc") {
+    const f = editor.flavors(kind === "html" ? undefined : kind);
+    if (!f) return;
+    if (kind === "html") await ipc.clipboardFlavors(f.html, null);
+    else await ipc.clipboardFlavors(f.text, kind === "plain" ? null : f.html);
+    if (cut) editor.view.dispatch(editor.view.state.tr.deleteSelection().scrollIntoView());
+    return;
+  }
+  const text = owner === "source" ? sourceMode.selectedText() : (window.getSelection()?.toString() ?? "");
+  if (text) await ipc.clipboardFlavors(text, null);
+  if (cut && text) document.execCommand("delete");
+}
+async function menuPaste(plain: boolean) {
+  const text = (await ipc.clipboardText().catch(() => null)) ?? null;
+  const owner = focusOwner();
+  if (owner === "doc") {
+    const html = plain ? null : await ipc.clipboardHtml().catch(() => null);
+    editor.pasteFrom(text, html, plain);
+  } else if (text) document.execCommand("insertText", false, text);
+}
+function menuHistory(redoIt: boolean) {
+  const owner = focusOwner();
+  if (owner === "doc") editor.run(redoIt ? redo : undo);
+  else if (owner === "source") sourceMode.history(redoIt);
+  else document.execCommand(redoIt ? "redo" : "undo");
+}
+/** Quit (Mod+Q): each dirty window asks in turn (7.1). */
+async function quitAll() {
+  const { getAllWebviewWindows } = await import("@tauri-apps/api/webviewWindow");
+  for (const w of await getAllWebviewWindows()) {
+    if (w.label === appWindow.label) continue;
+    await w.setFocus().catch(() => {});
+    await w.close().catch(() => {});
+    // Wait until it is gone or its user pressed Cancel.
+    const gone = await new Promise<boolean>((resolve) => {
+      const t = window.setInterval(async () => {
+        const all = await getAllWebviewWindows();
+        if (!all.some((x) => x.label === w.label)) {
+          clearInterval(t);
+          resolve(true);
+        }
+      }, 200);
+      void listen("scrim://close-cancelled", (e) => {
+        if (e.payload === w.label) {
+          clearInterval(t);
+          resolve(false);
+        }
+      });
+    });
+    if (!gone) return;
+  }
+  await appWindow.close();
+}
+async function about() {
+  const { getVersion } = await import("@tauri-apps/api/app");
+  await message(`Scrim ${await getVersion()}\n\nA live-preview Markdown editor for Linux and Windows.\nThird-party licenses: Help → Credits.`, { title: "About Scrim", kind: "info" });
+}
+
+const doc = (id: string, key: string, fn: Parameters<typeof editor.run>[0]): CommandDef => ({ id, key, scope: "document", run: () => editor.run(fn) });
+const opt = editor.options;
+const p4Commands: CommandDef[] = [
+  global("file.preferences", "Ctrl+,", () => preferences.open()),
+  global("file.close", "Ctrl+W", () => appWindow.close()),
+  global("file.quit", "Ctrl+Q", quitAll),
+  global("edit.undo", "", () => menuHistory(false)),
+  global("edit.redo", "", () => menuHistory(true)),
+  global("edit.cut", "", () => menuCopy(true)),
+  global("edit.copy", "", () => menuCopy(false)),
+  global("edit.paste", "", () => menuPaste(false)),
+  global("edit.pastePlain", "", () => menuPaste(true)),
+  { id: "edit.copyHtml", key: "", scope: "document", run: () => menuCopy(false, "html") },
+  global("edit.selectAll", "", () => (focusOwner() === "doc" ? editor.run(selectAll) : document.execCommand("selectAll"))),
+  doc("edit.jumpToTop", "Ctrl+Home", (st, d) => (d?.(st.tr.setSelection(Selection.atStart(st.doc)).scrollIntoView()), true)),
+  doc("edit.jumpToBottom", "Ctrl+End", (st, d) => (d?.(st.tr.setSelection(Selection.atEnd(st.doc)).scrollIntoView()), true)),
+  global("edit.emojiPanel", "", () => ipc.emojiPanel()),
+  doc("para.codeFences", "Ctrl+Shift+K", insertCodeFences),
+  doc("para.mathBlock", "Ctrl+Shift+M", insertMathBlock),
+  doc("para.insertBefore", "", insertParagraph(-1)),
+  doc("para.insertAfter", "", insertParagraph(1)),
+  doc("para.linkReference", "", insertLinkReference),
+  doc("para.hr", "", insertHr),
+  doc("para.toc", "", insertToc),
+  doc("para.frontMatter", "", insertFrontMatter),
+  doc("format.inlineMath", "", toggleFormat("math", opt)),
+  doc("format.highlight", "", toggleFormat("highlight", opt)),
+  doc("format.superscript", "", wrapWith("^", "^")),
+  doc("format.subscript", "", wrapWith("~", "~")),
+  doc("format.comment", "", wrapWith("<!-- ", " -->")),
+  global("view.devtools", "Shift+F12", () => setting("debugTools", false) && ipc.devtools()),
+  global("themes.openFolder", "", () => ipc.themesOpenFolder(themes.current || null)),
+  global("themes.reload", "", async () => {
+    await themes.refreshList();
+    await themes.apply(true);
+    void appMenu.rebuild();
+  }),
+  global("help.quickStart", "", () => ipc.helpOpen("quick-start")),
+  global("help.markdownReference", "", () => ipc.helpOpen("markdown-reference")),
+  global("help.shortcuts", "", () => ipc.helpOpen("shortcuts")),
+  global("help.customThemes", "", () => ipc.helpOpen("custom-themes")),
+  global("help.snippets", "", () => ipc.helpOpen("snippets-and-custom-tags")),
+  global("help.credits", "", () => ipc.helpOpen("credits")),
+  global("help.logFolder", "", () => ipc.logFolder()),
+  global("help.about", "", about),
+];
+
+const preferences = new Preferences({
+  setting,
+  setSetting,
+  closed: () => editor.view.focus(),
+  sections: () =>
+    preferenceSections({
+      isWindows,
+      themes: () => themes.themes,
+      zoom: () => zoomLevel,
+      resetZoom: () => void zoom(null, setSetting, zoomLevel).then((z) => ((zoomLevel = z), preferences.refresh())),
+      openThemeFolder: () => void ipc.themesOpenFolder(themes.current || null),
+      recoverDrafts: () => dispatcher.runId("file.recoverDrafts"),
+      resetAdvanced: async () => {
+        const ok = await message("Restore the default config.jsonc? Your advanced settings and shortcuts are replaced.", { title: "Reset Advanced Settings", kind: "warning", buttons: "OkCancel" });
+        if (ok === "Ok") await ipc.configReset();
+      },
+      openAdvanced: () => {},
+      customizeAvailable: () => false, // the Customize pane arrives in P7 (18)
+      pickFolder: () => {},
+      testUpload: () => showNotice("The upload command runs when an image is inserted with the Upload policy."),
+    }),
+});
+
+/** Replace every occurrence of an image source in the document (one undo step). */
+function replaceImageSource(oldSrc: string, newSrc: string) {
+  const view = editor.view;
+  const tr = view.state.tr;
+  view.state.doc.descendants((node, pos) => {
+    if (!node.isText || !node.text) return true;
+    let i = node.text.indexOf(oldSrc);
+    while (i >= 0) {
+      tr.insertText(newSrc, tr.mapping.map(pos + i), tr.mapping.map(pos + i + oldSrc.length));
+      i = node.text.indexOf(oldSrc, i + oldSrc.length);
+    }
+    return false;
+  });
+  if (tr.docChanged) view.dispatch(tr);
+}
+new DocumentMenu(editor, {
+  command: (id) => void dispatcher.runId(id, "native"),
+  copy: (kind) => void menuCopy(false, kind),
+  paste: (plain) => void menuPaste(plain),
+  contextSearch: () => (Array.isArray(config.contextSearch) ? (config.contextSearch as { label: string; url: string }[]) : []),
+  openUrl: (url) => void ipc.openExternal(url, false),
+  copyText: (t) => void ipc.clipboardFlavors(t, null),
+  openLink: (href) => void openLink(href, false),
+  image: {
+    open: (src) => {
+      const p = resolveLocal(src);
+      void (p ? ipc.openExternal(p, true) : ipc.openExternal(src, false));
+    },
+    reveal: (src) => {
+      const p = resolveLocal(src);
+      if (p) void ipc.fsReveal(p);
+    },
+    copyToAssets: async (src) => {
+      const p = resolveLocal(src);
+      if (!p) return showNotice("Only local images can be copied.");
+      const r = await ipc.imageInsert({ path: p }, state.imageFolder).catch((e) => (showNotice(String(e)), null));
+      if (r && r.src !== src) replaceImageSource(src, r.src);
+    },
+    deleteFile: async (src) => {
+      const p = resolveLocal(src);
+      if (!p) return;
+      const ok = await message(`Move "${p.split(/[\\/]/).pop()}" to the trash?`, { title: "Delete Image File", kind: "warning", buttons: "OkCancel" });
+      if (ok === "Ok") await ipc.fsTrash(p).catch((e) => showNotice(String(e)));
+    },
+  },
+});
+
 const commandList = [
   ...createCommands(editor, { save, isWindows, askTableSize, insertImage: insertImageDialog }),
   ...workspaceCommands,
+  ...p4Commands,
 ];
-const dispatcher = new Dispatcher(commandList, () => editor.view.hasFocus() || sourceMode.hasFocus());
+// Document commands run only with focus in the live document; in source mode the
+// CodeMirror keymap owns editing keys.
+const dispatcher = new Dispatcher(commandList, () => editor.view.hasFocus());
 dispatcher.attach(window);
+
+/** config.jsonc (11): advanced options, re-read whenever the file is saved. */
+let config: Record<string, unknown> = {};
+let recentCache: { files: string[]; folders: string[] } = { files: [], folders: [] };
+const sourceToggles: Record<string, () => boolean> = {
+  "view.sourceMode": () => sourceMode.active(),
+  "view.focusMode": () => document.body.classList.contains("on-focus-mode"),
+  "view.typewriterMode": () => document.body.classList.contains("scrim-typewriter-mode"),
+  "view.statusBar": () => setting("showStatusBar", true),
+  "view.sidebar": () => sidebar.visible,
+  "view.fullScreen": () => document.body.classList.contains("scrim-full-screen"),
+  "view.alwaysOnTop": () => document.body.classList.contains("scrim-always-on-top"),
+};
+function blockChecked(id: string): boolean {
+  const $h = editor.view.state.selection.$head;
+  const parent = $h.parent;
+  const inside = (name: string) => {
+    for (let d = $h.depth; d > 0; d--) if ($h.node(d).type.name === name) return true;
+    return false;
+  };
+  if (id === "para.paragraph") return parent.type.name === "paragraph";
+  const h = /^para\.h(\d)$/.exec(id);
+  if (h) return parent.type.name === "heading" && parent.attrs.level === Number(h[1]);
+  if (id === "para.quote") return inside("blockquote");
+  if (id === "para.orderedList") return inside("ordered_list");
+  if (id === "para.bulletList") return inside("bullet_list");
+  if (id === "para.taskList") return inside("list_item") && $h.node($h.depth - 1)?.attrs.task != null;
+  return false;
+}
+const appMenu = new AppMenu(
+  () =>
+    menuTree({
+      isWindows,
+      recent: () => recentCache,
+      openRecent: (p, folder) => void (folder ? ipc.folderOpen(p) : openFile(p, false)),
+      clearRecent: () => void ipc.recentClear().then(refreshRecent),
+      themes: () => themes.themes,
+      currentTheme: () => themes.current,
+      setTheme: (id) => setSetting("theme", id),
+      checked: (id) => (sourceToggles[id] ? sourceToggles[id]() : blockChecked(id)),
+      debugging: () => setting("debugTools", false),
+      hasPath: () => state.path !== null,
+    }),
+  dispatcher,
+);
+async function refreshRecent() {
+  recentCache = await ipc.recent().catch(() => recentCache);
+  void appMenu.rebuild();
+}
+async function loadConfig() {
+  const info = await ipc.config();
+  config = info.config as Record<string, unknown>;
+  const tree = menuTree({ isWindows, recent: () => recentCache, openRecent: () => {}, clearRecent: () => {}, themes: () => [], currentTheme: () => "", setTheme: () => {}, checked: () => false, debugging: () => true, hasPath: () => true });
+  const { overrides, global: globals, problems } = shortcutOverrides(tree, (config.shortcuts ?? {}) as Record<string, unknown>);
+  dispatcher.rebind(overrides);
+  if (globals.size) void ipc.log("info", `global shortcuts are not supported on this platform yet: ${[...globals.keys()].join(", ")}`);
+  const errors = [info.error, ...problems.map((p) => `config.jsonc shortcuts: ${p}`)].filter(Boolean);
+  if (errors.length) showNotice(errors.join(" · "));
+  await appMenu.rebuild();
+}
+void listen("scrim://config-changed", () => void loadConfig());
+themes.onApplied.push(() => void appMenu.rebuild());
+void refreshRecent().then(loadConfig);
+let checksTimer = 0;
+editor.onUpdate.push(() => {
+  clearTimeout(checksTimer);
+  checksTimer = window.setTimeout(() => void appMenu.refreshChecks(), 300);
+});
+window.addEventListener("focus", () => void refreshRecent());
 window.addEventListener("keydown", (e) => {
   if (sidebar.outlineKey(e)) e.preventDefault();
   // Text fields of the chrome (find bar, quick open, sidebar) own Mod+Z / Mod+Shift+Z
@@ -678,6 +975,8 @@ void appWindow.onCloseRequested(async (event) => {
   } else if (choice === "Don't Save" || choice === "No") {
     await ipc.recoveryRemove(true); // kept 7 days in recovery/discarded (7.6)
     await appWindow.destroy();
+  } else {
+    void emit("scrim://close-cancelled", appWindow.label); // stops Quit (7.1)
   }
 });
 
@@ -694,8 +993,12 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   save,
   recordUpdates,
   inlineKey,
-  /** Run a command by id (menus arrive in P4). */
-  command: (id: string) => commandList.find((c) => c.id === id)?.run(),
+  /** Run a command by id, as a menu click does. */
+  command: (id: string) => dispatcher.runId(id, "native"),
+  dispatcher,
+  appMenu,
+  config: () => config,
+  preferences,
   setSetting: (key: string, value: unknown) => ipc.setSetting(key, value),
   sidebar,
   findBar,
@@ -714,5 +1017,7 @@ void appWindow.listen("scrim://doc-reload", () => void init());
 void listen("scrim://settings-changed", async () => {
   applySettings((await ipc.settings()) as Record<string, unknown>);
   rerenderHtmlBlocks();
+  preferences.refresh();
+  void appMenu.refreshChecks();
 });
 void init();

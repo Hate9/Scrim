@@ -1,6 +1,6 @@
 // Source code mode (spec 15): the whole Markdown source in CodeMirror.
 
-import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
+import { history, historyKeymap, defaultKeymap, indentWithTab, redo, undo } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { syntaxHighlighting } from "@codemirror/language";
 import { EditorState, Compartment } from "@codemirror/state";
@@ -123,6 +123,18 @@ export class SourceMode implements SourceSearch {
       const c = view.coordsAtPos(topPos);
       scroller.scrollTop += c.top - scroller.getBoundingClientRect().top - 8;
     }
+  }
+
+  /** The selected source text (menu Copy). */
+  selectedText(): string {
+    if (!this.cm) return "";
+    const { from, to } = this.cm.state.selection.main;
+    return this.cm.state.sliceDoc(from, to);
+  }
+
+  /** Edit → Undo / Redo while source mode has focus. */
+  history(redoIt: boolean) {
+    if (this.cm) (redoIt ? redo : undo)(this.cm);
   }
 
   setLineNumbers(on: boolean) {

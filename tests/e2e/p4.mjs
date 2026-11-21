@@ -165,3 +165,104 @@ test("T-8 zoom in three times is 130% and survives a restart", async (s) => {
     await s2.delete();
   }
 });
+
+test("T-4 preferences search 'pair' shows only the two auto-pair options", async (s) => {
+  await ready(s);
+  await ed(s, "view.focus()");
+  await press(s, CTRL, ",");
+  await waitFor(() => js(s, "return !document.getElementById('scrim-preferences').hidden && document.activeElement?.classList.contains('scrim-preferences-search')"), "preferences open");
+  await typeText(s, "pair");
+  await waitFor(async () => {
+    const labels = await js(s, "return [...document.querySelectorAll('.scrim-preferences-control')].map((c) => c.dataset.label)");
+    return JSON.stringify(labels) === JSON.stringify(["Auto pair brackets and quotes", "Auto pair Markdown symbols"]);
+  }, "two auto-pair controls").catch(async (e) => {
+    throw new Error(`${e.message}: ${await js(s, "return [...document.querySelectorAll('.scrim-preferences-control')].map((c) => c.dataset.label).join(' | ')")}`);
+  });
+  const sections = await js(s, "return [...document.querySelectorAll('.scrim-preferences-section')].map((x) => x.textContent)");
+  if (JSON.stringify(sections) !== '["Editor"]') throw new Error(`sections ${sections}`);
+  // A change applies immediately (no OK button) and is stored.
+  await js(s, "document.querySelector('.scrim-preferences-control[data-label=\"Auto pair Markdown symbols\"] input').click(); return true");
+  await waitFor(() => js(s, "return window.__scrim.editor.options.autoPairMarkdown === true"), "applied");
+  const stored = JSON.parse(readFileSync(join(process.env.SCRIM_CONFIG_DIR, "settings.json"), "utf8"));
+  if (stored.autoPairMarkdown !== true) throw new Error("not stored");
+  await js(s, "document.querySelector('.scrim-preferences-control[data-label=\"Auto pair Markdown symbols\"] input').click(); return true");
+  await js(s, "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return true");
+  await waitFor(() => js(s, "return document.getElementById('scrim-preferences').hidden"), "closed with Escape");
+});
+
+test("T-5 config.jsonc shortcuts rebind Strong live", async (s) => {
+  const cfg = join(process.env.SCRIM_CONFIG_DIR, "config.jsonc");
+  await ready(s);
+  const original = readFileSync(cfg, "utf8");
+  if (!original.includes("// Keyboard shortcuts")) throw new Error("default config.jsonc is not commented");
+  const select = () => ed(s, "view.focus(); view.dispatch(view.state.tr.setSelection(view.state.selection.constructor.create(view.state.doc, 1, 5)))");
+  try {
+    writeFileSync(cfg, original.replace('"shortcuts": {}', '"shortcuts": { "Strong": "Ctrl+Shift+B" }'));
+    await waitFor(() => js(s, "return window.__scrim.dispatcher.keyOf('format.strong') === 'Ctrl+Shift+B'"), "rebound", 5000);
+    await select();
+    await press(s, CTRL, "b");
+    await sleep(300);
+    if ((await editorValue(s)) !== "word here\n") throw new Error(`Mod+B still bolds: ${JSON.stringify(await editorValue(s))}`);
+    await select();
+    await press(s, CTRL, SHIFT, "b");
+    await waitFor(async () => (await editorValue(s)) === "**word** here\n", "Ctrl+Shift+B bolds");
+  } finally {
+    writeFileSync(cfg, original);
+  }
+  await waitFor(() => js(s, "return window.__scrim.dispatcher.keyOf('format.strong') === 'Ctrl+B'"), "default back", 5000);
+}, () => fixture("t5.md", "word here\n"));
+
+test("menu: commands run by id; Paragraph inserts; Help opens a local document", async (s) => {
+  await ready(s);
+  await ed(s, "view.focus(); view.dispatch(view.state.tr.setSelection(view.state.selection.constructor.atEnd(view.state.doc)))");
+  await js(s, "window.__scrim.command('para.hr'); return true");
+  await js(s, "window.__scrim.command('para.codeFences'); return true");
+  await waitFor(() => js(s, "return !!document.activeElement?.closest('.cm-content')"), "cursor in the new code block");
+  await typeText(s, "x");
+  await waitFor(async () => (await editorValue(s)) === "text\n\n---\n\n```\nx\n```\n", "hr and code fences").catch(async (e) => {
+    throw new Error(`${e.message}: ${JSON.stringify(await editorValue(s))}`);
+  });
+  await js(s, "window.__scrim.command('help.shortcuts'); return true");
+  await waitFor(() => existsSync(join(process.env.SCRIM_CONFIG_DIR, "help", "Shortcuts.md")), "help document written");
+}, () => fixture("menu.md", "text\n"));
+
+// T-1 needs the owner's fixture themes (tests/fixtures/themes/, local and git-ignored,
+// CLEAN-ROOM.md rule 7). Without them it is skipped. Golden screenshots of Scrim live in
+// tests/fixtures/themes/golden/<theme>.png; a theme without one gets a candidate in
+// golden-candidates/ for the owner to approve, and the test fails until approved.
+const FIXTURES = join(import.meta.dirname, "../fixtures/themes");
+test("T-1 fixture themes appear in the Themes menu and match approved screenshots", async (s) => {
+  if (!existsSync(FIXTURES)) {
+    console.log("     skipped: no tests/fixtures/themes/");
+    return;
+  }
+  const css = readdirSync(FIXTURES).filter((f) => f.endsWith(".css") && !f.endsWith(".user.css"));
+  for (const f of readdirSync(FIXTURES)) spawnSync("cp", ["-r", join(FIXTURES, f), themesDir()]);
+  await ready(s);
+  await js(s, "return window.__scrim.themes.refreshList().then(() => true)");
+  const pending = [];
+  for (const f of css) {
+    const id = f.slice(0, -4);
+    await waitFor(() => js(s, `return window.__scrim.themes.themes.some((t) => t.id === ${JSON.stringify(id)})`), `${id} listed`);
+    await js(s, `window.__scrim.setSetting('theme', ${JSON.stringify(id)}); return true`);
+    await waitFor(() => js(s, `return window.__scrim.themes.current === ${JSON.stringify(id)}`), `${id} applied`);
+    await sleep(800);
+    const png = Buffer.from(await s.cmd("GET", "/screenshot"), "base64");
+    const shot = join(process.env.SCRIM_CONFIG_DIR, `${id}.png`);
+    writeFileSync(shot, png);
+    const golden = join(FIXTURES, "golden", `${id}.png`);
+    if (!existsSync(golden)) {
+      spawnSync("mkdir", ["-p", join(FIXTURES, "golden-candidates")]);
+      spawnSync("cp", [shot, join(FIXTURES, "golden-candidates", `${id}.png`)]);
+      pending.push(id);
+      continue;
+    }
+    const r = spawnSync("compare", ["-metric", "AE", "-fuzz", "2%", shot, golden, "null:"], { encoding: "utf8" });
+    const diff = parseFloat(r.stderr);
+    const size = spawnSync("identify", ["-format", "%w %h", golden], { encoding: "utf8" }).stdout.split(" ").map(Number);
+    const ratio = diff / (size[0] * size[1]);
+    if (!(ratio <= 0.01)) throw new Error(`${id}: ${(ratio * 100).toFixed(2)}% of pixels differ from the approved screenshot`);
+  }
+  await js(s, "window.__scrim.setSetting('theme', 'paper'); return true");
+  if (pending.length) throw new Error(`no approved screenshot for ${pending.join(", ")}: candidates in tests/fixtures/themes/golden-candidates/`);
+}, () => fixture("t1.md", FEATURES));

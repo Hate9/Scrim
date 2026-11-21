@@ -286,3 +286,18 @@ open" with **Open Folder**. Opening a folder replaces the implicit one. The file
 watcher and tree behave as for an opened folder (so W-2 holds), and the existing limits
 (`fileListLimit`, 10 MB/binary skip in search) protect against large parents such as the
 home folder. `07-files-and-workspace.md` 7.4 is updated.
+
+## Q-017: Menu accelerators that GTK takes before the webview
+**Asked by:** implementation team, 2026-11-21
+**Question:** 01 "Keyboard routing" rule 2 lists the keys that get no native
+accelerator (clipboard and undo). On Linux, GTK runs a menu accelerator before the
+webview sees the key at all, whatever has focus. So a native accelerator for Mod+Home,
+Mod+End, Mod+L, Mod+D, Mod+[, Mod+], Mod+I, Mod+E, Mod+/, Mod+Shift+K, Mod+Shift+D,
+Alt+Up, or Alt+Down also takes that key away from CodeMirror in source mode and in code
+blocks, and from text fields (where Mod+Home/End move the caret). May these items
+follow rule 2 too (shortcut shown in the menu label only; the key reaches the
+dispatcher as a DOM keydown)?
+**Interim:** yes. Those items show their key in the label and get no native
+accelerator; every other menu item has one. The dispatcher runs document commands only
+when the live document has focus, so in source mode CodeMirror's own keymap handles
+these keys. Marked `// SPEC-QUESTION Q-017`.

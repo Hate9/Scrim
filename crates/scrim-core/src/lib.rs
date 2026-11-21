@@ -3,6 +3,7 @@
 //! Everything here is plain Rust with no webview or GUI dependency, so it can be unit
 //! tested headless. The Tauri shell (`src-tauri`) is a thin layer over this crate.
 
+pub mod config;
 pub mod encoding;
 pub mod identity;
 pub mod images;

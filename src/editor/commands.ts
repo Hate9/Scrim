@@ -881,3 +881,89 @@ export function selectScope(opts: EditorOptions): Command {
     return true;
   };
 }
+
+// ---- Paragraph menu inserts (spec 12) --------------------------------------------------------
+
+const S_ = schema.nodes;
+
+/** Insert `node` after the top-level block holding the cursor, or in place of an empty
+ * paragraph; the cursor goes to `inside` positions into the node (or after it). */
+function insertBlockNode(state: EditorState, node: Node, inside: number | null): Transaction {
+  const { $from } = state.selection;
+  const emptyPara = $from.depth >= 1 && $from.parent.type === S_.paragraph && $from.parent.content.size === 0;
+  const at = $from.depth === 0 ? $from.pos : emptyPara ? $from.before() : $from.after(1);
+  const tr = emptyPara ? state.tr.replaceWith(at, at + $from.parent.nodeSize, node) : state.tr.insert(at, node);
+  let after = at + node.nodeSize;
+  if (inside === null && after >= tr.doc.content.size) {
+    tr.insert(after, S_.paragraph.create({ uid: freshUid() }));
+  }
+  after = Math.min(after + 1, tr.doc.content.size);
+  const pos = inside === null ? after : at + inside;
+  return tr.setSelection(Selection.near(tr.doc.resolve(pos))).scrollIntoView();
+}
+
+export const insertCodeFences: Command = (state, dispatch) => {
+  if (dispatch) dispatch(insertBlockNode(state, S_.code_block.create({ uid: freshUid() }), 1));
+  return true;
+};
+export const insertMathBlock: Command = (state, dispatch) => {
+  if (dispatch) dispatch(insertBlockNode(state, S_.math_block.create({ uid: freshUid() }), 1));
+  return true;
+};
+export const insertHr: Command = (state, dispatch) => {
+  if (dispatch) dispatch(insertBlockNode(state, S_.hr.create({ uid: freshUid() }), null));
+  return true;
+};
+export const insertToc: Command = (state, dispatch) => {
+  if (dispatch) dispatch(insertBlockNode(state, S_.toc.create({ uid: freshUid() }), null));
+  return true;
+};
+/** A link reference definition `[label]: url` with "label" selected. */
+export const insertLinkReference: Command = (state, dispatch) => {
+  if (dispatch) {
+    const node = S_.raw.create({ uid: freshUid(), kind: "definition" }, schema.text("[label]: https://"));
+    const tr = insertBlockNode(state, node, 2);
+    const p = tr.selection.from;
+    dispatch(tr.setSelection(TextSelection.create(tr.doc, p, p + 5)));
+  }
+  return true;
+};
+/** YAML front matter at the top of the document (one per document). */
+export const insertFrontMatter: Command = (state, dispatch) => {
+  const first = state.doc.firstChild;
+  if (first?.type === S_.front_matter) {
+    if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1)).scrollIntoView());
+    return true;
+  }
+  if (dispatch) {
+    const tr = state.tr.insert(0, S_.front_matter.create({ uid: freshUid() }));
+    dispatch(tr.setSelection(TextSelection.create(tr.doc, 1)).scrollIntoView());
+  }
+  return true;
+};
+/** Insert Paragraph Before / After the top-level block. */
+export function insertParagraph(side: -1 | 1): Command {
+  return (state, dispatch) => {
+    const { $from } = state.selection;
+    if ($from.depth < 1) return false;
+    if (dispatch) {
+      const at = side < 0 ? $from.before(1) : $from.after(1);
+      const tr = state.tr.insert(at, S_.paragraph.create({ uid: freshUid() }));
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 1)).scrollIntoView());
+    }
+    return true;
+  };
+}
+/** Wrap the selection (or insert at the cursor) in `open`/`close`: Superscript,
+ * Subscript, Comment. */
+export function wrapWith(open: string, close: string): Command {
+  return (state, dispatch) => {
+    const { $from, $to, from, to } = state.selection;
+    if (!$from.sameParent($to) || !isProse($from.parent)) return false;
+    if (dispatch) {
+      const tr = state.tr.insertText(close, to).insertText(open, from);
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, from + open.length, to + open.length)));
+    }
+    return true;
+  };
+}
