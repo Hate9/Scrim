@@ -209,6 +209,12 @@ generated selectors and loses on order.
   `table.md-table td { min-width: 32px }`. No borders or backgrounds.
 - Code: `code, pre` use `var(--monospace)`; `.md-fences { font-size: 0.9rem; display:
   block; background: inherit; position: relative }`; CodeMirror line padding `0 4px`.
+  Every element inside `.CodeMirror` inherits `font-family`, `font-size` and
+  `line-height` from it. CodeMirror 6 sets `font-family: monospace` and
+  `line-height: 1.4` on `.cm-scroller`, and a layer does not help there, because a
+  theme that sets the font on `.CodeMirror` reaches the scroller only by inheritance.
+  So the base has `.CodeMirror-scroll, .CodeMirror-code { font-family: inherit;
+  font-size: inherit; line-height: inherit }` (Q-020).
   `.CodeMirror.cm-s-inner { background: inherit }`. Token colors: CodeMirror 5's
   default theme palette (MIT), scoped as `.cm-s-inner .cm-<token>`: keyword `#708`,
   atom `#219`, number `#164`, def `#00f`, variable `#000`, variable-2 `#05a`,
@@ -217,7 +223,10 @@ generated selectors and loses on order.
   tag `#170`, attribute `#00c`, header `#00f`, quote `#090`, hr `#999`, link `#00c`.
   Light themes that only style the code block background rely on these.
 - Front matter: `pre.md-meta-block { font-size: 0.8rem; white-space: pre-wrap;
-  background: #ccc; display: block }`.
+  background: #ccc; display: block }`. The front matter element carries none of the
+  CodeMirror alias classes (`CodeMirror`, `cm-s-inner`, etc.), so code block theme
+  rules never reach it. If it is edited with a CodeMirror instance, that instance gets
+  no aliases either (Q-020).
 - Footnote definitions (`.footnotes`): `font-size: 0.9rem; opacity: 0.8`. Footnote
   refs: small rounded light-gray badge.
 - Images: `max-width: 100%`; an image alone in its paragraph is centered as a block.
