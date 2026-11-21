@@ -155,8 +155,9 @@ cursor and has the normal line height.
 
 ## 4.11 Front matter (YAML)
 
-- Only at the start of the document. Rendered as `pre.md-meta-block` with CodeMirror in
-  YAML mode, monospace, smaller text, muted color. Always editable (no preview).
+- Only at the start of the document. Rendered as `pre.md-meta-block` holding the YAML as
+  plain text: monospace, no syntax highlighting (themes color the block as a whole;
+  10.3). Always editable (no preview).
 - Recognized keys (all optional): `title` (window title, export title), `root-url`
   (base for resolving relative image paths), `image-folder` (image insert folder,
   `06-clipboard-and-dnd.md` 6.4), `lang` (spell check language and HTML `lang`,
