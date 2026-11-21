@@ -3,11 +3,11 @@
 A desktop Markdown editor for Linux and Windows that edits the document in its rendered
 form, showing Markdown syntax only where the cursor is. Built with Tauri 2.
 
-Status: **P1 (core editing)**. Live-preview editing of paragraphs, headings, emphasis,
-links, inline code, lists, quotes, and thematic breaks, with byte-exact round trips;
-other blocks (code, math, tables, HTML) are kept and editable as source until P2. P0's
-atomic saves, encodings, single instance, and network policy are in place. See
-`spec/spec/00-overview.md` for the phases.
+Status: **P2 (rich blocks)**. Live-preview editing with byte-exact round trips:
+paragraphs, headings, emphasis, links, lists and task lists, quotes, code blocks
+(CodeMirror, highlighted), math (KaTeX), tables (toolbar, keyboard, TSV paste), HTML
+blocks (sanitized preview), front matter, footnotes, TOC, and images (insert policy,
+paste, drop, zoom). See `spec/spec/00-overview.md` for the phases.
 
 ## Open items
 
@@ -22,7 +22,8 @@ atomic saves, encodings, single instance, and network policy are in place. See
   "Performance status").
 - **Open time for large files.** Block parsing (micromark) needs a faster path for the
   1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
-- **Manual tests.** E-9 (IME with Japanese input) needs a person.
+- **Manual tests.** E-9 (IME with Japanese input) and C-6 (drag a word) need a person.
+- **Drag and drop on Windows (QA-LOG Q-014)** and **iframes versus the CSP (Q-015)**.
 
 ## Documents
 

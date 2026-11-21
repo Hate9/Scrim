@@ -222,3 +222,30 @@ title". Options: (a) the front matter title replaces the name part for every doc
 title becomes exactly `X`.
 **Interim:** (a). `SPEC-QUESTION Q-013` in `src-tauri/src/commands.rs`.
 **Answer:** pending.
+
+## Q-014: Dragging text and dropping files on Windows
+**Asked by:** implementation team, 2026-11-21
+**Question:** File drops from the file manager (6.3) need the files' paths, which only
+Tauri's native drag-and-drop handler provides. On Windows, Tauri documents that this
+handler must be turned off for HTML5 drag and drop inside the page to work, and moving
+selected text by dragging (6.3, C-6) uses HTML5 drag and drop. On Linux both work at the
+same time. Options for Windows: (a) keep native file drops; implement text drag-move
+without HTML5 drag and drop (pointer events); (b) keep HTML5 drag-move; file drops on
+Windows insert only what the browser exposes (no paths, so images would be pasted as
+data, other files not linked); (c) accept that text drag-move does not work on Windows
+in v1.
+**Interim:** native file drops on, nothing Windows-specific yet (untested on Windows,
+Q-006). C-6 is a manual test on Linux, where WebDriver cannot drive HTML5 drag and drop.
+**Answer:** pending.
+
+## Q-015: "Allow iframes in HTML" versus the Content-Security-Policy
+**Asked by:** implementation team, 2026-11-21
+**Question:** 19's CSP has `frame-src <per settings>`. The CSP is fixed at window
+creation in Tauri's configuration, so turning on "Allow iframes" (4.10) needs either a
+`frame-src` that already lists `https:` (and relies on the HTML sanitizer, plus
+`sandbox` on every iframe, to keep iframes out when the setting is off), or windows that
+are recreated with a different CSP when the setting changes. Which is preferred?
+**Interim:** `frame-src 'none'`; iframes are removed by the sanitizer unless the setting
+is on, and when it is on they are sandboxed but still blocked by the CSP. To be resolved
+with the preferences window (P4).
+**Answer:** pending.

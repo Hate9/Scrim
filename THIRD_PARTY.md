@@ -11,10 +11,58 @@ are not listed.
 | CommonMark Spec 0.31.2 examples (John MacFarlane) | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 | GitHub Flavored Markdown Spec 0.29 extension examples | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 
-## npm packages bundled into the frontend (84)
+## npm packages bundled into the frontend (137)
 
 | Package | Version | License |
 |---|---|---|
+| @codemirror/autocomplete | 6.20.4 | MIT |
+| @codemirror/commands | 6.11.1 | MIT |
+| @codemirror/lang-angular | 0.1.4 | MIT |
+| @codemirror/lang-cpp | 6.0.3 | MIT |
+| @codemirror/lang-css | 6.3.1 | MIT |
+| @codemirror/lang-go | 6.0.1 | MIT |
+| @codemirror/lang-html | 6.4.12 | MIT |
+| @codemirror/lang-java | 6.0.2 | MIT |
+| @codemirror/lang-javascript | 6.2.5 | MIT |
+| @codemirror/lang-jinja | 6.0.1 | MIT |
+| @codemirror/lang-json | 6.0.2 | MIT |
+| @codemirror/lang-less | 6.0.2 | MIT |
+| @codemirror/lang-liquid | 6.3.3 | MIT |
+| @codemirror/lang-markdown | 6.5.2 | MIT |
+| @codemirror/lang-php | 6.0.2 | MIT |
+| @codemirror/lang-python | 6.2.1 | MIT |
+| @codemirror/lang-rust | 6.0.2 | MIT |
+| @codemirror/lang-sass | 6.0.2 | MIT |
+| @codemirror/lang-sql | 6.10.0 | MIT |
+| @codemirror/lang-vue | 0.1.3 | MIT |
+| @codemirror/lang-wast | 6.0.2 | MIT |
+| @codemirror/lang-xml | 6.1.0 | MIT |
+| @codemirror/lang-yaml | 6.1.3 | MIT |
+| @codemirror/language | 6.13.1 | MIT |
+| @codemirror/language-data | 6.5.2 | MIT |
+| @codemirror/legacy-modes | 6.5.5 | MIT |
+| @codemirror/lint | 6.9.8 | MIT |
+| @codemirror/state | 6.7.6 | MIT |
+| @codemirror/streamparser | 6.0.0 | MIT |
+| @codemirror/view | 6.43.15 | MIT |
+| @lezer/common | 1.5.6 | MIT |
+| @lezer/cpp | 1.1.6 | MIT |
+| @lezer/css | 1.3.9 | MIT |
+| @lezer/go | 1.0.1 | MIT |
+| @lezer/highlight | 1.2.5 | MIT |
+| @lezer/html | 1.3.13 | MIT |
+| @lezer/java | 1.2.0 | MIT |
+| @lezer/javascript | 1.5.6 | MIT |
+| @lezer/json | 1.0.3 | MIT |
+| @lezer/lr | 1.4.12 | MIT |
+| @lezer/markdown | 1.8.1 | MIT |
+| @lezer/php | 1.0.6 | MIT |
+| @lezer/python | 1.1.19 | MIT |
+| @lezer/rust | 1.0.3 | MIT |
+| @lezer/sass | 1.1.0 | MIT |
+| @lezer/xml | 1.0.6 | MIT |
+| @lezer/yaml | 1.0.4 | MIT |
+| @marijn/find-cluster-break | 1.0.4 | MIT |
 | @mixmark-io/domino | 2.2.0 | BSD-2-Clause |
 | @tauri-apps/api | 2.12.5 | Apache-2.0 OR MIT |
 | @tauri-apps/plugin-dialog | 2.8.4 | MIT OR Apache-2.0 |
@@ -27,10 +75,12 @@ are not listed.
 | ccount | 2.0.1 | MIT |
 | character-entities | 2.0.2 | MIT |
 | commander | 15.1.0 | MIT |
+| crelt | 1.0.7 | MIT |
 | debug | 4.4.3 | MIT |
 | decode-named-character-reference | 1.3.0 | MIT |
 | dequal | 2.0.3 | MIT |
 | devlop | 1.1.0 | MIT |
+| dompurify | 3.4.18 | (MPL-2.0 OR Apache-2.0) |
 | escape-string-regexp | 5.0.0 | MIT |
 | fault | 2.0.1 | MIT |
 | format | 0.2.2 | MIT |
@@ -46,6 +96,7 @@ are not listed.
 | mdast-util-gfm-footnote | 2.1.0 | MIT |
 | mdast-util-gfm-strikethrough | 2.0.1 | MIT |
 | mdast-util-gfm-table | 2.0.1 | MIT |
+| mdast-util-gfm-task-list-item | 2.0.1 | MIT |
 | mdast-util-math | 3.0.0 | MIT |
 | mdast-util-phrasing | 4.1.0 | MIT |
 | mdast-util-to-markdown | 2.2.4 | MIT |
@@ -57,6 +108,7 @@ are not listed.
 | micromark-extension-gfm-footnote | 2.1.0 | MIT |
 | micromark-extension-gfm-strikethrough | 2.1.0 | MIT |
 | micromark-extension-gfm-table | 2.1.2 | MIT |
+| micromark-extension-gfm-task-list-item | 2.1.0 | MIT |
 | micromark-extension-math | 3.1.0 | MIT |
 | micromark-factory-destination | 2.0.1 | MIT |
 | micromark-factory-label | 2.0.1 | MIT |
@@ -90,6 +142,7 @@ are not listed.
 | prosemirror-transform | 1.12.7 | MIT |
 | prosemirror-view | 1.43.0 | MIT |
 | rope-sequence | 1.3.4 | MIT |
+| style-mod | 4.1.5 | MIT |
 | turndown | 7.2.5 | MIT |
 | turndown-plugin-gfm | 1.0.2 | MIT |
 | unist-util-is | 6.0.1 | MIT |
@@ -100,7 +153,7 @@ are not listed.
 | w3c-keyname | 2.2.8 | MIT |
 | zwitch | 2.0.4 | MIT |
 
-## Rust crates compiled into the app (345, Linux and Windows targets)
+## Rust crates compiled into the app (346, Linux and Windows targets)
 
 | Package | Version | License |
 |---|---|---|
@@ -122,6 +175,7 @@ are not listed.
 | atk | 0.18.2 | MIT |
 | atk-sys | 0.18.2 | MIT |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT |
+| base64 | 0.22.1 | MIT OR Apache-2.0 |
 | base64 | 0.23.1 | MIT OR Apache-2.0 |
 | bit-set | 0.8.0 | Apache-2.0 OR MIT |
 | bit-vec | 0.8.0 | Apache-2.0 OR MIT |

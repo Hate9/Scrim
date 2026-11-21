@@ -19,6 +19,100 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `scripts/` | Test wrappers (`e2e.sh`, `n1-network.sh`, `check-no-http.sh`) and generators. |
 | `spec/` | The specification (read-only for the implementation team). |
 
+## P2: rich blocks
+
+### Model
+
+- New node types (`src/md/schema.ts`): `code_block` (fenced or indented), `math_block`,
+  `front_matter`, `html_block`, `table` > `table_head`/`table_body` > `table_row` >
+  `table_cell`, `footnote_def` (a container, like a list item with a 4-space
+  continuation), `toc`, and a `task` attribute on list items. Link reference definitions
+  stay `raw` leaves rendered as `div.md-def-url`.
+- **Fenced blocks** keep the opening line, the break before the first content line, and
+  the closing line (or "unclosed") as attributes; the content is only the code, with the
+  same per-line `line_break` prefixes as paragraphs. A changed info string rewrites only
+  the opening line; a new fence grows past any run of the fence character in the code.
+  Indented code that gets a language becomes fenced and is re-emitted canonically.
+- **Tables** store each row's source line and its cell texts as read. Unchanged rows are
+  written verbatim; when a cell, the alignment, or the column set changes, the whole
+  table is re-padded ("Pretty-print tables", default on, R-7) or only the changed rows
+  are written minimally (off). Missing and extra cells in the source survive while
+  their row is unchanged.
+- **Task items**: the `[ ]` is located in the first leaf's lead (a marker span of kind
+  `task`), so toggling rewrites one character.
+- Every new type is checked against mdast at load (code, math, YAML, HTML values must
+  equal the extracted content) and falls back to `raw` otherwise. Over the spec
+  examples: 15 fallbacks, 78 code blocks, 58 HTML blocks, 7 tables structured.
+
+### Views
+
+- **CodeMirror 6** node views (`src/editor/codeview.ts`) for code, math source, HTML
+  source, and front matter. Content maps 1:1 (`line_break` ↔ `"\n"`). Highlighting uses
+  a tag highlighter that emits the theme contract's `cm-*` classes; the editor carries
+  `CodeMirror cm-s-inner`, the content `CodeMirror-lines`, each line `CodeMirror-line`.
+  Languages load lazily from `@codemirror/language-data` (HTML and YAML from their own
+  packages). Undo/redo go to ProseMirror's history. Arrow keys leave the block at its
+  edges (Down past the end creates a paragraph). A plugin keeps CodeMirror's selection
+  in step with ProseMirror's, because `setSelection` is not called for every
+  programmatic selection.
+- **Math** renders with KaTeX (display mode) under a source editor that shows while
+  editing, preview debounced 150 ms; errors show red source with the message as a
+  tooltip. Auto numbering appends `\tag{n}` when enabled.
+- **HTML blocks** preview through DOMPurify (no `script`, `object`, `embed`, event
+  handlers, `javascript:`; `iframe` only with the setting, sandboxed, Q-015); `<style>`
+  rules are rewritten with a `#write` prefix through CSSOM; ids get `user-`; a lone
+  comment shows as "HTML comment".
+- **Tables**: grid operations rebuild the table in one step (row attributes travel with
+  their rows); toolbar with size picker, alignment, and the "more" menu; Mod+T dialog;
+  `|` typed in a cell becomes `\|`; Shift+Enter writes `<br>`; TSV paste fills or
+  creates a table.
+- **TOC** is an atom node view re-rendered from the heading list; Enter or double-click
+  turns it into an editable `[toc]` paragraph, which becomes a TOC again when the
+  cursor leaves.
+- **Footnotes**: references show numbers in document order (CSS `::after` from a
+  `data-n` attribute set by a debounced plugin view); definitions get a label and a `↩`
+  back link; hover shows a popover with the rendered definition; Mod+click jumps to the
+  definition; Insert Footnote adds `[^n]` and a definition at the end; Escape returns.
+- **Task checkboxes** are widgets at the start of the item's first paragraph (inside the
+  `li`, as the theme contract asks); a node view's own `<input>` was removed by
+  ProseMirror when it re-rendered the content.
+- **Front matter** `title` replaces the file name in the window title (Q-013 interim),
+  `root-url` is the base for relative images, `image-folder` overrides the image folder.
+
+### Images and files (6.2–6.4)
+
+- The policy lives in Rust (`crates/scrim-core/src/images.rs`, `src-tauri/src/images.rs`):
+  target folder per policy or front matter, `image-YYYYMMDDHHMMSSmmm.png` names,
+  `-1`/`-2` on collisions (unless the content is identical), relative paths with
+  optional `./`, URL escaping, and the upload command (run through `sh -c`/`cmd /C`
+  with the image paths; the URLs it prints replace them). Untitled documents keep images
+  in `<config>/tmp-images/<window>/`; after the first save they move and their paths are
+  rewritten, and the file is written again.
+- **WebKitGTK's paste event exposes no image data or file list.** When a paste event
+  has no data at all, Scrim reads image data (as PNG) or a file list from the system
+  clipboard through `clipboard-rs` (the same path as menu paste in 01).
+- File drops use Tauri's native drop events (paths and position): images per policy,
+  `.md` files open (a new window if the current document has unsaved changes), other
+  files become relative links, folders wait for the sidebar (P3). Windows: Q-014.
+- Image paragraphs get `p.md-image-paragraph`; missing images show a dashed placeholder
+  with the alt text and path; double-click opens the image with the system viewer; zoom
+  commands rewrite `![]()` as `<img … style="zoom: N%">` and back ("Original size").
+  The right-click menu that offers them arrives with P4's context menu.
+
+### Settings read in P2
+
+`codeWrap`, `codeLineNumbers`, `codeCopyButton`, `mathAutoNumber`, `allowIframes`,
+`prettyPrintTables`, `numberFootnotes`, `imagePolicy` (`none`, `current`, `assets`,
+`docAssets`, `custom`, `upload`), `imageCustomFolder`, `imageApplyToLocal`,
+`imageRelativePath`, `imagePreferDotSlash`, `imageEscapeUrl`, `imageUploadCommand`.
+
+### Not yet / manual
+
+- C-6 (drag a word to another paragraph) is manual: WebKitWebDriver cannot drive HTML5
+  drag and drop.
+- D-7 (Save As image prompt) belongs with Save As in P3.
+- Mermaid stays a normal code block (4.15, deferred past v1).
+
 ## P1: document model and editor
 
 ### Round trip (spec 01, "Document model")
@@ -268,7 +362,7 @@ SCRIM_PROTO_PRINT_PDF=/tmp/out.pdf xvfb-run -a dbus-run-session -- target/debug/
 | `npm test` (src/md, src/editor) | R-1 parse/serialize form, R-2/R-5/R-6, R-4/R-9, structural edits, clipboard, key identity |
 | `cargo test --workspace` | Rust unit tests, S-2 (kill -9 during save, via re-running the test binary as a child), R-1 file layer over the corpus and spec examples |
 | `npm test` | Frontend unit tests, including R-1 line bookkeeping over the corpus |
-| `scripts/e2e.sh` | S-1, S-3, save round trips, CSP; P1: E-1..E-8, E-10..E-17, R-4/R-9 live, KB-1 (DOM part), emoji (needs Xvfb, D-Bus, tauri-driver, WebKitWebDriver, xclip). `node tests/e2e/run.mjs <regex>` runs a subset. |
+| `scripts/e2e.sh` | S-1, S-3, save round trips, CSP; P2: B-1..B-11, C-3, C-4, D-4; P1: E-1..E-8, E-10..E-17, R-4/R-9 live, KB-1 (DOM part), emoji (needs Xvfb, D-Bus, tauri-driver, WebKitWebDriver, xclip). `node tests/e2e/run.mjs <regex>` runs a subset. |
 | `scripts/n1-network.sh` | N-1: the e2e suite under a connection trace |
 | `scripts/check-no-http.sh` | No HTTP client crate in the Rust graph |
 
