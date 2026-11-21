@@ -54,6 +54,8 @@ pub fn run() {
             commands::doc_new,
             commands::log_csp_violation,
             commands::log_frontend,
+            commands::scope_allow_files,
+            commands::clipboard_read_text,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {

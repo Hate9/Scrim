@@ -38,6 +38,9 @@ export interface InlineElement {
   contentTo: number;
   /** marker runs, each crossed by one arrow-key step */
   runs: [number, number][];
+  /** source that is hidden while collapsed but steppable when expanded (link URLs,
+   * titles, HTML attributes) */
+  hidden?: [number, number][];
   /** element name for the rendered content, if any (`strong`, `a`, `span`, …) */
   nodeName?: string;
   attrs?: Record<string, string>;
@@ -268,7 +271,7 @@ class Analyzer {
     runs.push(...this.destinationRuns(close, to));
     const attrs: Record<string, string> = { href: n.url };
     if (n.title) attrs.title = n.title;
-    return { kind: "link", from, to, contentFrom: from + 1, contentTo: close, runs, nodeName: "a", attrs, depth, children };
+    return { kind: "link", from, to, contentFrom: from + 1, contentTo: close, runs, hidden: [[close, to]], nodeName: "a", attrs, depth, children };
   }
 
   /** Runs of `](url "title")` starting at the `]` at `close`. */
@@ -310,6 +313,7 @@ class Analyzer {
       contentFrom: from + 1,
       contentTo: close,
       runs,
+      hidden: [[close, to]],
       nodeName: "a",
       attrs,
       depth,
@@ -466,6 +470,7 @@ class Analyzer {
         contentFrom: to,
         contentTo: to,
         runs: [[from, nameEnd], closeRun],
+        hidden: [[from, to]],
         nodeName: name,
         attrs,
         replace: name === "img" ? { type: "image", src: attrs.src ?? "", alt: attrs.alt ?? "" } : undefined,
@@ -495,6 +500,7 @@ class Analyzer {
           contentFrom: to,
           contentTo: cFrom,
           runs: [[from, nameEnd], closeRun, [cFrom, cTo]],
+          hidden: [[from, to], [cFrom, cTo]],
           nodeName: name,
           attrs,
           depth,

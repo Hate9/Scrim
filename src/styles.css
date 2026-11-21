@@ -1,53 +1,214 @@
-/* P0 placeholder styling. The real themes come in P4 (spec 10, 22). All fonts are
-   system fonts; nothing is loaded from the network (spec 19). */
+/* Base styles. The visual themes arrive in P4 (spec 10, 22); this file holds the
+   mechanics every theme relies on (syntax reveal, widgets) plus a neutral default look.
+   Everything ships in the app; nothing is loaded from the network (spec 19). */
+
 :root {
-  --bg: #ffffff;
-  --fg: #333333;
+  --bg-color: #ffffff;
+  --text-color: #333333;
+  --md-char-color: #b0b0b0;
+  --meta-content-color: #8a8a8a;
+  --heading-char-color: #c0c0c0;
+  --primary-color: #4a7bd0;
+  --monospace: ui-monospace, "DejaVu Sans Mono", Consolas, monospace;
   --notice-bg: #fff6d6;
   --notice-fg: #5c4a00;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1f2125;
-    --fg: #d8d8d8;
+    --bg-color: #1f2125;
+    --text-color: #d8d8d8;
+    --md-char-color: #6c6f75;
+    --meta-content-color: #8c8f96;
+    --heading-char-color: #5a5d63;
     --notice-bg: #3a3320;
     --notice-fg: #f0dc9a;
   }
 }
+
 html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--bg-color);
+  color: var(--text-color);
 }
 body {
   display: flex;
   flex-direction: column;
+  font: 16px/1.6 system-ui, sans-serif;
 }
-#write {
+content {
+  display: block;
   flex: 1;
-  display: flex;
-  justify-content: center;
+  overflow-y: auto;
   min-height: 0;
 }
-#editor {
-  width: 100%;
+#write {
   max-width: 860px;
-  height: 100%;
+  margin: 0 auto;
+  padding: 40px 30px 40vh; /* scroll past end (spec 03, 3.10) */
   box-sizing: border-box;
-  padding: 40px 30px 30vh;
-  border: 0;
   outline: none;
-  resize: none;
-  background: transparent;
-  color: inherit;
-  font: 16px/1.6 system-ui, sans-serif;
-  tab-size: 4;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  word-break: normal;
+  tab-size: 4;
+  caret-color: var(--text-color);
 }
+#write:focus {
+  outline: none;
+}
+#write p,
+#write h1,
+#write h2,
+#write h3,
+#write h4,
+#write h5,
+#write h6 {
+  position: relative;
+}
+#write p {
+  margin: 0.8em 0;
+  min-height: 1.6em;
+}
+#write li > p {
+  margin: 0;
+}
+#write .md-list-loose li > p {
+  margin: 0.8em 0;
+}
+#write blockquote {
+  margin: 0.8em 0;
+  padding: 0 1em;
+  border-left: 4px solid #dfe2e5;
+  color: #666;
+}
+#write hr {
+  border: 0;
+  border-top: 2px solid #e7e7e7;
+  margin: 1.4em 0;
+}
+#write hr.ProseMirror-selectednode,
+#write .md-raw.ProseMirror-selectednode {
+  outline: 2px solid var(--primary-color);
+}
+#write pre.md-raw {
+  font-family: var(--monospace);
+  font-size: 0.9em;
+  background: rgba(127, 127, 127, 0.08);
+  padding: 8px 12px;
+  border-radius: 3px;
+  white-space: pre-wrap;
+}
+#write code {
+  font-family: var(--monospace);
+  font-size: 0.9em;
+  background: rgba(127, 127, 127, 0.12);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+#write a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+/* ---- syntax reveal (spec 03, 3.2) ---- */
+.md-meta {
+  color: var(--md-char-color);
+  font-weight: normal;
+  font-style: normal;
+}
+/* Collapsed markers take no space but stay in the layout (font-size 0, not display:
+   none): WebKitGTK moves the caret out of display:none text, which would make the
+   cursor drift across hidden markers. */
+.md-inline:not(.md-expand) .md-meta,
+.md-inline.md-meta:not(.md-expand),
+.md-inline:not(.md-expand) .md-hide,
+.md-inline.md-hide:not(.md-expand),
+.md-inline.md-replace:not(.md-expand),
+.md-inline.md-replace:not(.md-expand) * {
+  font-size: 0;
+  letter-spacing: 0;
+  padding: 0;
+  border: 0;
+}
+.md-hide {
+  color: var(--meta-content-color);
+}
+.md-meta-text {
+  color: var(--md-char-color);
+}
+.md-inline-comment.md-expand {
+  color: var(--meta-content-color);
+  opacity: 0.7;
+}
+.md-break-spaces.md-expand::after {
+  content: "\21B5";
+  color: var(--md-char-color);
+  opacity: 0.6;
+}
+.md-auto-escape {
+  color: var(--md-char-color);
+}
+
+/* Widgets: shown while collapsed; images also stay visible while expanded. */
+.md-widget.md-expand {
+  display: none;
+}
+.md-widget-image.md-expand {
+  display: block;
+}
+.md-widget-math.md-expand {
+  display: block;
+  position: absolute;
+  z-index: 5;
+  margin-top: 1.6em;
+  padding: 4px 8px;
+  background: var(--bg-color);
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  border-radius: 3px;
+}
+.md-image img {
+  max-width: 100%;
+  vertical-align: middle;
+}
+.md-math-error {
+  color: #c00;
+  font-family: var(--monospace);
+}
+
+/* Line breaks: shown as breaks (Preserve single line breaks, default on). */
+.md-br {
+  white-space: pre;
+}
+body.md-soft-breaks .md-br br {
+  display: none;
+}
+body.md-soft-breaks .md-br::before {
+  content: " ";
+}
+body.md-soft-breaks .md-inline-break + .md-br br {
+  display: inline;
+}
+
+/* Heading level hint (spec 04, 4.2). */
+.md-heading-hint {
+  display: none;
+  position: absolute;
+  left: -2.6em;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--heading-char-color);
+  user-select: none;
+  pointer-events: none;
+}
+.md-focus > .md-heading-hint {
+  display: inline;
+}
+
 .scrim-notice {
   display: flex;
   align-items: center;

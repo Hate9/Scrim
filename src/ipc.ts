@@ -46,5 +46,7 @@ export const ipc = {
   newDoc: (newWindow: boolean) => invoke<void>("doc_new", { newWindow }),
   logCsp: (violation: { blockedUri: string; violatedDirective: string; sourceFile?: string }) =>
     invoke<void>("log_csp_violation", { violation }),
+  allowFiles: (paths: string[]) => invoke<void>("scope_allow_files", { paths }),
+  clipboardText: () => invoke<string | null>("clipboard_read_text"),
   log: (level: "info" | "warn" | "error", message: string) => invoke<void>("log_frontend", { level, message }),
 };

@@ -360,3 +360,31 @@ pub async fn log_frontend(window: WebviewWindow, state: State<'_, AppState>, lev
     state.logger.log(level, &format!("[{}] {message}", window.label()));
     Ok(())
 }
+
+/// Files referenced by an open document that the `scrim-file` protocol may serve (spec
+/// 01, "Local files in the webview", scope a). Paths are canonicalized; directories are
+/// ignored.
+#[tauri::command]
+pub async fn scope_allow_files(state: State<'_, AppState>, paths: Vec<String>) -> Result<(), String> {
+    let mut scope = state.scope();
+    for p in paths {
+        if let Ok(c) = std::fs::canonicalize(&p) {
+            if c.is_file() {
+                scope.files.insert(c);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Plain text on the system clipboard (Mod+K reads a URL from it, spec 03, 3.6).
+#[tauri::command]
+pub async fn clipboard_read_text() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        use clipboard_rs::{Clipboard, ClipboardContext};
+        let ctx = ClipboardContext::new().map_err(|e| e.to_string())?;
+        Ok(ctx.get_text().ok())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

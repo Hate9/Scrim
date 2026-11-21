@@ -54,9 +54,19 @@ export class Session {
   }
 }
 
-export const CTRL = "";
-export const SHIFT = "";
-export const END = "";
+export const CTRL = "\uE009";
+export const SHIFT = "\uE008";
+export const ALT = "\uE00A";
+export const END = "\uE010";
+export const HOME = "\uE011";
+export const ENTER = "\uE007";
+export const BACKSPACE = "\uE003";
+export const DELETE = "\uE017";
+export const TAB = "\uE004";
+export const LEFT = "\uE012";
+export const RIGHT = "\uE014";
+export const UP = "\uE013";
+export const DOWN = "\uE015";
 
 async function call(base, method, path, body) {
   const res = await fetch(base + path, {

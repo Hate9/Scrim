@@ -26,6 +26,7 @@
     "mdast-util-gfm-strikethrough": "^2.0.1",
     "mdast-util-gfm-table": "^2.0.1",
     "mdast-util-math": "^3.0.0",
+    "mdast-util-to-string": "^4.0.0",
     "micromark-extension-frontmatter": "^2.0.0",
     "micromark-extension-gfm-autolink-literal": "^2.1.0",
     "micromark-extension-gfm-footnote": "^2.1.0",

@@ -1,27 +1,24 @@
-// P0 frontend: a plain-text editing surface for one document per window.
-// The live-preview editor (ProseMirror) replaces the <textarea> in P1.
+// Frontend entry: one document per window.
 
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { message } from "@tauri-apps/plugin-dialog";
-import { displayText, rebuild, splitLines, type Line } from "./doc/lines";
+import { createCommands } from "./app/commands";
 import { suggestedFileName } from "./doc/naming";
+import { createEditor } from "./editor/editor";
+import { Dispatcher } from "./editor/keys";
 import { ipc, type LineEndingName, type SaveRequest } from "./ipc";
 
-const NEWLINES: Record<LineEndingName, "\n" | "\r\n" | "\r"> = { lf: "\n", crlf: "\r\n", cr: "\r" };
+const EOLS: Record<LineEndingName, string> = { lf: "\n", crlf: "\r\n", cr: "\r" };
 
-const editor = document.getElementById("editor") as HTMLTextAreaElement;
+const write = document.getElementById("write") as HTMLDivElement;
 const notice = document.getElementById("notice") as HTMLDivElement;
 const noticeText = document.getElementById("notice-text") as HTMLSpanElement;
 const appWindow = getCurrentWebviewWindow();
+const isWindows = navigator.userAgent.includes("Windows");
+document.body.classList.add(isWindows ? "os-windows" : "os-linux");
 
-const doc = {
-  lines: [] as Line[],
-  savedDisplay: "",
-  newline: "\n" as "\n" | "\r\n" | "\r",
-  fileName: null as string | null,
-  dirty: false,
-  saving: false,
-};
+const state = { fileName: null as string | null, path: null as string | null, saving: false };
 
 function showNotice(text: string | null) {
   notice.hidden = !text;
@@ -29,54 +26,90 @@ function showNotice(text: string | null) {
 }
 document.getElementById("notice-close")!.addEventListener("click", () => showNotice(null));
 
+function dirname(p: string): string {
+  const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+  return i > 0 ? p.slice(0, i) : p;
+}
+
+function resolveLocal(src: string): string | null {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(src) && !/^[a-z]:[\\/]/i.test(src)) {
+    if (/^file:\/\//i.test(src)) return decodeURIComponent(src.replace(/^file:\/\/(localhost)?/i, ""));
+    return null;
+  }
+  let path = src;
+  try {
+    path = decodeURIComponent(src);
+  } catch {
+    /* keep as is */
+  }
+  path = path.replace(/[?#].*$/, "");
+  const absolute = path.startsWith("/") || /^[a-z]:[\\/]/i.test(path) || path.startsWith("\\\\");
+  if (absolute) return path;
+  const dir = editor.options.docDir;
+  if (!dir) return null;
+  const sep = isWindows ? "\\" : "/";
+  return dir + sep + path.replace(/^\.\//, "").replace(/\//g, sep);
+}
+
+const pendingScope = new Set<string>();
+let scopeTimer = 0;
+
+const editor = createEditor(
+  write,
+  { pathSep: isWindows ? "\\" : "/" },
+  {
+    imageUrl(src) {
+      if (/^(https?:|data:|blob:)/i.test(src)) return src;
+      const local = resolveLocal(src);
+      if (!local) return src;
+      pendingScope.add(local);
+      clearTimeout(scopeTimer);
+      scopeTimer = window.setTimeout(() => {
+        const paths = [...pendingScope];
+        pendingScope.clear();
+        void ipc.allowFiles(paths);
+      }, 0);
+      return convertFileSrc(local, "scrim-file");
+    },
+    renderMath(tex, el) {
+      el.textContent = tex;
+      void import("./editor/math").then((m) => m.renderMath(tex, el));
+    },
+  },
+  (dirty) => void ipc.setDirty(dirty).then((title) => (document.title = title)),
+);
+
 async function init() {
   const d = await ipc.docInit();
-  doc.lines = splitLines(d.text);
-  doc.newline = NEWLINES[d.lineEnding ?? d.defaultLineEnding];
-  doc.fileName = d.fileName;
-  doc.savedDisplay = displayText(doc.lines);
-  doc.dirty = false;
-  editor.value = doc.savedDisplay;
+  state.fileName = d.fileName;
+  state.path = d.path;
+  editor.options.docDir = d.path ? dirname(d.path) : null;
+  const eol = EOLS[d.lineEnding ?? d.defaultLineEnding];
+  editor.load(d.text, !d.path || d.missing, eol);
   document.title = d.title;
-  editor.setSelectionRange(0, 0);
-  editor.scrollTop = 0;
-  editor.focus();
+  editor.view.focus();
   if (d.error) showNotice(d.error);
-  else if (d.malformed)
-    showNotice(`Some bytes in this file are not valid ${d.encoding.name} and are shown as �.`);
+  else if (d.malformed) showNotice(`Some bytes in this file are not valid ${d.encoding.name} and are shown as �.`);
   else showNotice(null);
 }
 
-function updateDirty() {
-  const dirty = editor.value !== doc.savedDisplay;
-  if (dirty !== doc.dirty) {
-    doc.dirty = dirty;
-    void ipc.setDirty(dirty).then((title) => (document.title = title));
-  }
-}
-editor.addEventListener("input", updateDirty);
-
 /** Save; resolves to true when the document ended up saved. */
 async function save(saveAs = false): Promise<boolean> {
-  if (doc.saving) return false;
-  doc.saving = true;
+  if (state.saving) return false;
+  state.saving = true;
   try {
-    const display = editor.value;
-    const request: SaveRequest = {
-      text: rebuild(doc.lines, display, doc.newline),
-      saveAs,
-      suggestedName: suggestedFileName(display),
-    };
+    const savedDoc = editor.view.state.doc;
+    const text = editor.markdown();
+    const request: SaveRequest = { text, saveAs, suggestedName: suggestedFileName(text) };
     for (;;) {
       const r = await ipc.save(request);
       switch (r.status) {
         case "saved":
-          doc.lines = splitLines(request.text);
-          doc.savedDisplay = display;
-          doc.fileName = r.fileName;
-          document.title = r.title;
-          doc.dirty = false; // Rust marked the document clean; report if edited meanwhile
-          updateDirty();
+          state.fileName = r.fileName;
+          state.path = r.path;
+          editor.options.docDir = dirname(r.path);
+          if (editor.view.state.doc === savedDoc) editor.markSaved();
+          document.title = await ipc.setDirty(editor.isDirty());
           return true;
         case "cancelled":
           return false;
@@ -94,7 +127,7 @@ async function save(saveAs = false): Promise<boolean> {
         }
         case "lossy": {
           // Wording from QA-LOG Q-005.
-          const choice = await message("Some bytes in this file could not be read and will be saved as \uFFFD.", {
+          const choice = await message("Some bytes in this file could not be read and will be saved as �.", {
             title: "Save",
             kind: "warning",
             buttons: { ok: "Save Anyway", cancel: "Cancel" },
@@ -117,45 +150,21 @@ async function save(saveAs = false): Promise<boolean> {
       }
     }
   } finally {
-    doc.saving = false;
+    state.saving = false;
   }
 }
 
-/** P0 key handling. The full dispatcher (spec 01, "Keyboard routing") arrives in P1. */
-function keyName(e: KeyboardEvent): string {
-  if (/^[a-z]$/i.test(e.key)) return e.key.toUpperCase();
-  const m = /^Key([A-Z])$/.exec(e.code);
-  return m ? m[1] : e.key;
-}
-
-window.addEventListener(
-  "keydown",
-  (e) => {
-    if (!e.ctrlKey || e.altKey || e.metaKey) {
-      if (e.key === "F5") e.preventDefault(); // no reload (spec 01, rule 4)
-      return;
-    }
-    const k = keyName(e);
-    const run = (fn: () => unknown) => {
-      e.preventDefault();
-      e.stopPropagation();
-      void fn();
-    };
-    if (k === "S" && !e.shiftKey) run(() => save(false));
-    else if (k === "S" && e.shiftKey) run(() => save(true));
-    else if (k === "O" && !e.shiftKey) run(() => ipc.openDialog());
-    else if (k === "N" && !e.shiftKey) run(() => ipc.newDoc(false));
-    else if (k === "N" && e.shiftKey) run(() => ipc.newDoc(true));
-    else if (k === "R" || k === "P" || (k === "I" && e.shiftKey)) e.preventDefault(); // browser keys off
-  },
-  true,
+const dispatcher = new Dispatcher(
+  createCommands(editor, { save, isWindows }),
+  () => editor.view.hasFocus(),
 );
+dispatcher.attach(window);
 
 // Unsaved changes: Save / Don't Save / Cancel (spec 07, 7.1).
 void appWindow.onCloseRequested(async (event) => {
-  if (!doc.dirty) return;
+  if (!editor.isDirty()) return;
   event.preventDefault();
-  const name = doc.fileName ?? "Untitled";
+  const name = state.fileName ?? "Untitled";
   const choice = await message(`Do you want to save the changes you made to ${name}?`, {
     title: "Scrim",
     kind: "warning",
@@ -172,9 +181,11 @@ void appWindow.onCloseRequested(async (event) => {
 document.addEventListener("securitypolicyviolation", (e) => {
   void ipc.logCsp({ blockedUri: e.blockedURI, violatedDirective: e.violatedDirective, sourceFile: e.sourceFile || undefined });
 });
-
 window.addEventListener("error", (e) => void ipc.log("error", `${e.message} at ${e.filename}:${e.lineno}`));
 window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unhandled rejection: ${String(e.reason)}`));
+
+// Test hook: lets WebDriver tests read the document and drive the editor.
+(window as unknown as { __scrim: unknown }).__scrim = { editor, save };
 
 void appWindow.listen("scrim://doc-reload", () => void init());
 void init();
