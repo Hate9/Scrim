@@ -25,9 +25,16 @@ pub fn handle<R: tauri::Runtime>(
     responder: UriSchemeResponder,
 ) {
     let app = ctx.app_handle().clone();
+    let trace = std::env::var_os("SCRIM_TRACE_PROTOCOL").is_some();
+    if trace {
+        app.state::<AppState>().logger.info(&format!("TRACE req {}", request.uri().path()));
+    }
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let response = serve(&state, request.uri().path());
+        if trace {
+            state.logger.info(&format!("TRACE resp {} {}", response.status(), request.uri().path()));
+        }
         responder.respond(response);
     });
 }

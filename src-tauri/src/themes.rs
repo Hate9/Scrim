@@ -173,6 +173,9 @@ pub fn watch(app: &AppHandle) {
     let pending = std::sync::Arc::new(Mutex::new(false));
     let watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         let Ok(ev) = res else { return };
+        if !crate::workspace::is_change(&ev) {
+            return;
+        }
         if ev.paths.iter().all(|p| p.file_name().is_some_and(|n| n == HASHES)) {
             return;
         }

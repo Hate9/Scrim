@@ -29,11 +29,12 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   blink, window style (custom title bar), language, spell check (P6), export (P5), and
   `global:` shortcuts. They are saved and shown; the features behind them are pending.
 - **Window size and position per screen configuration (7.1)** are not remembered yet.
-- **T-1 fixture themes.** `node scripts/fetch-fixture-themes.mjs` downloads the pinned,
-  hash-checked list in `spec/fixtures/themes.lock.json` into `tests/fixtures/themes/`
-  (git-ignored). The first run saves candidate screenshots in
-  `tests/fixtures/themes/golden-candidates/`; the owner approves them by moving them to
-  `golden/`, and T-1 fails until then.
+- **T-1 fixture themes.** T-1 runs `scripts/fetch-fixture-themes.mjs` first (the pinned,
+  hash-checked list in `spec/fixtures/themes.lock.json`, into the git-ignored
+  `tests/fixtures/themes/`). Approved screenshots are committed in `tests/golden/themes/`;
+  new or changed renders go to `tests/golden/themes/candidates/` and are committed on a
+  `goldens/<date>` branch for the owner to review. Goldens should come from the CI Linux
+  image (fonts).
 - **Manual tests.** E-9 (IME with Japanese input) needs a person.
 
 ## Documents

@@ -109,6 +109,13 @@ test("T-6 compatibility rewrite: sidebar red; url() and strings untouched", asyn
 
 test("T-2 editing base.user.css on disk applies live", async (s) => {
   await ready(s);
+  // Idle means idle: serving a theme must not count as a change to the theme folder
+  // (reading files produced access events, which re-applied the theme in a loop).
+  const themeLoads = () => js(s, "return performance.getEntriesByType('resource').filter((e) => /\\/themes\\//.test(e.name)).length");
+  const before = await themeLoads();
+  await sleep(2000);
+  const after = await themeLoads();
+  if (after !== before) throw new Error(`theme files reloaded while idle (${before} -> ${after})`);
   const f = join(themesDir(), "base.user.css");
   writeFileSync(f, "#write { border-top: 3px solid rgb(1, 2, 3); }\n");
   try {
@@ -227,12 +234,15 @@ test("menu: commands run by id; Paragraph inserts; Help opens a local document",
 }, () => fixture("menu.md", "text\n"));
 
 // T-1 uses the owner's fixture themes (CLEAN-ROOM.md rule 7): `node
-// scripts/fetch-fixture-themes.mjs` downloads the list in spec/fixtures/themes.lock.json
-// into tests/fixtures/themes/ (git-ignored) and verifies the hashes. Without them the test
-// is skipped. Golden screenshots of Scrim live in tests/fixtures/themes/golden/<theme>.png;
-// a theme without one gets a candidate in golden-candidates/ for the owner to approve,
-// and the test fails until approved. Remote loads are blocked (SCRIM_TEST_NO_REMOTE).
+// scripts/fetch-fixture-themes.mjs` (run first, below) downloads the list in
+// spec/fixtures/themes.lock.json into tests/fixtures/themes/ (git-ignored) and verifies
+// the hashes. Approved screenshots of Scrim are committed in tests/golden/themes/<theme>.png;
+// a theme without one, or whose render changed, gets a candidate in
+// tests/golden/themes/candidates/ for the owner to review (committed on a goldens/<date>
+// branch), and the test fails until it is approved. Remote loads are blocked
+// (SCRIM_TEST_NO_REMOTE). Goldens are meant to come from the CI Linux image (fonts).
 const FIXTURES = join(import.meta.dirname, "../fixtures/themes");
+const GOLDEN = join(import.meta.dirname, "../golden/themes");
 const LOCK = join(import.meta.dirname, "../../spec/fixtures/themes.lock.json");
 test("T-1 fixture themes appear in the Themes menu and match approved screenshots", async (s, _file, fetched) => {
   if (!fetched.ok) throw new Error(`fixture themes could not be fetched: ${fetched.message}`);
@@ -242,35 +252,68 @@ test("T-1 fixture themes appear in the Themes menu and match approved screenshot
   for (const f of readdirSync(FIXTURES)) if (!f.startsWith("golden")) spawnSync("cp", ["-r", join(FIXTURES, f), themesDir()]);
   await ready(s);
   await js(s, "return window.__scrim.themes.refreshList().then(() => true)");
+  // Same picture every time: no notices, no caret, no hover.
+  const still = () =>
+    js(s, `document.getElementById('notice').hidden = true;
+      const v = window.__scrim.editor.view;
+      v.dispatch(v.state.tr.setSelection(v.state.selection.constructor.atEnd(v.state.doc)));
+      document.activeElement?.blur?.(); document.querySelector('content').scrollTop = 0;
+      if (!document.getElementById('t1-still')) {
+        const st = document.createElement('style'); st.id = 't1-still';
+        st.textContent = '* { scrollbar-width: none !important; } ::-webkit-scrollbar { display: none !important; }';
+        document.head.appendChild(st);
+      }
+      const w = document.getElementById('write'); w.style.display = 'none'; void w.offsetHeight; w.style.display = '';
+      return true`);
   const pending = [];
   for (const f of css) {
     const id = f.slice(0, -4);
     await waitFor(() => js(s, `return window.__scrim.themes.themes.some((t) => t.id === ${JSON.stringify(id)})`), `${id} listed`);
     await js(s, `window.__scrim.setSetting('theme', ${JSON.stringify(id)}); return true`);
     await waitFor(() => js(s, `return window.__scrim.themes.loaded === ${JSON.stringify(id)}`), `${id} loaded`);
-    await sleep(800); // web fonts from the theme's folder
-    const png = Buffer.from(await s.cmd("GET", "/screenshot"), "base64");
+    // Web fonts from the theme's folder: wait until every face in use has loaded.
+    // Faces load lazily on first use, so load every declared face explicitly.
+    await waitFor(() => js(s, "return Promise.all([...document.fonts].map((f) => f.load().catch(() => null))).then(() => document.fonts.ready).then(() => document.fonts.status === 'loaded')"), `${id} fonts`, 15000);
+    // A face that cannot load (remote ones are blocked) keeps its text invisible for the
+    // browser's block period (about 3 s) before the fallback shows: wait that out.
+    await sleep(3500);
+    // Then shoot until two consecutive screenshots are identical (late font repaints).
     const shot = join(process.env.SCRIM_CONFIG_DIR, `${id}.png`);
-    writeFileSync(shot, png);
-    const golden = join(FIXTURES, "golden", `${id}.png`);
-    if (!existsSync(golden)) {
-      spawnSync("mkdir", ["-p", join(FIXTURES, "golden-candidates")]);
-      spawnSync("cp", [shot, join(FIXTURES, "golden-candidates", `${id}.png`)]);
+    const prev = join(process.env.SCRIM_CONFIG_DIR, `${id}.prev.png`);
+    for (let i = 0; i < 12; i++) {
+      await still();
+      await sleep(700);
+      if (existsSync(shot)) spawnSync("mv", [shot, prev]);
+      writeFileSync(shot, Buffer.from(await s.cmd("GET", "/screenshot"), "base64"));
+      if (i > 0 && spawnSync("compare", ["-metric", "AE", shot, prev, "null:"], { encoding: "utf8" }).stderr.trim() === "0") break;
+    }
+    const golden = join(GOLDEN, `${id}.png`);
+    const candidate = () => {
+      spawnSync("mkdir", ["-p", join(GOLDEN, "candidates")]);
+      spawnSync("cp", [shot, join(GOLDEN, "candidates", `${id}.png`)]);
       pending.push(id);
+    };
+    if (!existsSync(golden)) {
+      candidate();
       continue;
     }
     const r = spawnSync("compare", ["-metric", "AE", "-fuzz", "2%", shot, golden, "null:"], { encoding: "utf8" });
     const diff = parseFloat(r.stderr);
     const size = spawnSync("identify", ["-format", "%w %h", golden], { encoding: "utf8" }).stdout.split(" ").map(Number);
     const ratio = diff / (size[0] * size[1]);
-    if (!(ratio <= 0.01)) throw new Error(`${id}: ${(ratio * 100).toFixed(2)}% of pixels differ from the approved screenshot`);
+    if (!(ratio <= 0.01)) {
+      console.log(`     ${id}: ${(ratio * 100).toFixed(2)}% of pixels differ from the approved screenshot`);
+      candidate();
+    }
   }
   // Remote loads are blocked (SCRIM_TEST_NO_REMOTE): nothing was fetched from the web.
   const remote = await js(s, "return performance.getEntriesByType('resource').map((e) => e.name).filter((n) => /^https?:/.test(n) && !/^https?:\\/\\/(tauri|scrim-[a-z]+)\\.localhost/.test(n))");
   if (remote.length) throw new Error(`remote resources were loaded: ${remote.join(", ")}`);
   await js(s, "window.__scrim.setSetting('theme', 'paper'); return true");
-  if (pending.length) throw new Error(`no approved screenshot for ${pending.join(", ")}: candidates in tests/fixtures/themes/golden-candidates/`);
+  if (pending.length) throw new Error(`no approved screenshot for ${pending.join(", ")}: candidates in tests/golden/themes/candidates/ (commit them on a goldens/<date> branch for review)`);
 }, () => {
+  // No drafts from earlier tests (their notice would be in the screenshots).
+  spawnSync("sh", ["-c", `rm -f ${join(process.env.SCRIM_CONFIG_DIR, "recovery")}/*.md ${join(process.env.SCRIM_CONFIG_DIR, "recovery")}/*.json`]);
   // The helper runs first: downloads anything missing and verifies every SHA-256.
   const r = spawnSync("node", [join(import.meta.dirname, "../../scripts/fetch-fixture-themes.mjs")], { encoding: "utf8", timeout: 300000 });
   return [fixture("t1.md", FEATURES), { ok: r.status === 0, message: (r.stderr || r.stdout || "").trim().split("\n").slice(-3).join("; ") }];

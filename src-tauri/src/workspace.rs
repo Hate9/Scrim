@@ -320,6 +320,13 @@ pub async fn fs_reveal(app: AppHandle, path: String) -> Result<(), String> {
     app.opener().reveal_item_in_dir(&path).map_err(|e| e.to_string())
 }
 
+/// Watchers react to changes only. Reading a file (Scrim serving a theme, the search
+/// reading a folder) produces inotify access events; treating those as changes made the
+/// theme folder reload itself in a loop.
+pub fn is_change(ev: &notify::Event) -> bool {
+    !matches!(ev.kind, notify::EventKind::Access(_) | notify::EventKind::Other)
+}
+
 // ---- recent files (7.2) ------------------------------------------------------------------
 
 #[derive(Serialize, Deserialize, Default, Clone)]
@@ -506,7 +513,7 @@ pub fn watch_file(app: &AppHandle, label: &str, path: &Path) {
     let last = Arc::new(Mutex::new(Instant::now() - Duration::from_secs(10)));
     let watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         let Ok(ev) = res else { return };
-        if !ev.paths.iter().any(|p| p == &target) {
+        if !is_change(&ev) || !ev.paths.iter().any(|p| p == &target) {
             return;
         }
         // Coalesce bursts (editors write in several steps).
@@ -553,7 +560,7 @@ pub fn watch_folder(app: &AppHandle, label: &str, folder: &Path) {
     let label2 = label.to_string();
     let pending = Arc::new(Mutex::new(false));
     let watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
-        if res.is_err() {
+        if !res.as_ref().is_ok_and(is_change) {
             return;
         }
         let mut p = pending.lock().unwrap();
