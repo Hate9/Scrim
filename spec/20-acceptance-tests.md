@@ -143,7 +143,13 @@ implementation team writes to contain at least one instance of every construct i
   git-ignored, CLEAN-ROOM.md rule 7; fetched from `fixtures/themes.lock.json` with
   hashes verified, remote loads blocked during the test) into the theme folder → it appears in the Themes
   menu and renders the feature document; compare against owner-approved golden
-  screenshots **of Scrim** (pixel diff ≤ 1% after the first approval).
+  screenshots **of Scrim** (pixel diff ≤ 1% after the first approval). Goldens are
+  committed (`tests/golden/themes/<theme>.png`, outside the ignored fixtures folder) so
+  every machine and CI compares against the same images. New or changed renders are
+  written as candidates to `tests/golden/themes/candidates/` and committed on a branch
+  `goldens/<date>` for the owner to review; the owner (or the spec team on the owner's
+  instruction) moves approved files into `tests/golden/themes/` on main. Screenshots are
+  taken in the CI Linux image so fonts match.
 - **T-6** Selector rewrite: a theme with `#typora-sidebar { background: red }` and
   `.typora-export h1 { color: blue }` → the sidebar is red; in HTML export the h1 is blue;
   `url("typora-bg.png")` and a string `"#typora-sidebar"` inside `content:` are
