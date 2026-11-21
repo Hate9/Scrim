@@ -74,6 +74,7 @@ them when it loads any theme or user CSS file, so such themes work unmodified:
 | `.typora-quick-open` (and any `.typora-quick-open-*`) | `.scrim-quick-open` (`.scrim-quick-open-*`) |
 | `.typora-node` | `.scrim` |
 | `.ty-on-typewriter-mode` | `.scrim-typewriter-mode` |
+| `.cm-s-typora-default` | `.cm-s-scrim-default` |
 | any other `#typora-X` / `.typora-X` | `#scrim-X` / `.scrim-X` |
 
 - Rewrite only ID and class selectors inside selector lists (including inside `:is()`,
@@ -101,28 +102,114 @@ them when it loads any theme or user CSS file, so such themes work unmodified:
 
 ### Blocks inside `#write`
 
+Exact structure matters: themes use descendant and child selectors (`li p`,
+`blockquote p`, `#write h2 > span`, `#write a .md-plain`, `[md-inline=link] a`). Every
+leaf block (one that directly holds inline content, plus `pre`, math, HTML, TOC,
+footnote and link definitions, and table rows) also carries class `md-end-block`.
+
 | Block | Element / classes |
 |---|---|
-| Paragraph | `p` |
-| Heading | `h1`…`h6` (`.md-heading` also) |
-| Blockquote | `blockquote` |
-| Lists | `ul`, `ol`, `li`; `ul.contains-task-list`, `li.task-list-item` (+ `.task-list-done`), `input[type=checkbox]` inside |
-| Code block | `pre.md-fences` with attribute `lang`. Inside it, CodeMirror 6 elements get alias classes: `.cm-editor` also `.CodeMirror`, `.cm-content` also `.CodeMirror-lines`, each `.cm-line` also `.CodeMirror-line` (CM6 supports extra classes via editor/content attributes and line decorations). Tokens `span.cm-*` (`04-blocks.md` 4.5) |
-| Math block | `div.md-math-block` > `div.math-display` (rendered) and, while editing, `div.md-math-source` |
-| Table | `figure.md-table-fig` > `table` > `thead`/`tbody` > `tr` > `th`/`td` |
-| Image | `span.md-image` > `img`; image paragraph `p.md-image-paragraph` |
-| HR | `hr` |
-| HTML block | `div.md-htmlblock` > `div.md-htmlblock-container` |
-| Front matter | `pre.md-meta-block` |
+| Paragraph | `p.md-p` |
+| Heading | `h1`…`h6`, class `md-heading`; text inside per "Inline structure" below. No other child elements: the heading level hint is a `::before` pseudo-element on the focused heading (`h2.md-focus::before { content: "h2" }`), never an element |
+| Blockquote | `blockquote`; its children are blocks (a quote's text is always inside `p.md-p`) |
+| Bullet list | `ul.ul-list` with attribute `data-mark` = the source marker (`-`, `*`, `+`) |
+| Ordered list | `ol.ol-list` with attribute `start` (empty when 1) |
+| List item | `li.md-list-item`; its text is **always** inside `p.md-p`, for tight and loose lists alike (tight/loose only changes the Markdown written back); nested lists follow the `p` |
+| Task item | `li.md-list-item.task-list-item.md-task-list-item` plus `task-list-done` or `task-list-not-done`; first child `input[type=checkbox]` (`checked` when done), then `p.md-p`. Its list is `ul.ul-list.contains-task-list` |
+| Code block | `pre.md-fences` with attribute `lang` (empty string when none), see "Code blocks" below |
+| Math block | `div.md-math-block.md-rawblock` > `div.md-rawblock-container.md-math-container` > rendered math (`mjx-container.MathJax` or the renderer's equivalent root with class `MathJax`); while editing, the source in `pre.md-fences` (CodeMirror) inside it |
+| Table | `figure.md-table-fig` > `table.md-table` > `thead`/`tbody` > `tr.md-end-block` > `th`/`td` > `span.td-span` > inline content |
+| Image | inline wrapper `span.md-image` (attribute `data-src` = source path; plus `md-img-error` when it failed to load) > markers + `img`. An image alone in its paragraph: the `p` also gets `md-image-paragraph` |
+| HR | `div.md-hr.md-end-block` > `hr` |
+| HTML block | `div.md-htmlblock.md-rawblock` > `div.md-htmlblock-container.md-rawblock-container` > the sanitized HTML |
+| Front matter | `pre.md-meta-block` containing the YAML as plain text (no syntax-highlight spans; themes color it as one block) |
 | TOC | `div.md-toc` > `p.md-toc-content` > `span.md-toc-item.md-toc-h1`… > `a.md-toc-inner` |
-| Footnote ref | `sup.md-footnote` |
-| Footnote def | `div.md-def-footnote` |
-| Link def | `div.md-def-url` |
-| Focused block (cursor inside) | extra class `md-focus` on the block element |
-| Block with cursor in inline element | inline wrapper gets `md-expand` |
-| Syntax markers | `span.md-meta`; heading level hint `span.md-heading-hint` |
-| Inline | `strong`, `em`, `code`, `del`, `mark`, `sub`, `sup`, `u`, `a`, `span.md-inline-math`, `span.md-emoji`. In the editor, links are `a[data-href]` **without** `href` (Q-012), so `:link`/`:visited`/`a[href]` selectors match only in exports; `a`, `a:hover`, `#write a` match in both |
+| Footnote def | `div.footnotes.md-def-footnote` > `span.md-def-name` (label), `span.md-def-content` (inline content), `span.md-reverse-footnote-area` > `a.reversefootnote` |
+| Link def | `div.footnotes.md-def-link` > `span.md-def-name`, `span.md-def-content.md-def-url` (URL), `span.md-def-title` (title, when present) |
+| Focused block (cursor inside) | extra class `md-focus` on the leaf block only; the nearest enclosing `li`, if any, gets `md-focus-container` (blockquotes do not); the inline wrapper holding the cursor gets `md-expand` |
 | Search hits | `.md-search-hit`, current `.md-search-select` |
+
+### Inline structure
+
+- **Plain text runs** are wrapped in `span.md-plain` with attribute `md-inline="plain"`,
+  at every nesting level (inside `p`, headings, `a`, `strong`, `em`, table cells, …).
+  So a heading with only text is `h2 > span.md-plain`, and a link's text is
+  `a > span.md-plain`.
+- **Emphasis-like spans** (`strong`, `em`, `del`, `code`, `u`, `mark`, `sub`, `sup`,
+  inline math): an outer `span.md-pair-s` with `md-inline` = `strong`, `em`, `del`,
+  `code`, `underline`, `mark`, `sub`, `sup`, `inline_math`, containing
+  `span.md-meta.md-before` (opening marker), the element (`strong`, `em`, …), and
+  `span.md-meta.md-after` (closing marker). Markers are hidden unless the wrapper has
+  `md-expand` (cursor inside). `code` holds raw text directly (no `md-plain`).
+- **Links**: `span.md-link` with `md-inline="link"` > `span.md-meta.md-before` (`[`),
+  `a` (attribute `data-href`, no `href` in the editor per Q-012) > `span.md-plain`,
+  `span.md-meta.md-before` (`](`), `span.md-content.md-url` (URL), optional
+  `span.md-content.md-link-title`, `span.md-meta.md-after` (`)`). Reference links:
+  `md-inline="reflink"`, `a` with `data-ref`. Autolinks: `md-inline="autolink"`,
+  `a.md-url`.
+- **Inline HTML** (`<kbd>`, custom tags, …): `span.md-html-inline` with
+  `md-inline="html_inline"` > tag markers (`span.md-meta.md-raw-inline`) and the element.
+- **Footnote ref**: `sup.md-footnote` with `md-inline="footnote"`, `data-ref` = label.
+- **Emoji**: `span.md-emoji` with `md-inline="emoji"`, `data-content` = shortcode.
+- Syntax markers anywhere: `span.md-meta`.
+
+### Code blocks
+
+CodeMirror 6 renders the editor; its elements carry CodeMirror 5 alias classes because
+themes target them:
+
+| CM6 element | Also has class |
+|---|---|
+| `.cm-editor` | `CodeMirror cm-s-inner CodeMirror-wrap` (and `CodeMirror-focused` when focused) |
+| `.cm-scroller` | `CodeMirror-scroll` |
+| `.cm-content` | `CodeMirror-code CodeMirror-lines` |
+| `.cm-line` | `CodeMirror-line` |
+| `.cm-activeLine` | `CodeMirror-activeline` |
+| `.cm-cursor` | `CodeMirror-cursor` |
+| `.cm-selectionBackground` | `CodeMirror-selected` |
+| `.cm-gutters` / line numbers | `CodeMirror-gutters` / `CodeMirror-linenumber` |
+
+Tokens use the CodeMirror 5 class names in `04-blocks.md` 4.5. The source-mode editor
+(`#scrim-source`) uses the same aliases, with `cm-s-scrim-default` in place of
+`cm-s-inner`.
+
+### Base stylesheet
+
+Themes are written against a small base stylesheet that the reference editor loads
+before them. Scrim's app base CSS provides the equivalents below for content inside
+`#write` and nothing else visual. **Every base rule for document content is wrapped in
+`:where()`** (zero specificity), so any theme rule wins. Scrim's own look (colors,
+fonts, backgrounds, link and code styling, table borders) lives only in its built-in
+theme files (10.2), never in the base CSS. `plain.css` is close to the base alone.
+
+- Root: `html { font-size: 14px; line-height: 1.42857 }`, `--bg-color: #fff`,
+  `--text-color: #333`, `--monospace` (a system monospace stack); `html` background and
+  color from those variables; `* { box-sizing: border-box }`.
+- `#write`: centered (`margin: 0 auto`), `padding-top: 36px`, `position: relative`,
+  `word-wrap: break-word`.
+- Headings: `h1` 2rem, `h2` 1.8rem, `h3` 1.6rem, `h4` 1.4rem, `h5` 1.2rem, `h6` 1rem.
+  `p`, headings, math blocks, HTML blocks: `margin: 1rem 0`.
+- Lists: `li { margin: 0; position: relative }`; `li p` and math inside `li`:
+  `margin: 0.5rem 0`; first child of `li` and of `blockquote`: `margin-top: 0`; last
+  child of `blockquote`: `margin-bottom: 0`. `blockquote { margin: 1rem 0 }`.
+- Task items: no list bullet; the checkbox absolutely positioned at the item's left,
+  `margin-left: -1.2em`.
+- Tables: `figure { margin: 1.2em 0; overflow-x: auto; max-width: calc(100% + 16px) }`;
+  `table { border-collapse: collapse; width: 100%; text-align: left }`;
+  `table.md-table td { min-width: 32px }`. No borders or backgrounds.
+- Code: `code, pre` use `var(--monospace)`; `.md-fences { font-size: 0.9rem; display:
+  block; background: inherit; position: relative }`; CodeMirror line padding `0 4px`.
+  No code colors or backgrounds (tokens are uncolored unless the theme colors them;
+  the built-in themes do).
+- Front matter: `pre.md-meta-block { font-size: 0.8rem; white-space: pre-wrap;
+  background: #ccc; display: block }`.
+- Footnote definitions (`.footnotes`): `font-size: 0.9rem; opacity: 0.8`. Footnote
+  refs: small rounded light-gray badge.
+- Images: `max-width: 100%`; an image alone in its paragraph is centered as a block.
+- `kbd`: light key-cap look; `mark`: yellow background, black text.
+- Links: `cursor: pointer` only; no color or decoration.
+- The heading level hint (`hN.md-focus::before`): `--heading-char-color`, thin border,
+  in the left margin; size and offset per `22-visual-design.md`.
 
 ### CSS custom properties read by the app chrome
 
@@ -140,12 +227,6 @@ bar, quick open, menus drawn in HTML) MUST use them, with the defaults in
 `--search-select-bg-color`, `--search-select-text-color`, `--search-hit-bg-color`,
 `--color-popover-bg-color`, `--focus-ring-color`, `--drag-placeholder-color`,
 `--rawblock-edit-panel-bd`, `--sidebar-width`, `--spell-error-color`.
-
-### Code block theme hooks
-
-Themes commonly style code via `.cm-s-inner` + token classes. The CodeMirror container in
-code blocks MUST carry class `cm-s-inner`, and the editor's own CodeMirror theme must
-have lower specificity than these selectors.
 
 ## 10.4 Dark mode
 
