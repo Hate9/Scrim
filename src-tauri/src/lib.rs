@@ -32,6 +32,9 @@ pub fn run() {
 
     state.logger.info(&format!("config directory {}", state.config_dir.display()));
 
+    #[cfg(target_os = "linux")]
+    wait_for_exiting_instance(&state);
+
     let result = tauri::Builder::default()
         // Must be the first plugin: a second instance hands its arguments over here and
         // exits before anything else starts (spec 01, "Single instance").
@@ -157,4 +160,34 @@ pub fn run() {
             std::process::exit(1);
         }
     }
+}
+
+/// A launch that races an instance which is exiting finds the single-instance D-Bus name
+/// still owned, forwards its arguments, and gets no reply: the plugin then fails the start.
+/// So when the name is owned, check that its owner still answers; while it does not, wait
+/// (up to 3 s) for the name to be released.
+#[cfg(target_os = "linux")]
+fn wait_for_exiting_instance(state: &AppState) {
+    use std::time::{Duration, Instant};
+    let name = format!("{}.SingleInstance", scrim_core::identity::APP_ID);
+    let Ok(conn) = zbus::blocking::Connection::session() else { return };
+    let Ok(dbus) = zbus::blocking::fdo::DBusProxy::new(&conn) else { return };
+    let Ok(bus_name) = zbus::names::BusName::try_from(name.as_str()) else { return };
+    let start = Instant::now();
+    while start.elapsed() < Duration::from_secs(3) {
+        if !dbus.name_has_owner(bus_name.clone()).unwrap_or(false) {
+            return; // nobody running: this becomes the first instance
+        }
+        let alive = zbus::blocking::fdo::PeerProxy::builder(&conn)
+            .destination(bus_name.clone())
+            .and_then(|b| b.path("/"))
+            .and_then(|b| b.build())
+            .and_then(|p| p.ping())
+            .is_ok();
+        if alive {
+            return; // a live instance: the plugin hands our arguments over
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    state.logger.warn("another instance owns the single-instance name but does not answer");
 }

@@ -34,6 +34,8 @@ natord = "1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2"
+# Same as tauri-plugin-single-instance: wait out an exiting instance (lib.rs).
+zbus = { version = "5.9", default-features = false, features = ["blocking-api", "async-io"] }
 gtk = "0.18"
 
 [target.'cfg(windows)'.dependencies]

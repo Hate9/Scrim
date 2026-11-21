@@ -83,35 +83,46 @@ export class ThemeLoader {
   }
 }
 
+/** Per slot: the newest swap; older ones that finish later remove themselves. */
+const generation = new Map<string, number>();
+
 /** Replace the <link> in `slot` with one for `href`; resolves once it loaded or failed
  * (a missing user CSS file is normal). The old sheet stays until the new one is in, so
- * nothing flashes. */
+ * nothing flashes. Overlapping swaps (a theme change while the theme folder reports a
+ * change) leave exactly one link per slot: the newest. */
 function swapLink(slot: string, href: string): Promise<void> {
-  const old = document.getElementById(slot) as HTMLLinkElement | null;
-  if (old && old.getAttribute("href") === href) return Promise.resolve();
+  const gen = (generation.get(slot) ?? 0) + 1;
+  generation.set(slot, gen);
+  const inSlot = () => [...document.querySelectorAll<HTMLLinkElement>(`link[data-slot="${slot}"]`)];
+  const current = document.getElementById(slot) as HTMLLinkElement | null;
+  if (current && current.getAttribute("href") === href && inSlot().length === 1) return Promise.resolve();
   if (!href) {
-    old?.remove();
+    inSlot().forEach((l) => l.remove());
     return Promise.resolve();
   }
   return new Promise((resolve) => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = href;
-    const done = () => {
-      // Keep slot order: theme, base.user, theme.user (after the app's base CSS).
-      old?.remove();
-      link.id = slot;
+    link.dataset.slot = slot;
+    const finish = (ok: boolean) => {
+      if (generation.get(slot) !== gen) {
+        link.remove(); // a newer swap owns the slot
+      } else {
+        for (const l of inSlot()) if (l !== link) l.remove();
+        if (ok) link.id = slot;
+        else link.remove();
+      }
       resolve();
     };
-    link.addEventListener("load", done);
-    link.addEventListener("error", () => {
-      link.remove();
-      old?.remove();
-      resolve();
-    });
-    const prev = SLOTS.slice(0, SLOTS.indexOf(slot as (typeof SLOTS)[number])).map((s) => document.getElementById(s)).filter(Boolean).pop();
-    const after = old ?? prev;
-    if (after) after.after(link);
+    link.addEventListener("load", () => finish(true));
+    link.addEventListener("error", () => finish(false));
+    // Slot order after the app's CSS: theme, base.user, theme.user.
+    const idx = SLOTS.indexOf(slot as (typeof SLOTS)[number]);
+    const before = SLOTS.slice(idx + 1)
+      .flatMap((s2) => [...document.querySelectorAll<HTMLLinkElement>(`link[data-slot="${s2}"]`)])
+      .shift();
+    if (before) before.before(link);
     else document.head.appendChild(link);
   });
 }
