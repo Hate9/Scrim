@@ -131,3 +131,60 @@ reuse is a window whose document is untitled **and** unmodified and empty (a fre
 **Interim:** with the extension (`notes.md - Scrim`).
 **Answer (spec team, 2026-11-20):** Yes, with the extension: `notes.md - Scrim`.
 `07-files-and-workspace.md` 7.1 is updated.
+
+## Q-009: Backspace at the start of a list item that is not the first item
+**Asked by:** implementation team, 2026-11-21
+**Question:** 3.4's Backspace table says "First list item paragraph: Lift out of the list:
+becomes a paragraph (nested: outdent one level)". Does "first list item paragraph" mean
+(a) the first paragraph of *any* list item (Backspace at the start of item 3 turns it
+into a paragraph between two lists, or outdents it if nested), or (b) only the
+paragraph of the list's first item (Backspace at the start of item 3 merges it into
+item 2's text)?
+**Interim:** (a), the first paragraph of any item. `SPEC-QUESTION Q-009` in
+`src/editor/commands.ts`.
+**Answer:** pending.
+
+## Q-010: Automatic escapes versus Enter- and space-triggered input rules
+**Asked by:** implementation team, 2026-11-20
+**Question:** The parse/display invariant (01, round-trip model item 6) escapes any line
+that would change block type "after every transaction". Taken literally, it would
+escape the first line of an empty paragraph as soon as the user types `#` or `-` (an
+empty ATX heading, an empty list item) or ```` ``` ```` (a fence), and the input rules of
+3.3 (`#␣`, `-␣`, ```` ```⏎ ````) could then never fire. Proposed behavior: while the
+cursor is in a single-line paragraph and the text before it could still become a
+space-triggered rule (`#`…`######`, `>`, `-`, `+`, `*`, `1.`/`1)`), or the paragraph is
+exactly an Enter-triggered rule (fence, `$$`, `---`/`***`/`___`, an HTML open tag) with
+the cursor at its end, the escape is deferred. It is applied when the cursor leaves the
+paragraph and before every save, so the file is never written with the unescaped
+trigger. Undo and redo restore earlier states exactly; their escapes also wait until
+the cursor leaves. Is that acceptable?
+**Interim:** as proposed. `SPEC-QUESTION Q-010` in `src/editor/escapes.ts`.
+**Answer:** pending.
+
+## Q-011: How should E-14 (typing latency) be measured?
+**Asked by:** implementation team (owner decision), 2026-11-21
+**Question:** E-14 asks for p95 < 16 ms per keystroke on a 10,000-line document "on a
+mid-range laptop". The only automated environment available is a CI-style Linux
+container with Xvfb and software rendering. There, Scrim's own work per keystroke
+(transaction plus plugins) is about 2 ms, but WebKitGTK's synchronous layout of the
+whole document when the selection is set grows linearly with document size: measured
+p95 is 7 ms at 1,000 lines, 17 ms at 3,000 lines, and about 60 ms at 10,000 lines.
+Options: (a) the owner measures E-14 manually on a real laptop before P8 (the test
+prints the numbers; `SCRIM_PERF_STRICT=1` enforces the budget); (b) a CI runner with GPU
+compositing; (c) treat large-document layout as part of P8's performance work (for
+example rendering only the blocks near the viewport).
+**Interim:** E-14 runs in the suite, reports its numbers, and fails only with
+`SCRIM_PERF_STRICT=1`. Tracked in README "Open items".
+**Answer:** pending.
+
+## Q-012: Rendered links have no `href` attribute
+**Asked by:** implementation team, 2026-11-21
+**Question:** The theme contract (10.3) renders links as `a`. Inside the editor, Scrim
+renders them as `<a data-href="…">` without `href`: WebKitGTK handles clicks on real
+links inside the editable area itself (no events reach the editor in automation, and
+the native URL tooltip window can swallow clicks), and Scrim opens links on Mod+click
+on its own (3.9). Exports (P5) will use real `href`s. Do known themes style `a[href]`
+specifically, such that the editor needs a real `href` (for example with navigation
+blocked another way)?
+**Interim:** no `href` in the editor; `#write a` is styled by the base CSS.
+**Answer:** pending.

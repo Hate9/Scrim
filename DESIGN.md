@@ -10,11 +10,126 @@ Implementation decisions and deviations from the spec's "recommended" designs
 |---|---|
 | `crates/scrim-core/` | Platform-independent Rust: identity, config paths, encodings, line endings, atomic save, logging, settings. No GUI dependency, tested headless. |
 | `src-tauri/` | Tauri 2 shell: windows, IPC commands, `scrim-file` protocol, webview hardening, single instance. |
-| `src/` | Frontend (TypeScript, Vite). In P0 a `<textarea>`; ProseMirror replaces it in P1. |
+| `src/md/` | Markdown layer, DOM-free: schema, parser, serializer, inline analyzer, HTML for the clipboard. |
+| `src/editor/` | The live-preview editor: decorations, reveal, commands, escapes, clipboard, links, emoji, key dispatcher. |
+| `src/app/` | Command table (ids and default keys). |
+| `src/main.ts` | Window glue: load/save, dialogs, link opening, settings. |
 | `tests/corpus/` | Round-trip corpus (R-1). Marked `-text` in `.gitattributes` so git never touches line endings. |
 | `tests/e2e/` | WebDriver acceptance tests (tauri-driver + WebKitWebDriver). |
 | `scripts/` | Test wrappers (`e2e.sh`, `n1-network.sh`, `check-no-http.sh`) and generators. |
 | `spec/` | The specification (read-only for the implementation team). |
+
+## P1: document model and editor
+
+### Round trip (spec 01, "Document model")
+
+The recommended design is followed: blocks are ProseMirror nodes, a textblock's text is
+its literal Markdown inline source. Deviations and details:
+
+- **Line breaks are `line_break` atoms**, not `"\n"` characters. Each stores the
+  terminator of the line it ends and the full prefix of the next line (container
+  prefixes plus the line's leading whitespace). ProseMirror keeps atom identity
+  through edits, so a surviving line keeps its exact prefix; a new break has null
+  attributes and gets the canonical continuation prefix. `leafText` is `"\n"`, so
+  positions still map 1:1 to source characters.
+- **Leaves carry the rest** (`src/md/schema.ts`): `sep` (bytes between the previous leaf
+  and this one), `prev` (that leaf's uid), `lead` (first-line prefix, with list-marker
+  spans in `marks` so renumbering can rewrite them), and `sig`, a signature of the
+  container chain (types, uids, whether the leaf is an item's first). The serializer
+  reuses stored prefixes only while `sig` matches, so wrapping, unwrapping, or
+  re-indenting re-emits exactly the leaves whose containers changed; nest-then-lift of
+  a list item is byte-exact. A stored separator survives new blocks inserted before its
+  leaf only if it contains a blank line (otherwise the leaf would become a lazy
+  continuation of the new block).
+- **Copies made by splits** (Enter) share attributes; `normalize.ts` gives every block a
+  unique uid after structural steps, keeping the original identity on the first copy
+  (or the non-empty one when Enter was pressed at a block's start).
+- **Parser** (`src/md/parse.ts`): mdast from micromark (CommonMark + GFM tables,
+  strikethrough, autolink literals, footnotes; front matter; block math; inline math
+  when enabled). The GFM task-list extension is not used in P1, so `[ ]` stays text.
+  Container prefixes are stripped per line by CommonMark's rules. Two safety nets: a
+  paragraph or heading inside containers is re-parsed from its extracted inline source
+  and must produce the same inline tree (top-level blocks skip this: nothing was
+  stripped), and the whole document must serialize back to the input. A top-level
+  block that fails becomes a `raw` leaf (exact source, shown as plain text). Over the
+  CommonMark and GFM spec examples about 1.4% of top-level blocks fall back, nearly all
+  of them tab-indented list items.
+- **`raw` leaves** hold every block P2 will give a real editor (code, math, tables, HTML,
+  front matter, definitions, footnote definitions). They are editable as plain text.
+- **Ordered list numbering**: the list stores its item uids at load. While they are
+  unchanged every marker is written as read; otherwise markers follow the detected
+  style (sequential, all-same, irregular) as in item 5.
+
+### Inline rendering and reveal (spec 03, 3.2)
+
+- `src/md/inline.ts` turns a textblock's source into elements (ranges, marker runs,
+  "hidden while collapsed" ranges for link destinations and HTML tags, widgets) using
+  micromark on the block's source plus stub definitions, so reference links and
+  footnotes resolve.
+- Decorations follow 01's stable-DOM rule: wrappers, content elements, and `md-meta`
+  runs exist regardless of the cursor; `reveal.ts` toggles `md-expand`/`md-focus` on the
+  DOM with ProseMirror's DOM observer paused.
+- **Collapsed markers are `font-size: 0`, not `display: none`.** WebKitGTK moves the
+  caret out of `display: none` text, which made the cursor drift across hidden
+  markers (typed closing `**` landed inside the element, Right skipped positions).
+  Zero-size text stays a valid caret position.
+- Arrow keys cross each marker run in one step; other selection changes snap out of
+  collapsed runs (7a); clicks on a boundary next to hidden markers resolve to the
+  content side, using the pointer's x where two elements meet (7, 7b).
+- Decorations are recomputed only for textblocks a transaction touched, frozen during
+  IME composition, and computed progressively at load (150 textblocks at once, the
+  rest in background chunks).
+- Rendered links are `<a data-href>` without `href` (Q-012). The URL tooltip is drawn
+  in the page after 500 ms; the native `title` tooltip window could swallow clicks.
+- Local images: the frontend asks Rust to add the file to the `scrim-file` scope
+  before setting `src` (otherwise the first request races the grant and gets 403).
+
+### Editing
+
+- Commands (`src/editor/commands.ts`) implement 3.3–3.7 and the list/quote parts of 04.
+  Space-triggered input rules dispatch the typed space first, then the transformation
+  as its own history step, so one undo restores the trigger as typed (E-8).
+  Enter-triggered rules for code, math, tables, HTML, and front matter create `raw`
+  blocks until P2.
+- Automatic escapes (`escapes.ts`, 01 item 6): each changed paragraph is re-parsed line
+  by line; the first line that would start another block gets a backslash with the
+  `auto_escape` mark (leading whitespace on the first line is removed instead).
+  Automatic escapes that are no longer needed are removed; typed backslashes are
+  never touched. Deferred while an input rule may still fire (Q-010).
+- Undo grouping: prosemirror-history with a 1 s delay, plus a group break after
+  whitespace that follows a word (3.8).
+- Clipboard (`clipboard.ts`, 06 text paths): copy writes the Markdown source as
+  `text/plain`, rendered HTML as `text/html` whose root carries `data-scrim-source`
+  (base64 of the source). Paste prefers that attribute, then HTML (turndown + GFM
+  plugin), then plain text as Markdown; Mod+Shift+V inserts literally (6.2's algorithm,
+  verified with the parser, falling back to escaping all ASCII punctuation). Image and
+  file pastes arrive with P2's image policy.
+- Keyboard routing (01): `src/editor/keys.ts` normalizes key identity (rule 5) and
+  owns command keys; clipboard and undo keys stay native (rule 2). Deduplication drops
+  the second arrival of an accelerator from the *other* source within 100 ms, so two
+  real presses of Mod+B both run.
+- Settings read in P1 (`settings.json`, read-only until P4): `inlineMath`,
+  `preserveLineBreaks`, `autoPairBrackets`, `autoPairMarkdown`, `copyAsMarkdown`,
+  `emojiAutocomplete`, `openLinksSingleClick`, `defaultLineEnding`.
+
+### Not yet in P1 (spec text that depends on later phases)
+
+- Footnote hover/jump (3.9) and footnote/link definition rendering: footnote
+  definitions are blocks (P2).
+- Highlight, sub- and superscript extensions (default off) and strict mode off (lenient
+  `#Heading`, any-number list interruption): with the preferences window (P4).
+- Escapes in setext heading lines and ATX closing-`#` ambiguity: paragraphs only so far.
+- E-9 (IME) is manual; E-18 and E-19 need P3's find bar and source mode.
+
+### Performance status
+
+- Parsing uses micromark/mdast, about 1.4 s for a 213 KB, 9,000-line file; 1 MB would
+  exceed the 2 s open budget. The model only needs line-level block positions, so P8
+  can move block parsing to a faster parser (markdown-it) and keep micromark for small
+  inline strings.
+- Typing: Scrim's own work per keystroke is about 2 ms on 10,000 lines (incremental
+  decorations, heading ids, definitions; the "clean again" check runs after a 300 ms
+  pause). WebKitGTK's layout dominates under software rendering (Q-011).
 
 ## P0 decisions
 
@@ -123,12 +238,13 @@ SCRIM_PROTO_PRINT_PDF=/tmp/out.pdf xvfb-run -a dbus-run-session -- target/debug/
 
 | Command | What |
 |---|---|
+| `npm test` (src/md, src/editor) | R-1 parse/serialize form, R-2/R-5/R-6, R-4/R-9, structural edits, clipboard, key identity |
 | `cargo test --workspace` | Rust unit tests, S-2 (kill -9 during save, via re-running the test binary as a child), R-1 file layer over the corpus and spec examples |
 | `npm test` | Frontend unit tests, including R-1 line bookkeeping over the corpus |
-| `scripts/e2e.sh` | S-1, S-3, save round trips, CSP (needs Xvfb, D-Bus, tauri-driver, WebKitWebDriver) |
+| `scripts/e2e.sh` | S-1, S-3, save round trips, CSP; P1: E-1..E-8, E-10..E-17, R-4/R-9 live, KB-1 (DOM part), emoji (needs Xvfb, D-Bus, tauri-driver, WebKitWebDriver, xclip). `node tests/e2e/run.mjs <regex>` runs a subset. |
 | `scripts/n1-network.sh` | N-1: the e2e suite under a connection trace |
 | `scripts/check-no-http.sh` | No HTTP client crate in the Rust graph |
 
 Linux packages needed for building and e2e (Debian/Ubuntu): `libwebkit2gtk-4.1-dev
 libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev webkit2gtk-driver xvfb
-x11-utils dbus strace`, plus `cargo install tauri-driver --version ^2`.
+x11-utils dbus strace xclip`, plus `cargo install tauri-driver --version ^2`.

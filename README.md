@@ -3,9 +3,11 @@
 A desktop Markdown editor for Linux and Windows that edits the document in its rendered
 form, showing Markdown syntax only where the cursor is. Built with Tauri 2.
 
-Status: **P0 (skeleton)**. Opens and saves Markdown files as plain text, with atomic
-saves, encoding and line-ending preservation, single-instance handling, and no network
-access. See `spec/spec/00-overview.md` for the phases.
+Status: **P1 (core editing)**. Live-preview editing of paragraphs, headings, emphasis,
+links, inline code, lists, quotes, and thematic breaks, with byte-exact round trips;
+other blocks (code, math, tables, HTML) are kept and editable as source until P2. P0's
+atomic saves, encodings, single instance, and network policy are in place. See
+`spec/spec/00-overview.md` for the phases.
 
 ## Open items
 
@@ -14,6 +16,12 @@ access. See `spec/spec/00-overview.md` for the phases.
   and N-1 (per-process firewall or ETW trace of `scrim.exe` and its WebView2 children)
   on Windows 11 and confirm the WebView2 settings in `src-tauri/src/hardening.rs` take
   effect.
+- **Typing latency on large documents (QA-LOG Q-011).** E-14 is reported, not
+  enforced, in the container (software rendering). Measure it on a real laptop with
+  `SCRIM_PERF_STRICT=1 scripts/e2e.sh` before P8.
+- **Open time for large files.** Block parsing (micromark) needs a faster path for the
+  1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
+- **Manual tests.** E-9 (IME with Japanese input) needs a person.
 
 ## Documents
 

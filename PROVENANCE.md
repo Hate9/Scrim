@@ -10,3 +10,5 @@ have not been consulted.
 | 2026-11-20 | GFM Spec 0.29, `test/spec.txt` from github.com/github/cmark-gfm | Extension examples (tables, strikethrough, task lists, autolinks, disallowed raw HTML) for the corpus |
 | 2026-11-20 | Source of the `tauri` 2.12 crate (local cargo registry) | Checked why `reqwest` appears in the dependency graph: only for Android/iOS targets, for the dev-server proxy |
 | 2026-11-20 | Howard Hinnant, "chrono-Compatible Low-Level Date Algorithms" (public domain) | `days_from_civil` inverse used for log timestamps (`crates/scrim-core/src/time.rs`) |
+| 2026-11-21 | Source of `prosemirror-view` 1.43 (node_modules) | How the DOM observer treats attribute mutations on decoration wrappers (reveal toggles classes with the observer paused) and how decoration sets are compared |
+| 2026-11-21 | Source of `chardetng` 1.0 and `tauri` 2.12 (local cargo registry) | API signatures; tauri's mobile-only `reqwest` dependency |

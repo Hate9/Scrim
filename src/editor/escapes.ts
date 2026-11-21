@@ -6,6 +6,7 @@
 // `auto_escape` mark. Automatic escapes that are no longer needed are removed again;
 // backslashes the user typed are never touched.
 //
+// SPEC-QUESTION Q-010: deferral for input-rule triggers.
 // Enter-triggered input rules (```, ~~~, $$, ---, ***, ___, an HTML open tag) are
 // typed on a paragraph's only line and fire on Enter (3.3), so while the cursor is at
 // the end of such a paragraph its escape is deferred until the cursor leaves or the

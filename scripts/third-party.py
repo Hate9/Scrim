@@ -45,7 +45,15 @@ def npm_packages():
                 continue
             seen.add(n)
             info = lock["packages"].get(f"node_modules/{n}", {})
-            rows.append((n, info.get("version", "?"), info.get("license", "UNKNOWN")))
+            lic = info.get("license")
+            if not lic:
+                # Older packages declare `licenses: [{type: ...}]` (read from the package).
+                pj = ROOT / "node_modules" / n / "package.json"
+                if pj.exists():
+                    meta = json.loads(pj.read_text())
+                    lic = meta.get("license") or " OR ".join(
+                        l.get("type", "") for l in meta.get("licenses", []) if isinstance(l, dict)) or None
+            rows.append((n, info.get("version", "?"), lic or "UNKNOWN"))
             stack.extend(info.get("dependencies", {}).keys())
     return sorted(set(rows))
 

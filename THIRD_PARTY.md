@@ -11,14 +11,96 @@ are not listed.
 | CommonMark Spec 0.31.2 examples (John MacFarlane) | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 | GitHub Flavored Markdown Spec 0.29 extension examples | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 
-## npm packages bundled into the frontend (2)
+## npm packages bundled into the frontend (84)
 
 | Package | Version | License |
 |---|---|---|
+| @mixmark-io/domino | 2.2.0 | BSD-2-Clause |
 | @tauri-apps/api | 2.12.5 | Apache-2.0 OR MIT |
 | @tauri-apps/plugin-dialog | 2.8.4 | MIT OR Apache-2.0 |
+| @types/debug | 4.1.13 | MIT |
+| @types/hast | 3.0.5 | MIT |
+| @types/katex | 0.16.8 | MIT |
+| @types/mdast | 4.0.4 | MIT |
+| @types/ms | 2.1.0 | MIT |
+| @types/unist | 3.0.3 | MIT |
+| ccount | 2.0.1 | MIT |
+| character-entities | 2.0.2 | MIT |
+| commander | 15.1.0 | MIT |
+| debug | 4.4.3 | MIT |
+| decode-named-character-reference | 1.3.0 | MIT |
+| dequal | 2.0.3 | MIT |
+| devlop | 1.1.0 | MIT |
+| escape-string-regexp | 5.0.0 | MIT |
+| fault | 2.0.1 | MIT |
+| format | 0.2.2 | MIT |
+| gemoji | 8.1.0 | MIT |
+| github-slugger | 2.0.0 | ISC |
+| katex | 0.19.1 | MIT |
+| longest-streak | 3.1.0 | MIT |
+| markdown-table | 3.1.0 | MIT |
+| mdast-util-find-and-replace | 3.0.5 | MIT |
+| mdast-util-from-markdown | 2.1.0 | MIT |
+| mdast-util-frontmatter | 2.0.1 | MIT |
+| mdast-util-gfm-autolink-literal | 2.1.2 | MIT |
+| mdast-util-gfm-footnote | 2.1.0 | MIT |
+| mdast-util-gfm-strikethrough | 2.0.1 | MIT |
+| mdast-util-gfm-table | 2.0.1 | MIT |
+| mdast-util-math | 3.0.0 | MIT |
+| mdast-util-phrasing | 4.1.0 | MIT |
+| mdast-util-to-markdown | 2.2.4 | MIT |
+| mdast-util-to-string | 4.0.0 | MIT |
+| micromark | 4.0.3 | MIT |
+| micromark-core-commonmark | 2.0.4 | MIT |
+| micromark-extension-frontmatter | 2.0.0 | MIT |
+| micromark-extension-gfm-autolink-literal | 2.1.0 | MIT |
+| micromark-extension-gfm-footnote | 2.1.0 | MIT |
+| micromark-extension-gfm-strikethrough | 2.1.0 | MIT |
+| micromark-extension-gfm-table | 2.1.2 | MIT |
+| micromark-extension-math | 3.1.0 | MIT |
+| micromark-factory-destination | 2.0.1 | MIT |
+| micromark-factory-label | 2.0.1 | MIT |
+| micromark-factory-space | 2.1.0 | MIT |
+| micromark-factory-title | 2.0.1 | MIT |
+| micromark-factory-whitespace | 2.0.1 | MIT |
+| micromark-util-character | 2.1.1 | MIT |
+| micromark-util-chunked | 2.0.1 | MIT |
+| micromark-util-classify-character | 2.0.1 | MIT |
+| micromark-util-combine-extensions | 2.0.1 | MIT |
+| micromark-util-decode-numeric-character-reference | 2.0.2 | MIT |
+| micromark-util-decode-string | 2.0.1 | MIT |
+| micromark-util-edit-map | 1.0.0 | MIT |
+| micromark-util-encode | 2.0.1 | MIT |
+| micromark-util-html-tag-name | 2.0.1 | MIT |
+| micromark-util-normalize-identifier | 2.0.1 | MIT |
+| micromark-util-resolve-all | 2.0.1 | MIT |
+| micromark-util-sanitize-uri | 2.0.1 | MIT |
+| micromark-util-subtokenize | 2.1.0 | MIT |
+| micromark-util-symbol | 2.0.1 | MIT |
+| micromark-util-types | 2.0.3 | MIT |
+| ms | 2.1.3 | MIT |
+| orderedmap | 2.1.1 | MIT |
+| prosemirror-commands | 1.7.2 | MIT |
+| prosemirror-dropcursor | 1.8.4 | MIT |
+| prosemirror-history | 1.5.2 | MIT |
+| prosemirror-keymap | 1.2.3 | MIT |
+| prosemirror-model | 1.25.13 | MIT |
+| prosemirror-schema-list | 1.6.1 | MIT |
+| prosemirror-state | 1.4.4 | MIT |
+| prosemirror-transform | 1.12.7 | MIT |
+| prosemirror-view | 1.43.0 | MIT |
+| rope-sequence | 1.3.4 | MIT |
+| turndown | 7.2.5 | MIT |
+| turndown-plugin-gfm | 1.0.2 | MIT |
+| unist-util-is | 6.0.1 | MIT |
+| unist-util-remove-position | 5.0.0 | MIT |
+| unist-util-stringify-position | 4.0.0 | MIT |
+| unist-util-visit | 5.2.0 | MIT |
+| unist-util-visit-parents | 6.1.0 | MIT |
+| w3c-keyname | 2.2.8 | MIT |
+| zwitch | 2.0.4 | MIT |
 
-## Rust crates compiled into the app (318, Linux and Windows targets)
+## Rust crates compiled into the app (345, Linux and Windows targets)
 
 | Package | Version | License |
 |---|---|---|
@@ -49,7 +131,9 @@ are not listed.
 | blocking | 1.7.0 | Apache-2.0 OR MIT |
 | brotli | 9.1.3 | BSD-3-Clause AND MIT |
 | brotli-decompressor | 6.3.2 | BSD-3-Clause/MIT |
+| bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT |
 | byteorder | 1.5.0 | Unlicense OR MIT |
+| byteorder-lite | 0.1.0 | Unlicense OR MIT |
 | bytes | 1.12.2 | MIT |
 | cairo-rs | 0.18.5 | MIT |
 | cairo-sys-rs | 0.18.2 | MIT |
@@ -59,6 +143,8 @@ are not listed.
 | cfb | 0.14.0 | MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | chardetng | 1.0.0 | Apache-2.0 OR MIT |
+| clipboard-rs | 0.3.5 | MIT |
+| clipboard-win | 5.4.3 | BSL-1.0 |
 | concurrent-queue | 2.5.0 | Apache-2.0 OR MIT |
 | const-oid | 0.10.3 | Apache-2.0 OR MIT |
 | cookie | 0.18.2 | MIT OR Apache-2.0 |
@@ -97,6 +183,7 @@ are not listed.
 | equivalent | 1.0.3 | Apache-2.0 OR MIT |
 | erased-serde | 0.4.11 | MIT OR Apache-2.0 |
 | errno | 0.3.15 | MIT OR Apache-2.0 |
+| error-code | 3.4.0 | BSL-1.0 |
 | event-listener | 5.4.2 | Apache-2.0 OR MIT |
 | event-listener-strategy | 0.5.4 | Apache-2.0 OR MIT |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT |
@@ -121,6 +208,7 @@ are not listed.
 | gdkwayland-sys | 0.18.2 | MIT |
 | gdkx11 | 0.18.2 | MIT |
 | gdkx11-sys | 0.18.2 | MIT |
+| gethostname | 1.1.0 | Apache-2.0 |
 | getrandom | 0.3.4 | MIT OR Apache-2.0 |
 | getrandom | 0.4.3 | MIT OR Apache-2.0 |
 | gio | 0.18.4 | MIT |
@@ -152,9 +240,12 @@ are not listed.
 | ident_case | 1.0.1 | MIT/Apache-2.0 |
 | idna | 1.1.0 | MIT OR Apache-2.0 |
 | idna_adapter | 1.2.2 | Apache-2.0 OR MIT |
+| image | 0.25.10 | MIT OR Apache-2.0 |
 | indexmap | 1.9.3 | Apache-2.0 OR MIT |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT |
 | infer | 0.22.0 | MIT |
+| is-docker | 0.2.0 | MIT |
+| is-wsl | 0.4.0 | MIT |
 | itoa | 1.0.19 | MIT OR Apache-2.0 |
 | javascriptcore-rs | 1.1.2 | MIT |
 | javascriptcore-rs-sys | 1.1.1 | MIT |
@@ -174,11 +265,14 @@ are not listed.
 | miniz_oxide | 0.8.9 | MIT OR Zlib OR Apache-2.0 |
 | miniz_oxide | 0.9.1 | MIT OR Zlib OR Apache-2.0 |
 | mio | 1.2.5 | MIT |
+| moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 |
 | muda | 0.20.0 | Apache-2.0 OR MIT |
 | multiversion_no_op | 1.0.0 | Apache-2.0 OR MIT |
 | new_debug_unreachable | 1.0.6 | MIT |
 | num-conv | 0.2.2 | MIT OR Apache-2.0 |
+| num-traits | 0.2.19 | MIT OR Apache-2.0 |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 |
+| open | 5.4.5 | MIT |
 | option-ext | 0.2.0 | MPL-2.0 |
 | ordered-stream | 0.2.0 | MIT OR Apache-2.0 |
 | pango | 0.18.3 | MIT |
@@ -205,6 +299,7 @@ are not listed.
 | proc-macro-error | 1.0.4 | MIT OR Apache-2.0 |
 | proc-macro-error-attr | 1.0.4 | MIT OR Apache-2.0 |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 |
+| pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 |
 | quick-xml | 0.42.0 | MIT |
 | quote | 1.0.47 | MIT OR Apache-2.0 |
 | raw-window-handle | 0.6.2 | MIT OR Apache-2.0 OR Zlib |
@@ -258,6 +353,7 @@ are not listed.
 | tauri-macros | 2.7.6 | Apache-2.0 OR MIT |
 | tauri-plugin-dialog | 2.8.4 | Apache-2.0 OR MIT |
 | tauri-plugin-fs | 2.7.1 | Apache-2.0 OR MIT |
+| tauri-plugin-opener | 2.7.3 | Apache-2.0 OR MIT |
 | tauri-plugin-single-instance | 2.5.5 | Apache-2.0 OR MIT |
 | tauri-runtime | 2.12.4 | Apache-2.0 OR MIT |
 | tauri-runtime-wry | 2.12.5 | Apache-2.0 OR MIT |
@@ -302,28 +398,39 @@ are not listed.
 | webview2-com-sys | 0.39.1 | MIT |
 | winapi-util | 0.1.11 | Unlicense OR MIT |
 | window-vibrancy | 0.8.1 | Apache-2.0 OR MIT |
+| windows | 0.59.0 | MIT OR Apache-2.0 |
 | windows | 0.62.2 | MIT OR Apache-2.0 |
 | windows-collections | 0.3.2 | MIT OR Apache-2.0 |
+| windows-core | 0.59.0 | MIT OR Apache-2.0 |
 | windows-core | 0.62.2 | MIT OR Apache-2.0 |
 | windows-future | 0.3.2 | MIT OR Apache-2.0 |
+| windows-implement | 0.59.0 | MIT OR Apache-2.0 |
 | windows-implement | 0.60.2 | MIT OR Apache-2.0 |
 | windows-interface | 0.59.3 | MIT OR Apache-2.0 |
+| windows-link | 0.1.3 | MIT OR Apache-2.0 |
 | windows-link | 0.2.1 | MIT OR Apache-2.0 |
 | windows-numerics | 0.3.1 | MIT OR Apache-2.0 |
+| windows-result | 0.3.4 | MIT OR Apache-2.0 |
 | windows-result | 0.4.1 | MIT OR Apache-2.0 |
+| windows-strings | 0.3.1 | MIT OR Apache-2.0 |
 | windows-strings | 0.5.1 | MIT OR Apache-2.0 |
 | windows-sys | 0.59.0 | MIT OR Apache-2.0 |
 | windows-sys | 0.61.2 | MIT OR Apache-2.0 |
 | windows-targets | 0.52.6 | MIT OR Apache-2.0 |
+| windows-targets | 0.53.5 | MIT OR Apache-2.0 |
 | windows-threading | 0.2.1 | MIT OR Apache-2.0 |
 | windows-version | 0.1.7 | MIT OR Apache-2.0 |
+| windows-win | 3.0.0 | BSL-1.0 |
 | windows_x86_64_msvc | 0.52.6 | MIT OR Apache-2.0 |
+| windows_x86_64_msvc | 0.53.1 | MIT OR Apache-2.0 |
 | winnow | 0.5.40 | MIT |
 | winnow | 1.0.5 | MIT |
 | writeable | 0.6.4 | Unicode-3.0 |
 | wry | 0.57.3 | Apache-2.0 OR MIT |
 | x11 | 2.21.0 | MIT |
 | x11-dl | 2.21.0 | MIT |
+| x11rb | 0.13.2 | MIT OR Apache-2.0 |
+| x11rb-protocol | 0.13.2 | MIT OR Apache-2.0 |
 | xattr | 1.7.0 | MIT OR Apache-2.0 |
 | yoke | 0.8.4 | Unicode-3.0 |
 | yoke-derive | 0.8.4 | Unicode-3.0 |
@@ -337,6 +444,8 @@ are not listed.
 | zerovec | 0.11.9 | Unicode-3.0 |
 | zerovec-derive | 0.11.7 | Unicode-3.0 |
 | zmij | 1.0.23 | MIT |
+| zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib |
+| zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib |
 | zvariant | 5.15.1 | MIT |
 | zvariant_derive | 5.15.1 | MIT |
 | zvariant_utils | 4.2.0 | MIT |
