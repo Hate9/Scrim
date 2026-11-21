@@ -11,8 +11,9 @@
 - Paths handed over by a second launch (file manager, command line while running) never
   replace an open document (Q-007): an already-open file focuses its window; otherwise a
   new window opens, except that a fresh untitled, unmodified, empty window is reused.
-- Window title: `<file name with extension> - Scrim` (e.g. `notes.md - Scrim`, Q-008); a `•` before the name when unsaved;
-  `Untitled` for new documents (title from front matter `title` if present).
+- Window title: `<name> - Scrim`, with `• ` before the name when unsaved. `<name>` is the
+  front matter `title` if present, for saved and untitled documents alike (Q-013);
+  otherwise the file name with extension (e.g. `notes.md - Scrim`, Q-008), or `Untitled`.
 - Closing a window with unsaved changes asks: Save / Don't Save / Cancel. With autosave
   on (7.6), saved files close silently; untitled documents still ask.
 - Quitting the app asks for each dirty window in turn.

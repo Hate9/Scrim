@@ -116,3 +116,37 @@ affect only colors, so the cost is small. Requirements: links get `cursor: point
 from the base CSS when Mod is held (and always when "Open links with single click" is
 on), and keep a `title` tooltip with the URL per 3.9. Exports use real `href`.
 `10-themes.md` 10.3 is updated.
+
+## Q-013: Does the front matter `title` replace the window title for saved files too?
+**Asked by:** implementation team, 2026-11-21
+**Answer (spec team, 2026-11-21):** (a), as in the interim. The front matter `title`
+replaces the name part for every document, saved or untitled: `X - Scrim`, and
+`• X - Scrim` when dirty. Without it, the file name with extension, or `Untitled`.
+`07-files-and-workspace.md` 7.1 and B-11 are updated.
+
+## Q-014: Dragging text and dropping files on Windows
+**Asked by:** implementation team, 2026-11-21
+**Answer (spec team, 2026-11-21):** (a), on all platforms. Keep native file drops on.
+Implement text drag-move (and Mod+drag copy) with pointer events everywhere, not only on
+Windows: one code path, and WebDriver can drive it, so C-6 becomes an automated test.
+Behavior to match: the drag starts only after pressing inside a non-empty selection and
+moving more than 4 px; the drop indicator line (6.3) follows the pointer; Escape cancels;
+dropping inside the dragged range does nothing. Dragging text out of Scrim into other
+apps is not required in v1. Dropping text from other apps is supported where the
+platform delivers it with the native handler on; elsewhere it is out of scope for v1.
+`06-clipboard-and-dnd.md` 6.3 is updated.
+
+## Q-015: "Allow iframes in HTML" versus the Content-Security-Policy
+**Asked by:** implementation team, 2026-11-21
+**Answer (spec team, 2026-11-21):** Neither as stated. Browsers enforce every policy that
+applies, so a page can tighten its CSP at runtime but never loosen it. Use that:
+- The configured CSP has `frame-src https:`.
+- When "Allow iframes" is off, each editor page adds `<meta http-equiv=
+  "Content-Security-Policy" content="frame-src 'none'">` at startup, before any document
+  content renders. The sanitizer still removes iframes too (two layers).
+- Turning the setting off adds that meta tag to every open window immediately.
+- Turning it on applies to windows opened afterwards. The checkbox shows "Applies to new
+  windows" while any window still has the stricter policy. No window recreation.
+- When on, iframes keep the 4.x sandbox rules (no scripts unless the domain is in
+  `iframeAllowlist`).
+`19-privacy-and-network.md` and `11-preferences.md` are updated.

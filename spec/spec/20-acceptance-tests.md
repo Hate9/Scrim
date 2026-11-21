@@ -114,7 +114,8 @@ implementation team writes to contain at least one instance of every construct i
 - **B-9** Footnote: hover `[^1]` → popover with definition text.
 - **B-10** HTML block `<div style="color:red">hi</div>` renders red "hi"; clicking shows
   the source editor; `<script>` inside never executes.
-- **B-11** Front matter `title: X` → window title "X".
+- **B-11** Front matter `title: X` → window title "X - Scrim" (saved or untitled;
+  "• X - Scrim" when dirty; Q-013).
 
 ## P3 Workspace
 

@@ -32,7 +32,12 @@ user can see in its source:
 2. A Content-Security-Policy on the app pages: `default-src 'self' <app-protocol>:;
    img-src * data: blob: scrim-file:; media-src * data: blob: scrim-file:; style-src 'self'
    'unsafe-inline' <app-protocol>: scrim-file: https:; font-src 'self' data: scrim-file: https:;
-   connect-src 'self' <ipc>:; frame-src <per settings>`. Note `connect-src` excludes
+   connect-src 'self' <ipc>:; frame-src https:`. When "Allow iframes" is off, each editor
+   page adds a second, stricter policy at startup (`<meta http-equiv=
+   "Content-Security-Policy" content="frame-src 'none'">`), on top of the sanitizer.
+   Turning the setting off adds that meta tag to open windows immediately; turning it
+   on applies to windows opened afterwards, since a policy cannot be loosened in place
+   (Q-015). Note `connect-src` excludes
    `http(s)`: frontend code cannot `fetch()` the internet.
 3. **Webview background traffic off.** WebView2: `IsReputationCheckingRequired = false`
    (no SmartScreen lookups), and browser arguments
