@@ -8,6 +8,7 @@ mod export;
 mod hardening;
 mod help;
 mod images;
+mod local;
 mod pandoc;
 mod pdf;
 #[cfg(windows)]
@@ -81,6 +82,12 @@ pub fn run() {
             pandoc::import_file,
             pandoc::open_untitled_text,
             pandoc::custom_export,
+            local::local_get,
+            local::local_set,
+            local::config_text,
+            local::config_save,
+            local::user_css_get,
+            local::user_css_save,
             spell::spell_info,
             spell::spell_check,
             spell::spell_suggest,

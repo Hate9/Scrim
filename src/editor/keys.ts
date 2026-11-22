@@ -73,7 +73,9 @@ export function accelerator(e: KeyboardEvent): string | null {
 /** Keys that stay with the webview / ProseMirror (rule 2). */
 const NATIVE = new Set(["Ctrl+C", "Ctrl+X", "Ctrl+V", "Ctrl+Shift+V", "Ctrl+A", "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z"]);
 
-export type Scope = "document" | "global";
+/** "document": live document focused; "editing": the live document or a CodeMirror editor
+ * of it (code blocks, source mode), for snippets (16); "global": file/window/view. */
+export type Scope = "document" | "editing" | "global";
 export type Source = "dom" | "native";
 
 export interface CommandDef {
@@ -128,7 +130,16 @@ export class Dispatcher {
   /** Default keys, so overrides can be undone when config.jsonc changes again. */
   private defaults = new Map<string, string>();
 
-  constructor(commands: CommandDef[], private isDocumentFocused: () => boolean) {
+  /** Commands added at run time (snippets, 16); their keys win over built-in ones. */
+  private extras: CommandDef[] = [];
+  /** While a shortcut field captures keys (18), no command runs. */
+  suspended = false;
+
+  constructor(
+    commands: CommandDef[],
+    private isDocumentFocused: () => boolean,
+    private isEditingFocused: () => boolean = isDocumentFocused,
+  ) {
     for (const c of commands) {
       this.byId.set(c.id, c);
       this.defaults.set(c.id, c.key);
@@ -157,6 +168,32 @@ export class Dispatcher {
     }
   }
 
+  /** Replace the run-time commands (snippets). A key they use is theirs (16: "the snippet
+   * wins"). */
+  setExtras(commands: CommandDef[]) {
+    for (const c of this.extras) {
+      this.byId.delete(c.id);
+      this.defaults.delete(c.id);
+      if (this.byKey.get(c.key) === c) this.byKey.delete(c.key);
+    }
+    this.extras = commands;
+    for (const c of commands) {
+      this.byId.set(c.id, c);
+      this.defaults.set(c.id, c.key);
+    }
+    // Rebuild the key table: built-ins first, extras over them.
+    const builtIns = [...this.byId.values()].filter((c) => !commands.includes(c));
+    this.byKey.clear();
+    for (const c of builtIns) if (c.key) this.byKey.set(c.key, c);
+    for (const c of commands) if (c.key) this.byKey.set(c.key, c);
+  }
+
+  private allowed(cmd: CommandDef): boolean {
+    if (cmd.scope === "document") return this.isDocumentFocused();
+    if (cmd.scope === "editing") return this.isEditingFocused();
+    return true;
+  }
+
   /** Run a command by id (menu clicks). Same scope rule as keys; false if it did not run. */
   runId(id: string, source: Source = "native"): boolean {
     const cmd = this.byId.get(id);
@@ -169,7 +206,7 @@ export class Dispatcher {
       }
       this.last = { acc: cmd.key, time: now, source };
     }
-    if (cmd.scope === "document" && !this.isDocumentFocused()) return false;
+    if (!this.allowed(cmd)) return false;
     void cmd.run();
     return true;
   }
@@ -180,7 +217,7 @@ export class Dispatcher {
    * second arrival from the other source within 100 ms is dropped (rule 1).
    */
   dispatch(acc: string, source: Source = "dom"): boolean {
-    if (NATIVE.has(acc)) return false;
+    if (this.suspended || NATIVE.has(acc)) return false;
     const cmd = this.byKey.get(acc);
     if (!cmd) return false;
     const now = performance.now();
@@ -189,7 +226,7 @@ export class Dispatcher {
       return true;
     }
     this.last = { acc, time: now, source };
-    if (cmd.scope === "document" && !this.isDocumentFocused()) return false;
+    if (!this.allowed(cmd)) return false;
     void cmd.run();
     return true;
   }

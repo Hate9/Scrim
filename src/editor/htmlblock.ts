@@ -1,6 +1,7 @@
 // HTML block preview (spec 04, 4.10): sanitized, with <style> scoped to #write.
 
 import DOMPurify from "dompurify";
+import { allCustomTags } from "../md/customtags";
 
 const FORBID = ["script", "object", "embed", "base", "meta", "link", "form"];
 
@@ -55,7 +56,8 @@ export function renderHtmlBlock(html: string, el: HTMLElement, opts: HtmlRenderO
   const frag = DOMPurify.sanitize(html, {
     RETURN_DOM_FRAGMENT: true,
     FORBID_TAGS: FORBID,
-    ADD_TAGS: ["style", "iframe"],
+    // Registered custom tags render as elements (17); attributes are sanitized as usual.
+    ADD_TAGS: ["style", "iframe", ...allCustomTags()],
     FORCE_BODY: true,
     ALLOW_UNKNOWN_PROTOCOLS: false,
   }) as DocumentFragment;

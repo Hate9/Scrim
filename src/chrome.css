@@ -823,3 +823,68 @@ footer button,
   margin-left: 16px;
   opacity: 0.6;
 }
+
+/* Snippet picker (16, "Picker"). */
+.scrim-snippet-picker {
+  position: fixed;
+  z-index: 60;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 420px;
+  max-width: 90vw;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--bg-color, #fff);
+  color: var(--text-color, #333);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  font: 13px system-ui, sans-serif;
+}
+.scrim-snippet-picker[hidden] {
+  display: none;
+}
+.scrim-snippet-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font: inherit;
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 4px;
+}
+.scrim-snippet-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+.scrim-snippet-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.scrim-snippet-row.active {
+  background: var(--primary-color, #4a7bd0);
+  color: #fff;
+}
+.scrim-snippet-name {
+  flex: none;
+}
+.scrim-snippet-body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: right;
+  font: 12px var(--monospace, monospace);
+  opacity: 0.55;
+}
+.scrim-snippet-empty {
+  padding: 6px 8px;
+  opacity: 0.7;
+}

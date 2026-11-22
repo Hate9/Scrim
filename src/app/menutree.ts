@@ -26,6 +26,8 @@ export interface MenuContext {
   spellLanguages: () => string[];
   spellLanguage: () => string;
   setSpellLanguage: (lang: string) => void;
+  /** snippets in list order (16): label and command id */
+  snippets: () => { label: string; id: string }[];
 }
 
 const item = (label: string, id: string, extra: Partial<MenuNode> = {}): MenuNode => ({ label, id, ...extra });
@@ -198,6 +200,18 @@ export function menuTree(c: MenuContext): MenuNode[] {
         SEP,
         item("Clear Format", "format.clear"),
       ],
+    },
+    {
+      // 16, "Menu and shortcuts": between Format and View.
+      label: "&Snippets",
+      children: () => {
+        const list = c.snippets();
+        return [
+          item("Insert Snippet…", "snippets.picker"),
+          SEP,
+          ...(list.length ? list.map((s) => item(s.label, s.id)) : [{ label: "No snippets: add some in Preferences → Customize", enabled: () => false }]),
+        ];
+      },
     },
     {
       label: "&View",

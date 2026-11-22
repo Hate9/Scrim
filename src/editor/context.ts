@@ -1,4 +1,5 @@
 // Per-document context shared by the editor plugins.
+import { customTags } from "../md/customtags";
 import type { Node } from "prosemirror-model";
 import { analyzeInline, normalizeLabel, type Definitions, type InlineElement } from "../md/inline";
 import { parseMdast } from "../md/mdast";
@@ -103,13 +104,14 @@ export function documentDefinitions(doc: Node): Definitions {
 
 // ---- inline element cache --------------------------------------------------------------
 
-const cache = new WeakMap<Node, { defs: Definitions; math: boolean; els: InlineElement[] }>();
+const cache = new WeakMap<Node, { defs: Definitions; math: boolean; tags: number; els: InlineElement[] }>();
 
 export function elementsOf(node: Node, defs: Definitions, opts: EditorOptions): InlineElement[] {
   if (!isProse(node)) return [];
   const hit = cache.get(node);
-  if (hit && hit.defs === defs && hit.math === opts.inlineMath) return hit.els;
+  // Registered custom tags change what is an element (17): their version is in the key.
+  if (hit && hit.defs === defs && hit.math === opts.inlineMath && hit.tags === customTags.version) return hit.els;
   const els = analyzeInline(blockSource(node), { inlineMath: opts.inlineMath, definitions: defs });
-  cache.set(node, { defs, math: opts.inlineMath, els });
+  cache.set(node, { defs, math: opts.inlineMath, tags: customTags.version, els });
   return els;
 }

@@ -36,11 +36,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
 import { createEditor, recordUpdates } from "./editor/editor";
-import { Dispatcher } from "./editor/keys";
+import { Dispatcher, normalizeAccelerator } from "./editor/keys";
 import { AppMenu, shortcutOverrides } from "./app/menu";
 import { menuTree } from "./app/menutree";
 import { DocumentMenu } from "./app/contextmenu";
 import { Spelling } from "./app/spelling";
+import { LocalStore, snippetLabel } from "./app/local";
+import { SnippetPicker } from "./app/snippetpicker";
+import { focusedCodeMirror, insertSnippet, type Snippet } from "./editor/snippets";
+import { customTags as customTagsRef, setCustomTags } from "./md/customtags";
+import { rebuildInline } from "./editor/decorations";
+import { reloadKeepingCursor } from "./app/workspace";
 import { Preferences } from "./app/preferences";
 import { preferenceSections } from "./app/prefsections";
 import { redo, undo } from "prosemirror-history";
@@ -983,7 +989,9 @@ const commandList = [
 ];
 // Document commands run only with focus in the live document; in source mode the
 // CodeMirror keymap owns editing keys.
-const dispatcher = new Dispatcher(commandList, () => editor.view.hasFocus());
+// Snippets act with focus in the document, live or source mode, code blocks included (16).
+const editingFocused = () => editor.view.hasFocus() || !!document.activeElement?.closest?.("#write .cm-editor, #scrim-source");
+const dispatcher = new Dispatcher(commandList, () => editor.view.hasFocus(), editingFocused);
 dispatcher.attach(window);
 
 /** config.jsonc (11): advanced options, re-read whenever the file is saved. */
@@ -1035,6 +1043,7 @@ const appMenu = new AppMenu(
       spellLanguages: () => spelling.info.languages,
       spellLanguage: () => setting("spellLanguage", "auto"),
       setSpellLanguage: (lang) => setSetting("spellLanguage", lang),
+      snippets: () => local.data.snippets.map((sn, i) => ({ label: snippetLabel(sn), id: `snippet.${i}` })),
     }),
   dispatcher,
 );
@@ -1045,7 +1054,7 @@ async function refreshRecent() {
 async function loadConfig() {
   const info = await ipc.config();
   config = info.config as Record<string, unknown>;
-  const tree = menuTree({ isWindows, recent: () => recentCache, openRecent: () => {}, clearRecent: () => {}, themes: () => [], currentTheme: () => "", setTheme: () => {}, checked: () => false, debugging: () => true, hasPath: () => true, pandoc: () => true, customExports: () => [], runCustomExport: () => {}, pandocHelp: () => {}, spellLanguages: () => [], spellLanguage: () => "auto", setSpellLanguage: () => {} });
+  const tree = menuTree({ isWindows, recent: () => recentCache, openRecent: () => {}, clearRecent: () => {}, themes: () => [], currentTheme: () => "", setTheme: () => {}, checked: () => false, debugging: () => true, hasPath: () => true, pandoc: () => true, customExports: () => [], runCustomExport: () => {}, pandocHelp: () => {}, spellLanguages: () => [], spellLanguage: () => "auto", setSpellLanguage: () => {}, snippets: () => [] });
   const { overrides, global: globals, problems } = shortcutOverrides(tree, (config.shortcuts ?? {}) as Record<string, unknown>);
   dispatcher.rebind(overrides);
   if (globals.size) void ipc.log("info", `global shortcuts are not supported on this platform yet: ${[...globals.keys()].join(", ")}`);
@@ -1058,6 +1067,59 @@ themes.onApplied.push(() => void appMenu.rebuild());
 void refreshRecent().then(loadConfig).then(detectPandoc);
 spelling.onChange.push(() => void appMenu.rebuild());
 void spelling.init();
+
+// ---- snippets and custom tags (16, 17) ----
+const local = new LocalStore();
+function runSnippet(sn: Snippet) {
+  if (sourceMode.active() || editingFocused() || focusedCodeMirror()) {
+    insertSnippet({ view: editor.view, applyText: (t) => editor.applyText(t), prettyTables: editor.options.prettyTables }, sn.body);
+  }
+}
+const picker = new SnippetPicker({
+  snippets: () => local.data.snippets,
+  saveSelection: () => {
+    const cm = focusedCodeMirror();
+    if (cm) {
+      const sel = cm.state.selection;
+      return () => {
+        cm.focus();
+        cm.dispatch({ selection: sel });
+      };
+    }
+    const sel = editor.view.state.selection;
+    return () => {
+      editor.view.focus();
+      try {
+        editor.view.dispatch(editor.view.state.tr.setSelection(sel.map(editor.view.state.doc, editor.view.state.tr.mapping)));
+      } catch {
+        /* the document changed meanwhile */
+      }
+    };
+  },
+  insert: (sn) => runSnippet(sn),
+});
+local.onChange.push((d) => {
+  const blocksBefore = [...customTagsBlockSnapshot()];
+  if (setCustomTags(d.customHTMLTags.inline, d.customHTMLTags.block)) {
+    // Re-render every open document; the source does not change, nothing is undoable (17).
+    const blockChanged = JSON.stringify(blocksBefore) !== JSON.stringify([...customTagsBlockSnapshot()]);
+    if (blockChanged && !sourceMode.active()) {
+      reloadKeepingCursor(editor, editor.markdown(), { history: false, markSaved: false });
+      void ipc.setDirty(editor.isDirty()).then((t) => (document.title = t));
+    } else rebuildInline(editor.view);
+    rerenderHtmlBlocks();
+  }
+  const keyOf = (k: string) => normalizeAccelerator(k) ?? "";
+  dispatcher.setExtras([
+    { id: "snippets.picker", key: keyOf(d.pickerKey), scope: "editing", run: () => picker.open() },
+    ...d.snippets.map((sn, i) => ({ id: `snippet.${i}`, key: keyOf(sn.key), scope: "editing" as const, run: () => runSnippet(sn) })),
+  ]);
+  void appMenu.rebuild();
+});
+function customTagsBlockSnapshot(): Set<string> {
+  return new Set(customTagsRef.block);
+}
+void local.load();
 let checksTimer = 0;
 editor.onUpdate.push(() => {
   clearTimeout(checksTimer);
@@ -1125,6 +1187,8 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   testHooks,
   exporter,
   spelling,
+  local,
+  picker,
   themes,
   zoomLevel: () => zoomLevel,
 };

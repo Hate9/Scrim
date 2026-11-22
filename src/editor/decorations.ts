@@ -259,9 +259,16 @@ export function changedRanges(tr: Transaction): [number, number][] {
   return ranges;
 }
 
+const rebuildMeta = "scrim-rebuild-inline";
+
+/** Analyze and render every block again (registered custom tags changed, 17). Not an edit,
+ * not an undo step. */
+export function rebuildInline(view: EditorView) {
+  view.dispatch(view.state.tr.setMeta(rebuildMeta, true).setMeta("addToHistory", false));
+}
+
 export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plugin<InlineDecoState> {
   let composing = false;
-  const rebuildMeta = "scrim-rebuild-inline";
   const chunkMeta = "scrim-inline-chunk";
   return new Plugin<InlineDecoState>({
     key: inlineKey,

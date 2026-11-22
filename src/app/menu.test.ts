@@ -21,6 +21,7 @@ const tree = menuTree({
   spellLanguages: () => [],
   spellLanguage: () => "auto",
   setSpellLanguage: () => {},
+  snippets: () => [],
 });
 
 describe("accelerators", () => {

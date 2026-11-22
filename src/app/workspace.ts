@@ -30,13 +30,14 @@ export interface WorkspaceHooks {
 
 /** Replace the document with the file's new text, keeping the cursor on the same source
  * offset and the scroll position; one undo step (7.3). */
-export function reloadKeepingCursor(editor: Editor, text: string) {
+export function reloadKeepingCursor(editor: Editor, text: string, opts: { history?: boolean; markSaved?: boolean } = {}) {
   const view = editor.view;
   const scroller = view.dom.closest("content") as HTMLElement;
   const scroll = scroller.scrollTop;
   const { map } = serializeWithMap(view.state.doc, { prettyTables: editor.options.prettyTables });
   const offset = posToSource(map, view.state.selection.head);
-  editor.applyText(text);
+  const wasDirty = editor.isDirty();
+  editor.applyText(text, opts.history ?? true);
   const after = serializeWithMap(view.state.doc, { prettyTables: editor.options.prettyTables }).map;
   const pos = sourceToPos(after, offset);
   if (pos !== null) {
@@ -46,7 +47,9 @@ export function reloadKeepingCursor(editor: Editor, text: string) {
       /* keep */
     }
   }
-  editor.markSaved();
+  // A re-parse of unchanged text (custom block tags changed, 17) keeps the dirty state.
+  if (opts.markSaved ?? true) editor.markSaved();
+  else if (!wasDirty) editor.markSaved();
   scroller.scrollTop = scroll;
 }
 

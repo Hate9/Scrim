@@ -69,7 +69,10 @@ export interface InlineOptions extends ParseOptions {
   definitions?: Definitions;
 }
 
-/** Inline HTML tags that render as real elements (spec 05, 5.1). */
+import { customTags } from "./customtags";
+
+/** Inline HTML tags that render as real elements (spec 05, 5.1; registered custom
+ * tags too, 17). */
 export const INLINE_TAGS = new Set(
   (
     "span b i u s small big kbd abbr cite q dfn time var samp sub sup mark ruby rt rp ins del " +
@@ -455,7 +458,7 @@ class Analyzer {
     }
     const open = /^<([A-Za-z][A-Za-z0-9-]*)([\s\S]*?)(\/?)>$/.exec(raw);
     const name = open?.[1].toLowerCase();
-    if (!open || !name || !INLINE_TAGS.has(name)) {
+    if (!open || !name || !(INLINE_TAGS.has(name) || customTags.inline.has(name))) {
       out.push(this.rawHtml(from, to, depth));
       return 0;
     }

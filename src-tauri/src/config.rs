@@ -46,7 +46,12 @@ pub fn setup(app: &AppHandle) {
         if !crate::workspace::is_change(&ev) {
             return;
         }
-        if !ev.paths.iter().any(|p| p.file_name().is_some_and(|n| n == config::FILE_NAME)) {
+        let named = |name: &str| ev.paths.iter().any(|p| p.file_name().is_some_and(|n| n == name));
+        // local.json (snippets, custom tags) lives in the same folder.
+        if named(crate::local::FILE_NAME) {
+            let _ = app2.emit("scrim://local-changed", ());
+        }
+        if !named(config::FILE_NAME) {
             return;
         }
         let mut p = pending.lock().unwrap();
