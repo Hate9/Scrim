@@ -169,9 +169,12 @@ implementation team writes to contain at least one instance of every construct i
 
 - **X-1** HTML export of the feature document contains no `md-meta`, no `md-expand`,
   includes theme CSS and `base.user.css`, carries `body.scrim-export`, and code blocks
-  have `.cm-s-inner` and `cm-*` tokens. Loaded in Scrim's own hidden webview at the
-  editor's width, its screenshot differs from the editor's (all blocks collapsed, cursor
-  in no block) by ≤ 2% of pixels.
+  have `.cm-s-inner` and `cm-*` tokens. Loaded in Scrim's webview engine at the
+  editor's width (an iframe in the document window is fine; the test harness may allow
+  it there), its screenshot differs from the editor's by ≤ 2% of pixels. The editor
+  screenshot has all blocks collapsed, the cursor in no block, and the blocks an export
+  leaves out hidden: front matter, link reference definitions, and HTML comment
+  placeholders (Q-025).
 - **X-2** PDF export produces a PDF with selectable text, correct page size and margins;
   code blocks shorter than a page are not split.
 - **X-3** With pandoc installed, export to docx opens in LibreOffice with headings,
