@@ -1,207 +1,6 @@
-/* Base styles. The visual themes arrive in P4 (spec 10, 22); this file holds the
-   mechanics every theme relies on (syntax reveal, widgets) plus a neutral default look.
-   Everything ships in the app; nothing is loaded from the network (spec 19). */
-
-/* App base CSS (spec 10.3, "Base stylesheet"; QA-LOG Q-018, Q-019).
-   Document content: the small base that themes are written against, at its natural
-   specificity. Scrim's own look lives in its built-in themes (src-tauri/themes/).
-   CodeMirror's injected styles are in @layer scrim-cm (editor/cmlayer.ts), so any theme
-   rule beats them. Editing mechanics (marker reveal, widgets, source editors) and the
-   app chrome follow. Nothing is loaded from the network (spec 19). */
-
-:root {
-  --bg-color: #fff;
-  --text-color: #333;
-  --monospace: ui-monospace, "DejaVu Sans Mono", "Liberation Mono", Consolas, monospace;
-  --md-char-color: #b0b0b0;
-  --meta-content-color: #8a8a8a;
-  --heading-char-color: #c0c0c0;
-  --primary-color: #4a7bd0;
-  --notice-bg: #fff6d6;
-  --notice-fg: #5c4a00;
-}
-
-/* ---- base for document content (10.3) ----
-   The selectors as the spec lists them, at their natural specificity, loaded before
-   the theme: themes are tuned against these exact rules (QA-LOG Q-019). */
-html {
-  font-size: 14px;
-  line-height: 1.42857;
-  background: var(--bg-color);
-  color: var(--text-color);
-}
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-body {
-  font-family: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  background: var(--bg-color);
-  color: var(--text-color);
-}
-#write {
-  margin: 0 auto;
-  padding: 36px 30px 70px;
-  min-height: 100vh;
-  position: relative;
-  word-wrap: break-word;
-}
-p.md-p,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-table.md-table {
-  white-space: pre-wrap;
-}
-h1 { font-size: 2rem; }
-h2 { font-size: 1.8rem; }
-h3 { font-size: 1.6rem; }
-h4 { font-size: 1.4rem; }
-h5 { font-size: 1.2rem; }
-h6 { font-size: 1rem; }
-p,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-.md-math-block,
-.md-htmlblock {
-  margin: 1rem 0;
-}
-li {
-  margin: 0;
-  position: relative;
-}
-li p,
-li .md-math-block {
-  margin: 0.5rem 0;
-}
-li > :first-child,
-blockquote > :first-child {
-  margin-top: 0;
-}
-blockquote > :last-child {
-  margin-bottom: 0;
-}
-blockquote {
-  margin: 1rem 0;
-}
-li.task-list-item {
-  list-style-type: none;
-}
-li.task-list-item > input[type="checkbox"] {
-  position: absolute;
-  left: 0;
-  top: 0.15em;
-  margin: 0 0 0 -1.2em;
-}
-figure {
-  margin: 1.2em 0;
-  overflow-x: auto;
-  max-width: calc(100% + 16px);
-}
-table {
-  border-collapse: collapse;
-  width: 100%;
-  text-align: left;
-}
-table.md-table td {
-  min-width: 32px;
-}
-code,
-pre {
-  font-family: var(--monospace);
-}
-/* Horizontal rules: no base styling; div.md-hr and its hr keep the engine defaults
-   (Q-022). WebKitGTK shades the inset border darker than Chromium; accepted (Q-023). */
-.md-fences {
-  font-size: 0.9rem;
-  display: block;
-  background: inherit;
-  position: relative;
-  /* theme pseudo-elements with content ' ' collapse to zero height (Q-021); CodeMirror
-     sets the code lines' own wrapping */
-  white-space: normal;
-}
-.CodeMirror-line {
-  padding: 0 4px;
-}
-/* CodeMirror 6 declares a font and line height on .cm-scroller; everything inside
-   .CodeMirror inherits them from the theme instead (QA-LOG Q-020). */
-.CodeMirror-scroll,
-.CodeMirror-code {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-}
-.CodeMirror.cm-s-inner {
-  background: inherit;
-}
-/* CodeMirror 5's default token palette (MIT), as 10.3 lists it. */
-.cm-s-inner .cm-keyword { color: #708; }
-.cm-s-inner .cm-atom { color: #219; }
-.cm-s-inner .cm-number { color: #164; }
-.cm-s-inner .cm-def { color: #00f; }
-.cm-s-inner .cm-variable { color: #000; }
-.cm-s-inner .cm-variable-2 { color: #05a; }
-.cm-s-inner .cm-variable-3 { color: #085; }
-.cm-s-inner .cm-string { color: #a11; }
-.cm-s-inner .cm-string-2 { color: #f50; }
-.cm-s-inner .cm-property { color: #000; }
-.cm-s-inner .cm-operator { color: #981a1a; }
-.cm-s-inner .cm-comment { color: #a50; }
-.cm-s-inner .cm-meta,
-.cm-s-inner .cm-qualifier { color: #555; }
-.cm-s-inner .cm-builtin { color: #30a; }
-.cm-s-inner .cm-bracket { color: #997; }
-.cm-s-inner .cm-tag { color: #170; }
-.cm-s-inner .cm-attribute { color: #00c; }
-.cm-s-inner .cm-header { color: #00f; }
-.cm-s-inner .cm-quote { color: #090; }
-.cm-s-inner .cm-hr { color: #999; }
-.cm-s-inner .cm-link { color: #00c; }
-pre.md-meta-block {
-  font-size: 0.8rem;
-  white-space: pre-wrap;
-  background: #ccc;
-  display: block;
-}
-.footnotes {
-  font-size: 0.9rem;
-  opacity: 0.8;
-}
-sup.md-footnote {
-  padding: 0 4px;
-  border-radius: 4px;
-  background: rgba(127, 127, 127, 0.15);
-  font-size: 0.75em;
-}
-img {
-  max-width: 100%;
-}
-p.md-image-paragraph {
-  display: block;
-  text-align: center;
-}
-kbd {
-  font-size: 0.9em;
-  padding: 1px 4px;
-  border: 1px solid #ccc;
-  border-bottom-width: 2px;
-  border-radius: 3px;
-  background: #f7f7f7;
-  color: #333;
-}
-mark {
-  background: #ff0;
-  color: #000;
-}
+/* Editor mechanics every theme relies on (syntax reveal, widgets, source editors) and
+   in-page UI. Document content rules are in content.css, which exports share. Nothing
+   is loaded from the network (spec 19). */
 
 /* ---- editor mechanics ---- */
 html,
@@ -229,32 +28,14 @@ content {
 }
 #write {
   outline: none;
-  white-space: pre-wrap;
-  tab-size: 4;
   caret-color: var(--text-color);
 }
 #write:focus {
   outline: none;
 }
-#write p,
-#write h1,
-#write h2,
-#write h3,
-#write h4,
-#write h5,
-#write h6 {
-  position: relative;
-}
-#write p {
-  min-height: 1em;
-}
 #write .md-hr.ProseMirror-selectednode,
 #write .md-raw.ProseMirror-selectednode {
   outline: 2px solid var(--primary-color);
-}
-#write pre.md-raw {
-  font-family: var(--monospace);
-  white-space: pre-wrap;
 }
 /* Links: a text cursor, and a pointer while Mod is held or with single-click opening
    (QA-LOG Q-012). */
@@ -323,19 +104,8 @@ body.scrim-links-single-click #write a {
   border: 1px solid rgba(127, 127, 127, 0.3);
   border-radius: 3px;
 }
-.md-image img {
-  max-width: 100%;
-  vertical-align: middle;
-}
-.md-math-error {
-  color: #c00;
-  font-family: var(--monospace);
-}
 
 /* Line breaks: shown as breaks (Preserve single line breaks, default on). */
-.md-br {
-  white-space: pre;
-}
 body.md-soft-breaks .md-br br {
   display: none;
 }
@@ -442,18 +212,6 @@ body.scrim-dragging-text * {
 /* ---- rich blocks (spec 04): mechanics only ---- */
 /* Scrim's adjustments to CodeMirror's own look share its layer (scrim-cm), so theme
    rules of any specificity win over them too (QA-LOG Q-019). */
-@layer scrim-cm {
-  #write .cm-editor {
-    background: transparent;
-  }
-  #write .cm-editor.cm-focused {
-    outline: none;
-  }
-  #write .cm-content {
-    padding: 0;
-    caret-color: var(--text-color);
-  }
-}
 /* Language box: bottom-right, visible on hover or while editing. */
 .md-lang-box {
   position: absolute;
@@ -540,14 +298,6 @@ body.scrim-dragging-text * {
 #write .md-def-name {
   user-select: none;
 }
-#write .md-toc-item {
-  display: block;
-}
-#write .md-toc-h2 { padding-left: 1.2em; }
-#write .md-toc-h3 { padding-left: 2.4em; }
-#write .md-toc-h4 { padding-left: 3.6em; }
-#write .md-toc-h5 { padding-left: 4.8em; }
-#write .md-toc-h6 { padding-left: 6em; }
 #write a.md-toc-inner,
 #write .md-task-checkbox {
   cursor: pointer;
@@ -711,10 +461,6 @@ body.scrim-dragging-text * {
 }
 #write .md-widget-image.md-expand img {
   outline: 2px solid var(--primary-color);
-}
-#write .md-htmlblock-container iframe.md-iframe {
-  border: 0;
-  max-width: 100%;
 }
 
 /* Until the first theme is in (or 1.5 s pass), nothing shows: no unstyled flash. */

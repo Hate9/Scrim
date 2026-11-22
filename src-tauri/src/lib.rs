@@ -4,6 +4,7 @@
 mod commands;
 mod config;
 mod embed;
+mod export;
 mod hardening;
 mod help;
 mod images;
@@ -62,6 +63,9 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol(embed::SCHEME, embed::handle)
         .invoke_handler(tauri::generate_handler![
             commands::doc_init,
+            export::export_theme_css,
+            export::export_write,
+            export::export_embed_image,
             commands::doc_set_dirty,
             commands::doc_set_title_override,
             commands::doc_save,

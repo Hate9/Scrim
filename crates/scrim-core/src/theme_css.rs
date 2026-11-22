@@ -48,6 +48,102 @@ pub fn rewrite_always(css: &str) -> String {
     out
 }
 
+/// One reference to another file in a style sheet: `url(…)` (quoted or not) or the
+/// string of an `@import`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CssRef {
+    /// the URL as written (escapes resolved only for `\` + one character)
+    pub url: String,
+    /// `@import` target (a style sheet) rather than a resource
+    pub import: bool,
+}
+
+/// Replace every `url()` and `@import` target with what `map` returns for it (None keeps
+/// it). Everything else is copied byte for byte. Used by exports (spec 09, 9.1 item 4):
+/// relative references in inlined theme CSS must still resolve from the export's place.
+pub fn map_urls(css: &str, mut map: impl FnMut(&CssRef) -> Option<String>) -> String {
+    let toks = tokenize(css);
+    let mut out = String::with_capacity(css.len());
+    let mut i = 0;
+    let quote = |u: &str| format!("\"{}\"", u.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\a "));
+    let unescape = |s: &str| {
+        let mut o = String::new();
+        let mut it = s.chars();
+        while let Some(c) = it.next() {
+            if c == '\\' {
+                if let Some(n) = it.next() {
+                    o.push(n);
+                }
+            } else {
+                o.push(c);
+            }
+        }
+        o
+    };
+    let mut import_next = false;
+    while i < toks.len() {
+        let t = toks[i];
+        let text = &css[t.start..t.end];
+        match t.kind {
+            Kind::At => {
+                import_next = text.eq_ignore_ascii_case("@import");
+                out.push_str(text);
+            }
+            Kind::Url => {
+                let inner = text[4..text.len().saturating_sub(1)].trim();
+                let r = CssRef { url: unescape(inner), import: import_next };
+                import_next = false;
+                match map(&r) {
+                    Some(u) => {
+                        out.push_str("url(");
+                        out.push_str(&quote(&u));
+                        out.push(')');
+                    }
+                    None => out.push_str(text),
+                }
+            }
+            Kind::Function if text.eq_ignore_ascii_case("url(") => {
+                // url( ws* string ws* )
+                let mut j = i + 1;
+                while j < toks.len() && toks[j].kind == Kind::Ws {
+                    j += 1;
+                }
+                if j < toks.len() && toks[j].kind == Kind::Str {
+                    let st = &css[toks[j].start..toks[j].end];
+                    let inner = &st[1..st.len().saturating_sub(1).max(1)];
+                    let r = CssRef { url: unescape(inner), import: import_next };
+                    import_next = false;
+                    out.push_str(&css[t.start..toks[j].start]);
+                    match map(&r) {
+                        Some(u) => out.push_str(&quote(&u)),
+                        None => out.push_str(st),
+                    }
+                    i = j + 1;
+                    continue;
+                }
+                out.push_str(text);
+            }
+            Kind::Str if import_next => {
+                let inner = &text[1..text.len().saturating_sub(1).max(1)];
+                let r = CssRef { url: unescape(inner), import: true };
+                import_next = false;
+                match map(&r) {
+                    Some(u) => out.push_str(&quote(&u)),
+                    None => out.push_str(text),
+                }
+            }
+            Kind::Ws | Kind::Comment => out.push_str(text),
+            Kind::Semi | Kind::OpenCurly | Kind::CloseCurly => {
+                import_next = false;
+                out.push_str(text);
+            }
+            _ => out.push_str(text),
+        }
+        i += 1;
+    }
+    out
+}
+
 // ---- tokenizer ------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -560,6 +656,7 @@ impl Walker<'_> {
 
 #[cfg(test)]
 mod tests {
+    use super::map_urls;
     use super::rewrite_always as rw;
 
     #[test]
@@ -621,5 +718,16 @@ mod tests {
     fn everything_else_byte_identical() {
         let css = "@charset \"utf-8\";\n:root{--bg:#fff}\n<!-- -->\nbody>p+p~p{a:b!important}\n@page :first{margin:1in}\n";
         assert_eq!(rw(css), css);
+    }
+
+    #[test]
+    fn map_urls_rewrites_references_only() {
+        let css = "@import \"a.css\";\n@import url(b.css) screen;\n.x { background: url(img/p.png) } .y { src: url( 'f o.woff2' ) format('woff2') }\n.z::after { content: \"url(no)\" }\n/* url(no) */";
+        let out = map_urls(css, |r| Some(format!("{}{}", if r.import { "I:" } else { "R:" }, r.url)));
+        assert_eq!(
+            out,
+            "@import \"I:a.css\";\n@import url(\"I:b.css\") screen;\n.x { background: url(\"R:img/p.png\") } .y { src: url( \"R:f o.woff2\" ) format('woff2') }\n.z::after { content: \"url(no)\" }\n/* url(no) */"
+        );
+        assert_eq!(map_urls(css, |_| None), css);
     }
 }
