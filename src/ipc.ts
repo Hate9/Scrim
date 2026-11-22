@@ -81,6 +81,16 @@ export interface DraftMeta {
   title: string;
 }
 
+/** Async commands run concurrently in Rust, so two quick dirty/title changes (a reload
+ * marks dirty, then clean) could finish out of order and leave the wrong state and
+ * title. Title-affecting calls run one after another, in call order. */
+let titleQueue: Promise<unknown> = Promise.resolve();
+function inOrder<T>(call: () => Promise<T>): Promise<T> {
+  const next = titleQueue.then(call, call);
+  titleQueue = next.catch(() => null);
+  return next;
+}
+
 export const ipc = {
   listDir: (path: string, options: ListOptions) => invoke<DirEntry[]>("fs_list_dir", { path, options }),
   walk: (path: string, options: ListOptions, limit?: number, details?: boolean) =>
@@ -121,8 +131,8 @@ export const ipc = {
   recoveryDiscard: (id: string) => invoke<void>("recovery_discard", { id }),
   recoveryAdopt: (id: string) => invoke<void>("recovery_adopt", { id }),
   docInit: () => invoke<DocInit>("doc_init"),
-  setDirty: (dirty: boolean) => invoke<string>("doc_set_dirty", { dirty }),
-  setTitleOverride: (title: string | null) => invoke<string>("doc_set_title_override", { title }),
+  setDirty: (dirty: boolean) => inOrder(() => invoke<string>("doc_set_dirty", { dirty })),
+  setTitleOverride: (title: string | null) => inOrder(() => invoke<string>("doc_set_title_override", { title })),
   save: (request: SaveRequest) => invoke<SaveResult>("doc_save", { request }),
   openDialog: () => invoke<void>("doc_open_dialog"),
   newDoc: (newWindow: boolean) => invoke<void>("doc_new", { newWindow }),
