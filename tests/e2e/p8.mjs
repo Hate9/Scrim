@@ -63,3 +63,37 @@ test("PF-1 sidebar with 5,000 files (< 1 s)", async (s) => {
   for (let i = 0; i < 5000; i++) writeFileSync(join(dir, `note-${String(i).padStart(4, "0")}.md`), `# Note ${i}\n`);
   return fixture("pf1-many/index.md", "# Index\n");
 });
+
+// Q-026: a selection from the top of a 10,000-line document to the bottom copies all of it,
+// with containment on (off-screen blocks are skipped by layout then).
+test("Q-026 select a 10,000-line document top to bottom and copy (containment on)", async (s) => {
+  const { CTRL, SHIFT, HOME, END } = await import("./webdriver.mjs");
+  const { readFileSync } = await import("node:fs");
+  await waitFor(() => js(s, "return window.__scrim?.openMs?.() != null"), "document open", 60000);
+  await waitFor(() => js(s, "const st = window.__scrim.inlineKey.getState(window.__scrim.editor.view.state); return st.pending === null && !st.touched.length"), "inline structure done", 120000);
+  const cfg = join(process.env.SCRIM_CONFIG_DIR, "config.jsonc");
+  const original = readFileSync(cfg, "utf8");
+  try {
+    if (!process.env.SCRIM_NO_CONTAIN) {
+      writeFileSync(cfg, original.replace(/\{/, '{\n  "experimentalContainment": true,'));
+      await waitFor(() => js(s, "return window.__scrim.containment.active()"), "containment on", 30000);
+    }
+    await js(s, "window.__scrim.editor.view.focus(); return true");
+    await s.chord(CTRL, HOME);
+    await s.chord(CTRL, SHIFT, END);
+    await waitFor(() => js(s, "const v = window.__scrim.editor.view; const sel = v.state.selection; const d = v.state.doc; return d.textBetween(sel.from, sel.to) === d.textBetween(0, d.content.size)"), "whole document selected").catch(async (e) => {
+      throw new Error(`${e.message}: ${await js(s, "const v = window.__scrim.editor.view; const sel = v.state.selection; return JSON.stringify([sel.from, sel.to, v.state.doc.content.size, sel.constructor.name])")}`);
+    });
+    spawnSync("sh", ["-c", "printf '' | xclip -selection clipboard -i"], { timeout: 3000 });
+    await s.chord(CTRL, "c");
+    const want = await js(s, "return window.__scrim.editor.markdown()");
+    let got = "";
+    await waitFor(() => {
+      got = spawnSync("xclip", ["-selection", "clipboard", "-o"], { encoding: "utf8", timeout: 5000, maxBuffer: 64 << 20 }).stdout ?? "";
+      return got.length > want.length / 2;
+    }, "clipboard filled", 15000);
+    if (got.replace(/\n+$/, "") !== want.replace(/\n+$/, "")) throw new Error(`copied ${got.length} characters, document has ${want.length}`);
+  } finally {
+    writeFileSync(cfg, original);
+  }
+}, () => bigDoc("q026-copy.md", 10000));

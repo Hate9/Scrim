@@ -35,6 +35,7 @@ import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
 import { createSpellPlugin, type SpellHooks } from "./spell";
 import { createSmartPlugin } from "./smart";
+import { createContainmentPlugin } from "./containment";
 import { codeNodeViews, createCodeSelectionPlugin, type CodeViewHooks } from "./codeview";
 import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
@@ -67,6 +68,8 @@ export interface Editor {
   markdownLines(): number;
   /** Hook for other modules: called after every view update. */
   onUpdate: ((view: EditorView) => void)[];
+  /** Called after the whole text was loaded or replaced (load, applyText). */
+  onReplace: (() => void)[];
 }
 
 /** Same type and content (attributes such as uids may differ). */
@@ -120,6 +123,7 @@ export function createEditor(
   let cleanCheck = 0;
   const groups = typingGroups();
   const updateHooks: ((view: EditorView) => void)[] = [];
+  const replaceHooks: (() => void)[] = [];
   /** Set by Mod+Shift+V keydown; the paste event that follows inserts literally. */
   let plainPaste = false;
   /** Set by Copy as Plain Text; the copy event that follows writes rendered text. */
@@ -169,6 +173,7 @@ export function createEditor(
     createFindPlugin(),
     createSpellPlugin(hooks.spell),
     createSmartPlugin(() => options.smartPunctuation),
+    createContainmentPlugin(),
   ];
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {
@@ -292,6 +297,7 @@ export function createEditor(
       savedText = serialize(doc, { prettyTables: options.prettyTables });
       performance.measure("scrim-serialize", "scrim-saved");
       dirty = false;
+      for (const h of replaceHooks) h();
     },
     isDirty: () => dirty,
     markSaved() {
@@ -302,6 +308,7 @@ export function createEditor(
       return cmd(view.state, view.dispatch, view);
     },
     onUpdate: updateHooks,
+    onReplace: replaceHooks,
     markdownLines() {
       return serialize(view.state.doc, { prettyTables: options.prettyTables }).split(/\r\n?|\n/).length;
     },
@@ -335,6 +342,7 @@ export function createEditor(
       else closeHistory(tr);
       view.dispatch(tr);
       if (addToHistory) view.dispatch(closeHistory(view.state.tr));
+      for (const h of replaceHooks) h();
       return view.state.doc;
     },
     flavors(kind) {

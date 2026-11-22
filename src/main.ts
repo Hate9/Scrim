@@ -39,6 +39,7 @@ import { Exporter, PANDOC_FORMATS, customCommands } from "./export/exporter";
 import { invoke } from "@tauri-apps/api/core";
 import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
+import { Containment } from "./editor/containment";
 import { createEditor, recordUpdates } from "./editor/editor";
 import { Dispatcher, normalizeAccelerator } from "./editor/keys";
 import { AppMenu, shortcutOverrides } from "./app/menu";
@@ -321,7 +322,9 @@ function applySettings(next: Record<string, unknown>) {
     fs.id = "scrim-font-size";
     document.head.appendChild(fs);
   }
-  fs.textContent = typeof size === "number" && size >= 12 && size <= 24 ? `#write, #scrim-source { font-size: ${size}px; }` : "";
+  const fontCss = typeof size === "number" && size >= 12 && size <= 24 ? `#write, #scrim-source { font-size: ${size}px; }` : "";
+  if (fs.textContent !== fontCss && typeof containment !== "undefined") containment.schedule(100);
+  fs.textContent = fontCss;
   if (typeof themes !== "undefined") void themes.apply().then(() => document.head.appendChild(fs!));
   settingsApplied = true;
 }
@@ -1114,10 +1117,22 @@ async function loadConfig() {
   if (errors.length) showNotice(errors.join(" · "));
   await appMenu.rebuild();
 }
-void listen("scrim://config-changed", () => void loadConfig());
+void listen("scrim://config-changed", () => void loadConfig().then(() => containment.schedule(0)));
 // A global shortcut pressed while this window had focus last (or opened it).
 void appWindow.listen<string>("scrim://global-shortcut", (e) => void dispatcher.runId(e.payload, "native"));
 themes.onApplied.push(() => void appMenu.rebuild());
+// Containment with measured block heights (Q-026): measured once the inline structure is
+// complete after a load or replace, and again when the look changes.
+const containment = new Containment(
+  () => editor.view,
+  () => {
+    const st = inlineKey.getState(editor.view.state);
+    return !!st && st.pending === null && !st.touched.length && !sourceMode.active();
+  },
+  () => setting("experimentalContainment", false),
+);
+editor.onReplace.push(() => containment.schedule(300));
+themes.onApplied.push(() => containment.schedule(100));
 void refreshRecent()
   .then(loadConfig)
   .then(() => ipc.globalShortcutTake())
@@ -1260,6 +1275,7 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   save,
   recordUpdates,
   inlineKey,
+  containment,
   /** Run a command by id, as a menu click does. */
   command: (id: string) => dispatcher.runId(id, "native"),
   dispatcher,

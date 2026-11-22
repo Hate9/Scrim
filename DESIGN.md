@@ -69,6 +69,34 @@ layout (about 2 ms each, 9 times). The 55 view updates took 526 ms (about 10 ms 
 21 ms at most), so the time is the DOM update and the one layout each keystroke needs,
 not repeated forced layouts. Nothing to remove on Scrim's side; containment is next.
 
+#### Containment with measured heights (Q-026 item 2): measured, then made opt-in
+
+`src/editor/containment.ts` does what Q-011 described: one full layout, each top-level
+block's real content height stored as a node decoration
+(`contain-intrinsic-size: auto <h>px`), `content-visibility: auto` plus
+`contain: layout style` on `#write.md-contained > *`, remeasured after loads, theme,
+font-size and font-loading changes and (debounced) resizes; measuring 10,000 lines takes
+about 300 ms. E-14 on 10,000 lines (Xvfb, debug build, 200 keystrokes, extra CSS per run):
+
+| Variant | Median | p95 |
+|---|---|---|
+| No containment | 36–60 ms | 64–117 ms |
+| Measured-height decorations only (no containment properties) | 56 ms | 117 ms |
+| `contain: style` only | 62 ms | 126 ms |
+| `contain: layout` only | 425 ms | 1,239 ms |
+| `contain: paint` only | 473 ms | 1,471 ms |
+| `content-visibility: auto` (implies layout, style, paint) | 489 ms | 1,549 ms |
+| Everything, as designed | 437 ms | 1,344–1,442 ms |
+
+So the heights were not the problem: in WebKitGTK 2.52, layout or paint containment on
+each of 10,000 sibling blocks makes every update about 7 times slower by itself
+(presumably one rendering layer per contained block; not profiled further). Containment
+is therefore off by default; `"experimentalContainment": true` in config.jsonc turns it
+on so the owner can repeat the comparison on real hardware (`SCRIM_E14_CONTAIN=1` runs
+E-14 with it). Q-026's new test (select a 10,000-line document top to bottom and copy,
+`tests/e2e/p8.mjs`) passes with it on and off. Per Q-026's fallback, viewport-only
+rendering is a separate decision.
+
 The WebKit inspector is available in every build: Preferences → General → "Enable
 debugging tools", then View → Toggle DevTools (Shift+F12); its Timelines tab records
 layout and script time on the owner's machine.
