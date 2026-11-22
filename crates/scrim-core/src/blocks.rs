@@ -19,7 +19,7 @@ use serde_json::{json, Map, Value};
 /// The constructs of the frontend's block-only parse (`src/md/mdast.ts`): CommonMark +
 /// GFM tables, footnote definitions, task list items + math blocks + YAML front matter,
 /// with every inline construct off (paragraph content stays one text node).
-fn options() -> ParseOptions {
+fn options(frontmatter: bool) -> ParseOptions {
     ParseOptions {
         constructs: Constructs {
             // flow and containers
@@ -27,7 +27,7 @@ fn options() -> ParseOptions {
             code_fenced: true,
             code_indented: true,
             definition: true,
-            frontmatter: true,
+            frontmatter,
             gfm_footnote_definition: true,
             gfm_table: true,
             gfm_task_list_item: true,
@@ -114,8 +114,12 @@ fn value(v: &str) -> Value {
 }
 
 struct Conv<'a> {
+    /// The chunk being converted (the whole document, or one part of it).
     src: &'a [u8],
-    map: Utf16Map,
+    /// Byte offset and line number (0-based) of the chunk in the document.
+    base: usize,
+    line_base: usize,
+    map: &'a Utf16Map,
     /// Set when the tree may differ from micromark's in a way not reproduced here: the
     /// frontend then parses the document itself.
     unsure: std::cell::Cell<bool>,
@@ -348,12 +352,12 @@ impl Conv<'_> {
                 if j < i {
                     let start = kids[j].1 .0;
                     kids[i].1 .0 = start;
-                    kids[i].0["position"]["start"]["offset"] = json!(self.map.at(start));
+                    kids[i].0["position"]["start"]["offset"] = json!(self.map.at(self.base + start));
                 }
             }
         }
         o.insert("type".into(), json!(kind));
-        o.insert("position".into(), span_json(sp, line, &self.map));
+        o.insert("position".into(), span_json((sp.0 + self.base, sp.1 + self.base), line + self.line_base, self.map));
         if !kids.is_empty() || node.children().is_some() {
             o.insert("children".into(), Value::Array(kids.into_iter().map(|(v, _)| v).collect()));
         }
@@ -361,25 +365,255 @@ impl Conv<'_> {
     }
 }
 
+/// Documents larger than this are parsed in parallel parts (markdown-rs parses about
+/// 1 MB per second).
+const PARALLEL_MIN: usize = 128 * 1024;
+
 /// The block tree of a whole document, as mdast-shaped JSON (see the module comment).
 pub fn block_tree(src: &str) -> Value {
-    match markdown::to_mdast(src, &options()) {
-        Ok(root) => {
-            let conv = Conv { src: src.as_bytes(), map: Utf16Map::new(src), unsure: std::cell::Cell::new(false) };
-            let (mut tree, _) = conv.node(&root);
-            if conv.unsure.get() {
-                tree["unsure"] = json!(true);
-            }
-            tree
-        }
-        // Only MDX can fail to parse, and it is off.
-        Err(_) => Value::Null,
+    let parts = (std::thread::available_parallelism().map_or(1, |n| n.get())).clamp(1, 8);
+    if src.len() < PARALLEL_MIN || parts == 1 {
+        return tree_of(src, &split_points(src, usize::MAX));
     }
+    tree_of(src, &split_points(src, src.len() / parts))
+}
+
+/// Byte offsets where the document can be cut into parts that parse to the same top-level
+/// blocks as the whole: the start of a line that begins with `#` and a space or tab at
+/// column 0, right after a blank line, outside any top-level fenced code, math block, or
+/// HTML block of kinds 1 to 5 (which a blank line does not end). Such a line closes every
+/// open container (none continues on an unindented line after a blank line, and nothing
+/// continues lazily across a blank line) and starts an ATX heading. Parts are at least
+/// `min_len` bytes long.
+fn split_points(src: &str, min_len: usize) -> Vec<usize> {
+    let mut cuts = Vec::new();
+    if min_len >= src.len() {
+        return cuts;
+    }
+    let bytes = src.as_bytes();
+    let mut last_cut = 0usize;
+    let mut prev_blank = false;
+    // Open region: a fence (char, length), math, or an HTML end marker.
+    enum Region {
+        /// char, length, indentation of the opener
+        Fence(u8, usize, usize),
+        /// indentation of the opener
+        Math(usize),
+        /// A fence closed by a line less indented than its opener: that line may instead
+        /// have opened a new fence (the opener may have been in a list item the line
+        /// ends). Not decided here: no more cuts.
+        Unknown,
+        Html(&'static [&'static str]),
+    }
+    let mut region: Option<Region> = None;
+    let mut at = 0usize;
+    // Front matter: never cut inside the first `---` block.
+    if src.starts_with("---") {
+        region = Some(Region::Fence(b'-', 3, 0));
+        if let Some(nl) = src.find('\n') {
+            at = nl + 1;
+        }
+    }
+    while at < bytes.len() {
+        let end = src[at..].find('\n').map_or(bytes.len(), |i| at + i + 1);
+        let line = &src[at..end];
+        let content = line.trim_end_matches(['\n', '\r']);
+        let indent = content.len() - content.trim_start_matches(' ').len();
+        let lead = &content[indent..];
+        match &region {
+            Some(Region::Fence(c, n, open_indent)) => {
+                // Front matter closes with `---` or `...`; fences with at least as many.
+                if *c == b'-' {
+                    if content.trim_end() == "---" || content.trim_end() == "..." {
+                        region = None;
+                    }
+                } else if indent < 4 && lead.bytes().take_while(|b| b == c).count() >= *n && lead.trim_start_matches(*c as char).trim().is_empty() {
+                    // Less indented than the opener: see `Region::Unknown`.
+                    region = if indent < *open_indent { Some(Region::Unknown) } else { None };
+                }
+            }
+            Some(Region::Math(open_indent)) => {
+                if indent < 4 && lead.trim_end().starts_with("$$") && lead.trim_end().trim_start_matches('$').is_empty() {
+                    region = if indent < *open_indent { Some(Region::Unknown) } else { None };
+                }
+            }
+            Some(Region::Unknown) => {}
+            Some(Region::Html(markers)) => {
+                let l = content.to_ascii_lowercase();
+                if markers.iter().any(|m| l.contains(m)) {
+                    region = None;
+                }
+            }
+            None => {
+                if prev_blank && at - last_cut >= min_len && (content.starts_with("# ") || content.starts_with("#\t") || content == "#" || content.starts_with("## ") || content.starts_with("### ")) {
+                    cuts.push(at);
+                    last_cut = at;
+                }
+                if indent < 4 {
+                    let fence = lead.bytes().next().filter(|b| *b == b'`' || *b == b'~');
+                    if let Some(c) = fence {
+                        let n = lead.bytes().take_while(|b| *b == c).count();
+                        // A backtick fence's info string has no backtick (CommonMark).
+                        if n >= 3 && !(c == b'`' && lead[n..].contains('`')) {
+                            region = Some(Region::Fence(c, n, indent));
+                        }
+                    } else if lead.starts_with("$$") {
+                        region = Some(Region::Math(indent));
+                    } else if lead.starts_with('<') {
+                        if let Some(m) = html_region(&lead.to_ascii_lowercase()) {
+                            region = Some(Region::Html(m));
+                        }
+                    }
+                }
+            }
+        }
+        prev_blank = content.trim().is_empty();
+        at = end;
+    }
+    cuts
+}
+
+/// Line breaks in `b`: `\r\n`, `\r` and `\n` each count once (as markdown-rs counts lines).
+fn line_breaks(b: &[u8]) -> usize {
+    let mut n = 0;
+    for (i, &c) in b.iter().enumerate() {
+        if c == b'\n' || (c == b'\r' && b.get(i + 1) != Some(&b'\n')) {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// HTML blocks a blank line does not end (CommonMark kinds 1 to 5): the end markers of
+/// the block this line opens, unless the line also closes it.
+fn html_region(l: &str) -> Option<&'static [&'static str]> {
+    const RAW: &[&str] = &["</script>", "</pre>", "</style>", "</textarea>"];
+    let markers: &'static [&'static str] = if ["<script", "<pre", "<style", "<textarea"]
+        .iter()
+        .any(|t| l.starts_with(t) && l[t.len()..].chars().next().is_none_or(|c| c == '>' || c.is_whitespace()))
+    {
+        RAW
+    } else if l.starts_with("<!--") {
+        &["-->"]
+    } else if l.starts_with("<?") {
+        &["?>"]
+    } else if l.starts_with("<![cdata[") {
+        &["]]>"]
+    } else if l.len() > 2 && l.starts_with("<!") && l.as_bytes()[2].is_ascii_alphabetic() {
+        &[">"]
+    } else {
+        return None;
+    };
+    // The end marker on the opening line itself (after the opener) closes it there.
+    let rest = &l[2..];
+    if markers.iter().any(|m| rest.contains(m)) {
+        None
+    } else {
+        Some(markers)
+    }
+}
+
+/// Parse the parts between the cut points (in parallel) and join their top-level blocks.
+fn tree_of(src: &str, cuts: &[usize]) -> Value {
+    let map = Utf16Map::new(src);
+    let mut bounds = vec![0usize];
+    bounds.extend_from_slice(cuts);
+    bounds.push(src.len());
+    let lines_before: Vec<usize> = bounds.iter().map(|&b| line_breaks(&src.as_bytes()[..b])).collect();
+    let results: Vec<Option<(Vec<Value>, bool)>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..bounds.len() - 1)
+            .map(|i| {
+                let (a, b) = (bounds[i], bounds[i + 1]);
+                let chunk = &src[a..b];
+                let map = &map;
+                let line_base = lines_before[i];
+                scope.spawn(move || {
+                    let root = markdown::to_mdast(chunk, &options(i == 0)).ok()?;
+                    let conv = Conv { src: chunk.as_bytes(), base: a, line_base, map, unsure: std::cell::Cell::new(false) };
+                    let (tree, _) = conv.node(&root);
+                    let kids = match tree.get("children") {
+                        Some(Value::Array(k)) => k.clone(),
+                        _ => vec![],
+                    };
+                    Some((kids, conv.unsure.get()))
+                })
+            })
+            .collect();
+        handles.into_iter().map(|h| h.join().ok().flatten()).collect()
+    });
+    let mut children = Vec::new();
+    let mut unsure = false;
+    for r in results {
+        let Some((kids, u)) = r else { return Value::Null };
+        children.extend(kids);
+        unsure |= u;
+    }
+    let end_line = line_breaks(src.as_bytes()) + 1;
+    let mut tree = json!({
+        "type": "root",
+        "position": { "start": { "line": 1, "offset": 0 }, "end": { "line": end_line, "offset": map.at(src.len()) } },
+        "children": children,
+    });
+    if unsure {
+        tree["unsure"] = json!(true);
+    }
+    tree
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Parts give exactly the tree of the whole, for documents with every kind of block.
+    #[test]
+    fn parts_equal_whole() {
+        let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus");
+        let mut docs: Vec<String> = Vec::new();
+        fn walk(d: &std::path::Path, out: &mut Vec<String>) {
+            for e in std::fs::read_dir(d).into_iter().flatten().flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    walk(&p, out);
+                } else if p.extension().is_some_and(|x| x == "md") {
+                    if let Ok(t) = std::fs::read_to_string(&p) {
+                        out.push(t.trim_start_matches('\u{feff}').to_string());
+                    }
+                }
+            }
+        }
+        walk(&corpus, &mut docs);
+        if let Ok(spec) = std::fs::read_to_string(corpus.join("spec-examples.json")) {
+            let v: Value = serde_json::from_str(&spec).unwrap();
+            for e in v["examples"].as_array().unwrap() {
+                docs.push(e["markdown"].as_str().unwrap().to_string());
+            }
+        }
+        assert!(docs.len() > 600);
+        // Everything in one document, separated by headings that may be cut points; and
+        // each document followed by a heading, so cuts land right after any construct.
+        let mut big = String::new();
+        for (i, d) in docs.iter().enumerate() {
+            big.push_str(d);
+            big.push_str(&format!("\n\n# part {i}\n\n"));
+        }
+        let cuts = split_points(&big, 1);
+        assert!(cuts.len() > 50, "only {} cut points", cuts.len());
+        let whole = tree_of(&big, &[]);
+        let parts = tree_of(&big, &cuts);
+        assert!(whole == parts, "parts differ from the whole for the concatenated corpus");
+        // Each document on its own, between headings that are cut points when the
+        // document leaves nothing open, so no earlier document can hide a mistake.
+        let mut checked = 0;
+        for d in &docs {
+            let one = format!("# a\n\n{d}\n\n# b\n\ntext\n\n# c\n");
+            let cuts = split_points(&one, 1);
+            checked += cuts.len();
+            assert!(tree_of(&one, &[]) == tree_of(&one, &cuts), "parts differ for {d:?}");
+        }
+        assert!(checked > 1000, "only {checked} cut points over the single documents");
+        // And the public entry point, which cuts large documents.
+        assert_eq!(block_tree(&big), whole);
+    }
 
     #[test]
     fn utf16_offsets() {
