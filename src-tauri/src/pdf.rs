@@ -25,6 +25,7 @@ use crate::export::scrim_file_url;
 use crate::state::AppState;
 
 /// Bundled font for header and footer text (SIL Open Font License, `fonts/OFL.txt`).
+/// SPEC-QUESTION Q-024: scripts it lacks (CJK, symbols) fall back to system fonts.
 const NOTO_SANS: &[u8] = include_bytes!("../fonts/NotoSans-Regular.ttf");
 
 #[derive(Debug, Clone, Deserialize)]
