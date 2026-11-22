@@ -75,6 +75,11 @@ body.scrim-links-single-click #write a {
   padding: 0;
   border: 0;
 }
+/* Smart punctuation: the source characters next to the displayed one (spec 03). */
+.md-smart-src {
+  font-size: 0;
+  letter-spacing: 0;
+}
 .md-hide {
   color: var(--meta-content-color);
 }

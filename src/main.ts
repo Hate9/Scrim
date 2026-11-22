@@ -1,6 +1,7 @@
 // Frontend entry: one document per window.
 
 import "./editor/cmlayer"; // first: CodeMirror styles in @layer scrim-cm (10.3)
+import { setSmartPunctuation } from "./editor/smart";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -261,6 +262,7 @@ function applySettings(next: Record<string, unknown>) {
   settings = next;
   const o = editor.options;
   const bool = (key: string, fallback: boolean) => (typeof settings[key] === "boolean" ? (settings[key] as boolean) : fallback);
+  const inlineMathBefore = o.inlineMath;
   o.inlineMath = bool("inlineMath", false);
   o.preserveLineBreaks = bool("preserveLineBreaks", true);
   o.autoPairBrackets = bool("autoPairBrackets", true);
@@ -283,6 +285,10 @@ function applySettings(next: Record<string, unknown>) {
   document.body.classList.toggle("scrim-no-heading-hint", !bool("headingHint", true));
   document.body.classList.toggle("scrim-no-word-count", !bool("showWordCount", true));
   o.pasteHtmlAsPlain = bool("pasteHtmlAsPlain", false);
+  o.smartPunctuation = bool("smartPunctuation", false);
+  setSmartPunctuation(editor.view, o.smartPunctuation);
+  // Inline math changes what `$…$` is: analyze and render every block again (11).
+  if (o.inlineMath !== inlineMathBefore && editor.view.state.doc.childCount) rebuildInline(editor.view);
   if (typeof statusBar !== "undefined") statusBar.syncButtons();
   sourceMode?.setLineNumbers(setting("sourceLineNumbers", false));
   // Font size: "auto" lets the theme decide (11, Appearance).

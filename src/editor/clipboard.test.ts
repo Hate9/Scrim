@@ -23,7 +23,7 @@ function select(md: string, from: string, to: string) {
 }
 
 describe("copy: Markdown source of the selection (6.1)", () => {
-  it("partial element keeps its markers", () => {
+  it("C-1 partial element keeps its markers", () => {
     const s = select("a **bold** b\n", "ol", "ol");
     expect(selectionMarkdown(s, opts)).toBe("**ol**");
   });
@@ -31,7 +31,7 @@ describe("copy: Markdown source of the selection (6.1)", () => {
     const s = select("- item *x* y\n", "item", "y");
     expect(selectionMarkdown(s, opts)).toBe("item *x* y");
   });
-  it("several blocks: block syntax and prefixes", () => {
+  it("C-2 several blocks: block syntax and prefixes", () => {
     const s = select("- one end of one\n- two\n- start of three more\n", "end of one", "start of three");
     expect(selectionMarkdown(s, opts)).toBe("- end of one\n- two\n- start of three");
   });

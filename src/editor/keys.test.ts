@@ -8,7 +8,7 @@ describe("key identity (01 rule 5)", () => {
     expect(keyIdentity(ev("b", "KeyB"))).toBe("B");
     expect(keyIdentity(ev("a", "KeyQ"))).toBe("A"); // AZERTY A key
   });
-  it("non-Latin letters fall back to the US key", () => {
+  it("KB-2 non-Latin letters fall back to the US key", () => {
     expect(keyIdentity(ev("и", "KeyB"))).toBe("B"); // Russian layout
   });
   it("punctuation and digits", () => {

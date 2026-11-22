@@ -157,6 +157,9 @@ export async function renderBody(view: EditorView, opts: RenderOptions & { codeW
   });
   root.querySelectorAll(".md-meta, .md-hide").forEach((e) => e.remove());
   root.querySelectorAll(".md-widget").forEach(unwrap);
+  // Smart punctuation: the displayed characters (spec 03).
+  root.querySelectorAll(".md-smart-src").forEach((e) => e.remove());
+  root.querySelectorAll(".md-smart").forEach((e) => e.replaceWith(e.textContent ?? ""));
 
   // Links: real targets (the editor keeps them in data-href, Q-012); titles without the
   // URL the editor appends as a tooltip.

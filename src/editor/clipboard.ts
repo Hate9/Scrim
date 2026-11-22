@@ -1,5 +1,6 @@
 // Clipboard (spec 06, text paths; images and files come with P2's image policy).
 
+import { smartText } from "./smart";
 import { Fragment, Slice, type Node } from "prosemirror-model";
 import { TextSelection, type EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
@@ -58,10 +59,20 @@ export function selectionMarkdown(state: EditorState, opts: EditorOptions): stri
 }
 
 /** The rendered plain text of the selection (Copy as Plain Text). */
-export function selectionPlainText(state: EditorState): string {
+export function selectionPlainText(state: EditorState, smart = false): string {
   const md = selectionMarkdown(state, { ...defaultPlain });
   const div = document.createElement("div");
   div.innerHTML = markdownToHtml(md);
+  // Smart punctuation: the displayed form, outside code (spec 03).
+  if (smart) {
+    const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT);
+    let prev = "";
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const t = n.textContent ?? "";
+      if (!n.parentElement?.closest("code, pre")) n.textContent = smartText(t, prev);
+      if (t) prev = t[t.length - 1];
+    }
+  }
   return div.innerText.replace(/\n+$/, "");
 }
 const defaultPlain = { inlineMath: false } as EditorOptions;
@@ -88,7 +99,7 @@ export interface ClipboardFlavors {
 export function copyFlavors(state: EditorState, opts: EditorOptions, asPlain = false): ClipboardFlavors {
   const md = selectionMarkdown(state, opts);
   const html = `<div data-scrim-source="${toBase64(md)}">${markdownToHtml(md)}</div>`;
-  const text = opts.copyMarkdown && !asPlain ? md : selectionPlainText(state);
+  const text = opts.copyMarkdown && !asPlain ? md : selectionPlainText(state, opts.smartPunctuation);
   return { text, html };
 }
 

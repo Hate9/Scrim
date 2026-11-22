@@ -23,10 +23,11 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   enforced, in CI. The owner runs it on a real laptop before P8 with
   `SCRIM_PERF_STRICT=1 scripts/e2e.sh`; large-document layout is P8 work (DESIGN.md,
   "Performance status").
-- **Open time for large files.** Block parsing (micromark) needs a faster path for the
-  1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
+- **Open time for large files.** About 10 s for 1 MB under Xvfb after the P8 work
+  (DESIGN.md, "P8: performance and coverage"); a faster block parser or viewport-only
+  rendering is the next step, after measuring on real hardware.
 - **Settings stored but not yet in effect.** Strict mode, the subscript, superscript,
-  highlight, diagram, and smart punctuation switches, writing style, code indent, cursor
+  highlight, and diagram switches, writing style, code indent, cursor
   blink, window style (custom title bar), language, and `global:` shortcuts. They are saved and shown; the features behind them are pending.
 - **Window size and position per screen configuration (7.1)** are not remembered yet.
 - **T-1 fixture themes.** T-1 runs `scripts/fetch-fixture-themes.mjs` first (the pinned,

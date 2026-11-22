@@ -25,6 +25,59 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `scripts/` | Test wrappers (`e2e.sh`, `n1-network.sh`, `check-no-http.sh`) and generators. |
 | `spec/` | The specification (read-only for the implementation team). |
 
+## P8: performance and coverage
+
+### Performance (spec 20, PF-1; QA-LOG Q-011)
+
+Numbers from `tests/e2e/p8.mjs` and E-14 under Xvfb with software rendering (CI-like
+container); they are reported, and enforced only with `SCRIM_PERF_STRICT=1` on real
+hardware.
+
+| Measure | Before P8 | Now | Budget |
+|---|---|---|---|
+| Open 1 MB (47,000 lines) | over 60 s | about 10 s (parse 4.9 s, of which mdast 4.6 s; view update 1.2 s; rest layout) | 2 s |
+| Enter source mode, 10,000 lines | 2.2 s | about 180 ms warm (first switch about 1 s) | 300 ms |
+| Leave source mode, 10,000 lines | 2.2 s | 100–130 ms | 300 ms |
+| Sidebar, 5,000 files | about 2.5 s | about 235 ms | 1 s |
+| E-14 typing p95, 10,000 lines | 37–62 ms | about 60 ms (layout-bound) | 16 ms |
+
+What changed:
+
+- The document parse builds block-level mdast only (inline constructs disabled; the
+  inline analyzer handles each textblock). `src/md/blockonly.test.ts` checks that 699
+  documents parse to the same model either way.
+- `micromark-util-edit-map` is quadratic in the number of edits on large documents;
+  `scripts/patch-deps.mjs` (postinstall) patches its `consume` to linear time, in both
+  the production and development builds of the package.
+- Per-block work avoids `doc.resolve`/`nodeAt` (linear scans of the parent's children):
+  block decorations receive the parent and index, heading ids take a plain-text fast
+  path, and the "clean again" check skips paragraphs with no Markdown characters.
+- The sidebar tree is virtual above 1,000 rows (only visible rows are in the DOM).
+- Source mode is an absolutely positioned layer over the live document, which stays
+  laid out, so switching does not re-layout 10,000 blocks.
+- Tried and reverted: `content-visibility: auto` on `#write > *` again made E-14 p95
+  about 1,121 ms and the 1 MB open over 60 s in WebKitGTK.
+
+Still over budget here: the 1 MB open (JavaScriptCore's mdast parse is most of it) and
+E-14. Remaining options are a faster block parser (markdown-it, allowed by spec 01) and
+viewport-only rendering (Q-011's last resort). Both need the measurements on real
+hardware first.
+
+### Coverage tests
+
+C-1, C-2, C-5, KB-2 are unit tests (`clipboard.test.ts`, `keys.test.ts`); D-1, D-2, D-3
+are end-to-end tests in `tests/e2e/p1.mjs`.
+
+### Smart punctuation (spec 03, D-1)
+
+`src/editor/smart.ts`: in plain text runs (the `md-plain` presentation marks), each
+replacement is a widget with the typographic character next to the source characters,
+which take no space (`.md-smart-src`, font-size 0 like collapsed markers). A sequence
+with the cursor inside (between the hyphens of `--`) shows its source. Quotes open after
+the start, whitespace, opening brackets or dashes, and close otherwise (an apostrophe
+closes); emphasis markers before a quote are skipped. Copy as plain text applies the
+same replacements outside code; HTML export keeps the displayed characters.
+
 ## P7: personal features
 
 ### local.json (`src-tauri/src/local.rs`, `src/app/local.ts`)

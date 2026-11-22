@@ -274,14 +274,42 @@ test("E-13 Mod+click on [x](#heading-two) jumps to the heading", async (s) => {
   if (top < 0 || top > height - 30) throw new Error(`heading not scrolled into view (top ${top} of ${height})`);
 }, () => fixture("e13.md", "See [x](#heading-two).\n\n" + "filler paragraph\n\n".repeat(60) + "## Heading Two\n\nend\n"));
 
-test("emoji autocomplete inserts a shortcode", async (s) => {
+test("D-2 emoji autocomplete: :smi lists smile; Enter inserts the shortcode", async (s) => {
   await ready(s);
   await typeText(s, "hi :smi");
   await waitFor(() => s.exec("const p = document.querySelector('.scrim-emoji-popup'); return !!p && !p.hidden && p.children.length > 0"), "popup");
+  const items = await s.exec("return [...document.querySelector('.scrim-emoji-popup').children].map((c) => c.textContent)");
+  if (!items.some((t) => /:smile:|\bsmile\b/.test(t))) throw new Error(`smile not listed: ${JSON.stringify(items)}`);
   await press(s, ENTER);
   await waitFor(async () => /^hi :smi[a-z_]*:\n$/.test(await md(s)), "shortcode inserted");
   await waitFor(() => s.exec("return !!document.querySelector('#write .md-emoji')"), "emoji rendered");
 });
+
+/** The text a reader sees in the first paragraph (hidden source characters left out). */
+const shownText = (s) =>
+  s.exec("const p = document.querySelector('#write p').cloneNode(true); p.querySelectorAll('.md-smart-src').forEach((e) => e.remove()); return p.textContent");
+
+test("D-1 smart punctuation: curly quotes, en dash, ellipsis; source unchanged", async (s) => {
+  await ready(s);
+  await s.exec("window.__scrim.setSetting('smartPunctuation', true); return true");
+  await waitFor(() => s.exec("return window.__scrim.editor.options.smartPunctuation === true"), "setting applied");
+  await typeText(s, '"hi" -- ok...');
+  await expectMd(s, '"hi" -- ok...\n');
+  await waitFor(async () => (await shownText(s)) === "\u201chi\u201d \u2013 ok\u2026", "typographic display", 4000).catch(async () => {
+    throw new Error(`displayed ${JSON.stringify(await shownText(s))}`);
+  });
+  await s.exec("window.__scrim.setSetting('smartPunctuation', false); return true");
+  await waitFor(async () => (await shownText(s)) === '"hi" -- ok...', "plain display after turning it off");
+});
+
+test("D-3 inline math: on renders $x^2$, off shows it literally", async (s) => {
+  await ready(s);
+  await s.exec("window.__scrim.setSetting('inlineMath', true); return true");
+  await waitFor(() => s.exec("return window.__scrim.editor.options.inlineMath === true"), "setting applied");
+  await waitFor(() => s.exec("return !!document.querySelector('#write .md-inline-math .katex, #write .md-inline-math math')"), "math rendered");
+  await s.exec("window.__scrim.setSetting('inlineMath', false); return true");
+  await waitFor(() => s.exec("return !document.querySelector('#write .md-inline-math') && document.querySelector('#write p').textContent.includes('$x^2$')"), "literal text");
+}, () => fixture("d3.md", "Area $x^2$ here.\n"));
 
 // E-14 needs a mid-range laptop with GPU compositing. Under Xvfb with software
 // rendering, WebKit's layout of a 10,000-line document dominates, so the budget is

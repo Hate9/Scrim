@@ -37,6 +37,8 @@ export interface EditorOptions {
   numberFootnotes: boolean;
   /** Paste HTML as plain text (11, Editor). */
   pasteHtmlAsPlain: boolean;
+  /** Smart punctuation display (Preferences → Markdown, default off). */
+  smartPunctuation: boolean;
 }
 
 export const defaultOptions: EditorOptions = {
@@ -57,6 +59,7 @@ export const defaultOptions: EditorOptions = {
   allowIframes: false,
   prettyTables: true,
   numberFootnotes: true,
+  smartPunctuation: false,
 };
 
 /** Textblocks whose content is Markdown inline source. */

@@ -34,6 +34,7 @@ import { createLinkPlugin, type LinkHooks } from "./links";
 import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
 import { createSpellPlugin, type SpellHooks } from "./spell";
+import { createSmartPlugin } from "./smart";
 import { codeNodeViews, createCodeSelectionPlugin, type CodeViewHooks } from "./codeview";
 import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
@@ -167,6 +168,7 @@ export function createEditor(
     createCodeSelectionPlugin(),
     createFindPlugin(),
     createSpellPlugin(hooks.spell),
+    createSmartPlugin(() => options.smartPunctuation),
   ];
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {
