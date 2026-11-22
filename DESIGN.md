@@ -97,6 +97,58 @@ E-14 with it). Q-026's new test (select a 10,000-line document top to bottom and
 `tests/e2e/p8.mjs`) passes with it on and off. Per Q-026's fallback, viewport-only
 rendering is a separate decision.
 
+#### Block parsing in Rust (Q-026 item 1)
+
+`crates/scrim-core/src/blocks.rs` builds the block tree of a whole document with
+markdown-rs (the Rust port of micromark, same author), using the same constructs as the
+frontend's block-only parse, and converts it to mdast-shaped JSON with micromark's
+positions: nodes start after their indentation (HTML blocks keep it), list items end at
+their last child, lists before trailing whitespace, a setext heading right after
+definitions starts where they start, labels are raw source, NUL becomes U+FFFD,
+continuation-line indentation leaves text values, offsets are UTF-16. A tree Rust cannot
+reproduce exactly (indented code starting inside a tab a container partly used) is
+marked `unsure`, and the frontend parses that document itself, as it does when strict
+mode is off or custom block tags are registered and a line could be affected
+(`src/md/rustblocks.ts`). `src/md/rustparity.test.ts` (in CI, after building the
+`block_tree` example) checks node-by-node equal trees and equal document models for the
+699 corpus documents, strict mode on and off: 3 documents are unsure, 6 more go to the
+frontend with strict mode off.
+
+The tree comes with the text in `doc_init` and `doc_reload`; leaving source mode asks
+for it (`parse_blocks`) when the text is over 50,000 characters, otherwise the frontend
+parses (as fast). Typing never waits on IPC. markdown-rs parses about 1 MB per second,
+so documents over 128 KB are cut into parts parsed in parallel: only at a column-0 `#`
+heading after a blank line, outside any top-level fence, math block, front matter or
+HTML block of kinds 1 to 5, and never after a fence closed by a less indented line
+(that line may open a new fence instead). A unit test checks that the parts give
+exactly the whole's tree for the corpus, concatenated and document by document (over
+1,000 cut points). `SCRIM_NO_BLOCKS=1` (debug builds) leaves parsing to the frontend,
+for comparisons; `cargo run --release -p scrim-core --example bench_blocks FILE` times
+the Rust side.
+
+Two bugs found on the way:
+
+- Block-only parses dropped the inline positions of a heading or table cell with a bare
+  URL (the literal-autolink transform rebuilds them), so such a file could not be
+  opened. Block-only parses no longer run that transform.
+- A large view update with the editor focused spends about 30 s in WebKitGTK's
+  `Selection.collapse` (1 MB document), against 1.6 s unfocused plus 0.1 s to focus
+  afterwards. The JS parse had hidden this: the editor was not focused yet when its 4 s
+  parse ended. Loads and large replacements now update unfocused, then focus.
+
+Measurements (Xvfb, software rendering, this container; 1 MB = 47,000 lines):
+
+| Build | Open 1 MB | of which: doc_init / parse / view update | E-14 median / p95 | First source switch | Sidebar 5,000 |
+|---|---|---|---|---|---|
+| Debug, frontend parse (`SCRIM_NO_BLOCKS=1`) | 8,894 ms | 76 / 3,908 / 1,068 ms | 30 / 50 ms | 1,006 ms | 201 ms |
+| Debug, Rust parse | 7,066 ms | 1,267 / 203 / 1,110 ms | 35 / 63 ms | 1,087 ms | 188 ms |
+| Release, Rust parse | 6,853 ms | 864 / 194 / 1,356 ms | 24 / 50 ms | 914 ms | 90 ms |
+
+The Rust block tree of the 1 MB file takes about 0.4 s on this container's 4 cores (1.0 s
+in one part); the rest of `doc_init` is the 9 MB JSON reply. What remains of the open is
+WebKit's layout and painting of the first frame (about 4.5 s here), the same with either
+parser. Typing is unchanged, as expected (parsing while typing stays in the frontend).
+
 The WebKit inspector is available in every build: Preferences → General → "Enable
 debugging tools", then View → Toggle DevTools (Shift+F12); its Timelines tab records
 layout and script time on the owner's machine.
