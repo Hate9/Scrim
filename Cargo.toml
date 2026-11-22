@@ -6,6 +6,7 @@ members = ["crates/scrim-core", "src-tauri"]
 version = "0.1.0"
 edition = "2021"
 license = "UNLICENSED"
+authors = ["Scrim developers"]
 
 [profile.release]
 lto = true

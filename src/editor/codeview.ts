@@ -3,6 +3,7 @@
 // block's text with each line break as a `line_break` atom, which maps 1:1 onto
 // CodeMirror's "\n", so positions translate by a constant offset.
 
+import { codeIndent } from "../md/style";
 import { defaultKeymap, indentLess, indentMore } from "@codemirror/commands";
 import { Compartment, EditorState as CMState, type Extension } from "@codemirror/state";
 import {
@@ -15,7 +16,7 @@ import {
   type KeyBinding,
   type ViewUpdate,
 } from "@codemirror/view";
-import { LanguageDescription, syntaxHighlighting } from "@codemirror/language";
+import { indentUnit, LanguageDescription, syntaxHighlighting } from "@codemirror/language";
 import { tags, tagHighlighter } from "@lezer/highlight";
 import { redo, undo } from "prosemirror-history";
 import { Fragment, type Node } from "prosemirror-model";
@@ -287,6 +288,7 @@ export class CodeBlockView implements NodeView {
       this.kind === "frontmatter" ? [] : cmAliases("cm-s-inner", this.kind !== "code" || this.opts.codeWrap),
       CMView.contentAttributes.of({ spellcheck: "false" }),
       CMState.tabSize.of(4),
+      indentUnit.of(codeIndent.unit),
       CMView.updateListener.of((u) => {
         if (u.docChanged && this.preview) this.schedulePreview();
         if (u.focusChanged) this.dom.classList.toggle("md-editing", u.view.hasFocus);
@@ -481,7 +483,7 @@ export class CodeBlockView implements NodeView {
       { key: "Mod-z", run: pmCommand(undo) },
       { key: "Mod-y", run: pmCommand(redo) },
       { key: "Mod-Shift-z", run: pmCommand(redo) },
-      { key: "Tab", run: (cm) => (cm.state.selection.main.empty ? (cm.dispatch(cm.state.replaceSelection("    ")), true) : indentMore(cm)) },
+      { key: "Tab", run: (cm) => (cm.state.selection.main.empty ? (cm.dispatch(cm.state.replaceSelection(codeIndent.unit)), true) : indentMore(cm)) },
       { key: "Shift-Tab", run: indentLess },
       {
         key: "Mod-a",

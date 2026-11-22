@@ -26,7 +26,10 @@ export type InlineKind =
   | "footnote"
   | "break"
   | "comment"
-  | "rawhtml";
+  | "rawhtml"
+  | "highlight"
+  | "sup"
+  | "sub";
 
 export interface InlineElement {
   kind: InlineKind;
@@ -67,6 +70,23 @@ export interface Definitions {
 
 export interface InlineOptions extends ParseOptions {
   definitions?: Definitions;
+  /** Toggleable extensions (spec 02, Preferences → Markdown, default off). */
+  subscript?: boolean;
+  superscript?: boolean;
+  highlight?: boolean;
+}
+
+/** `==mark==`, `^sup^`, `~sub~` (spec 02): marker, element, and whether the content may
+ * hold unescaped whitespace. Tried in this order; later kinds also apply inside. */
+const DELIMITED: { kind: "highlight" | "sup" | "sub"; opt: "highlight" | "superscript" | "subscript"; marker: string; nodeName: string; spaces: boolean }[] = [
+  { kind: "highlight", opt: "highlight", marker: "=", nodeName: "mark", spaces: true },
+  { kind: "sup", opt: "superscript", marker: "^", nodeName: "sup", spaces: false },
+  { kind: "sub", opt: "subscript", marker: "~", nodeName: "sub", spaces: false },
+];
+
+function bumpDepth(e: InlineElement, by: number) {
+  e.depth += by;
+  for (const c of e.children) bumpDepth(c, by);
 }
 
 import { customTags } from "./customtags";
@@ -106,10 +126,12 @@ class Analyzer {
   constructor(private src: string, private opts: InlineOptions) {}
 
   phrasing(nodes: PhrasingContent[], depth: number): InlineElement[] {
-    const out: InlineElement[] = [];
+    let out: InlineElement[] = [];
+    const texts: [number, number][] = [];
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
       if (!n.position || n.position.start.offset! >= this.src.length) continue;
+      if (n.type === "text") texts.push(this.span(n));
       if (n.type === "html") {
         const consumed = this.html(nodes, i, depth, out);
         i += consumed;
@@ -119,7 +141,83 @@ class Analyzer {
       if (Array.isArray(el)) out.push(...el);
       else if (el) out.push(el);
     }
+    const kinds = DELIMITED.filter((k) => this.opts[k.opt]);
+    if (kinds.length && texts.length) out = this.delimited(out, texts, depth, kinds);
     return out;
+  }
+
+  /**
+   * Highlight, superscript, and subscript (spec 02): marker pairs in the plain text of
+   * one nesting level (`texts` minus the elements in `list`). Content between the
+   * markers becomes the new element's children.
+   */
+  private delimited(list: InlineElement[], texts: [number, number][], depth: number, kinds: typeof DELIMITED): InlineElement[] {
+    if (!kinds.length) return list;
+    const [k, ...rest] = kinds;
+    const src = this.src;
+    const covered = (i: number) => list.some((e) => i >= e.from && i < e.to);
+    const plain = (i: number) => texts.some(([a, b]) => i >= a && i < b) && !covered(i);
+    const width = k.marker === "=" ? 2 : 1;
+    // Marker runs of exactly `width` characters in plain text.
+    const markers: number[] = [];
+    for (const [a, b] of texts) {
+      for (let i = a; i < b; ) {
+        if (src[i] !== k.marker || !plain(i)) {
+          i++;
+          continue;
+        }
+        let j = i;
+        while (j < b && src[j] === k.marker && plain(j)) j++;
+        if (j - i === width && src[i - 1] !== k.marker && src[j] !== k.marker) markers.push(i);
+        i = j;
+      }
+    }
+    const ws = (c: string | undefined) => c === undefined || /\s/.test(c);
+    const created: InlineElement[] = [];
+    for (let m = 0; m < markers.length; m++) {
+      const open = markers[m];
+      if (ws(src[open + width])) continue;
+      for (let n = m + 1; n < markers.length; n++) {
+        const close = markers[n];
+        if (close <= open + width || ws(src[close - 1])) continue;
+        const inner = src.slice(open + width, close);
+        if (!k.spaces && /(^|[^\\])\s/.test(inner)) break;
+        created.push({
+          kind: k.kind,
+          from: open,
+          to: close + width,
+          contentFrom: open + width,
+          contentTo: close,
+          runs: [
+            [open, open + width],
+            [close, close + width],
+          ],
+          nodeName: k.nodeName,
+          depth,
+          children: [],
+        });
+        m = n;
+        break;
+      }
+    }
+    let out = list;
+    for (const w of created) {
+      const inside = out.filter((e) => e.from >= w.from && e.to <= w.to);
+      out = out.filter((e) => !inside.includes(e));
+      inside.forEach((e) => bumpDepth(e, 1));
+      // `\ ` is an escaped space inside sub/superscript (02).
+      if (!k.spaces) {
+        for (let i = w.contentFrom; i < w.contentTo - 1; i++) {
+          if (src[i] === "\\" && src[i + 1] === " " && plain(i)) inside.push({ kind: "escape", from: i, to: i + 2, contentFrom: i + 1, contentTo: i + 2, runs: [[i, i + 1]], depth: depth + 1, children: [] });
+        }
+        inside.sort((a, b) => a.from - b.from);
+      }
+      const innerTexts = texts.map(([a, b]): [number, number] => [Math.max(a, w.contentFrom), Math.min(b, w.contentTo)]).filter(([a, b]) => a < b);
+      w.children = this.delimited(inside, innerTexts, depth + 1, DELIMITED.filter((d) => this.opts[d.opt]));
+      out.push(w);
+    }
+    out.sort((a, b) => a.from - b.from);
+    return this.delimited(out, texts, depth, rest);
   }
 
   private span(n: Nodes): [number, number] {

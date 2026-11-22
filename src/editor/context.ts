@@ -39,6 +39,10 @@ export interface EditorOptions {
   pasteHtmlAsPlain: boolean;
   /** Smart punctuation display (Preferences → Markdown, default off). */
   smartPunctuation: boolean;
+  /** `~sub~`, `^sup^`, `==highlight==` (Preferences → Markdown, default off). */
+  subscript: boolean;
+  superscript: boolean;
+  highlight: boolean;
 }
 
 export const defaultOptions: EditorOptions = {
@@ -60,6 +64,9 @@ export const defaultOptions: EditorOptions = {
   prettyTables: true,
   numberFootnotes: true,
   smartPunctuation: false,
+  subscript: false,
+  superscript: false,
+  highlight: false,
 };
 
 /** Textblocks whose content is Markdown inline source. */
@@ -107,14 +114,16 @@ export function documentDefinitions(doc: Node): Definitions {
 
 // ---- inline element cache --------------------------------------------------------------
 
-const cache = new WeakMap<Node, { defs: Definitions; math: boolean; tags: number; els: InlineElement[] }>();
+const cache = new WeakMap<Node, { defs: Definitions; flags: string; tags: number; els: InlineElement[] }>();
+const flagsOf = (o: EditorOptions) => `${+o.inlineMath}${+o.subscript}${+o.superscript}${+o.highlight}`;
 
 export function elementsOf(node: Node, defs: Definitions, opts: EditorOptions): InlineElement[] {
   if (!isProse(node)) return [];
   const hit = cache.get(node);
   // Registered custom tags change what is an element (17): their version is in the key.
-  if (hit && hit.defs === defs && hit.math === opts.inlineMath && hit.tags === customTags.version) return hit.els;
-  const els = analyzeInline(blockSource(node), { inlineMath: opts.inlineMath, definitions: defs });
-  cache.set(node, { defs, math: opts.inlineMath, tags: customTags.version, els });
+  const flags = flagsOf(opts);
+  if (hit && hit.defs === defs && hit.flags === flags && hit.tags === customTags.version) return hit.els;
+  const els = analyzeInline(blockSource(node), { inlineMath: opts.inlineMath, subscript: opts.subscript, superscript: opts.superscript, highlight: opts.highlight, definitions: defs });
+  cache.set(node, { defs, flags, tags: customTags.version, els });
   return els;
 }

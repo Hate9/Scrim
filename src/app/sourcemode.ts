@@ -1,8 +1,9 @@
 // Source code mode (spec 15): the whole Markdown source in CodeMirror.
 
+import { codeIndent } from "../md/style";
 import { history, historyKeymap, defaultKeymap, indentWithTab, redo, undo } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxHighlighting } from "@codemirror/language";
+import { indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { cmAliases } from "../editor/codeview";
@@ -70,6 +71,7 @@ export class SourceMode implements SourceSearch {
         extensions: [
           history(),
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+          indentUnit.of(codeIndent.unit),
           markdown(),
           syntaxHighlighting(scrimHighlighter),
           EditorView.lineWrapping,

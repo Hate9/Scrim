@@ -68,6 +68,43 @@ hardware first.
 C-1, C-2, C-5, KB-2 are unit tests (`clipboard.test.ts`, `keys.test.ts`); D-1, D-2, D-3
 are end-to-end tests in `tests/e2e/p1.mjs`.
 
+### Packaging (spec 00, 7.9; P8-1)
+
+- `npx tauri build` makes the AppImage, .deb, MSI and NSIS installer (`bundle.targets`).
+  `bundle.fileAssociations` registers `.md` and `.markdown` as `text/markdown` (role
+  Editor): on Linux it goes into the desktop file's `MimeType`, on Windows into the
+  installers' ProgId and "Open with" entries. Windows 10/11 keep the user's chosen default
+  (UserChoice), so installing does not take over `.md`; P8-1 checks this by hand on
+  Windows. The NSIS installer installs per user (no administrator prompt).
+- The .deb recommends `hunspell-en-us` (spell check works without it, with "No
+  dictionaries", L-3).
+- Arch: `packaging/arch/PKGBUILD` builds a tagged release from source (`npm ci`,
+  `tauri build --no-bundle`), runs `scripts/check-no-http.sh` in `check()`, and installs
+  the binary, `packaging/linux/scrim.desktop` and the icons. Help documents, built-in
+  themes and fonts are compiled into the binary, so nothing else is installed.
+- The AppImage bundler downloads its tools from GitHub at build time; it runs in the
+  release workflow, not in the offline test container.
+
+### Subscript, superscript, highlight (spec 02)
+
+The inline analyzer (`src/md/inline.ts`, `delimited`) finds `==…==`, `^…^` and `~…~`
+in the plain text of each nesting level after micromark's own inline parse, so code
+spans, links and escapes hide markers, and the elements nest either way (`==**a**==`,
+`**==a==**`). A marker is a run of exactly its width (`===` and `~~` are not markers;
+`~~` stays GFM strikethrough). An opener is not followed by whitespace and a closer not
+preceded by it; sub/superscript content has no unescaped whitespace, and `\ ` there is
+an escaped space (an escape element). Wrappers follow 10.3: `md-inline` = `mark`, `sup`,
+`sub`. Toggling any of these or inline math re-analyzes every block (not an edit).
+
+### Writing style (spec 02, "Writing Markdown")
+
+`src/md/style.ts` holds the preferences (bullet, emphasis and strong characters, heading
+style), set by the app with the other settings. Format → Strong/Emphasis, Format →
+List, pasted rich text (Turndown), and new headings at levels 1–2 use them; existing
+source keeps its markers, and a heading typed as `# ` stays ATX. The code indent
+(Preferences → Editor) is CodeMirror's indent unit and what Tab inserts in code blocks
+and source mode; code blocks pick it up when they are created.
+
 ### Smart punctuation (spec 03, D-1)
 
 `src/editor/smart.ts`: in plain text runs (the `md-plain` presentation marks), each

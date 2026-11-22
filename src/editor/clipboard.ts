@@ -1,5 +1,6 @@
 // Clipboard (spec 06, text paths; images and files come with P2's image policy).
 
+import { writingStyle } from "../md/style";
 import { smartText } from "./smart";
 import { Fragment, Slice, type Node } from "prosemirror-model";
 import { TextSelection, type EditorState } from "prosemirror-state";
@@ -106,16 +107,19 @@ export function copyFlavors(state: EditorState, opts: EditorOptions, asPlain = f
 // ---- paste -----------------------------------------------------------------------------
 
 let turndown: TurndownService | null = null;
+let turndownStyle = "";
 
 /** HTML from browsers and word processors → Markdown (6.2 item 2). */
 export function htmlToMarkdown(html: string): string {
-  if (!turndown) {
+  // Pasted rich text is written in the writing style (02).
+  if (!turndown || turndownStyle !== JSON.stringify(writingStyle)) {
+    turndownStyle = JSON.stringify(writingStyle);
     turndown = new TurndownService({
-      headingStyle: "atx",
+      headingStyle: writingStyle.heading,
       codeBlockStyle: "fenced",
-      bulletListMarker: "-",
-      emDelimiter: "*",
-      strongDelimiter: "**",
+      bulletListMarker: writingStyle.bullet,
+      emDelimiter: writingStyle.em,
+      strongDelimiter: writingStyle.strong,
       hr: "---",
     });
     turndown.use(gfm);

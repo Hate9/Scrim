@@ -1,0 +1,40 @@
+# Arch Linux package for Scrim, built from a tagged source release (spec 00).
+# Build: makepkg -si   (in this folder; set _srcdir=/path/to/checkout to build a local tree)
+pkgname=scrim
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Live-preview Markdown editor"
+arch=('x86_64')
+url="https://github.com/Hate9/Scrim"
+license=('custom')
+depends=('webkit2gtk-4.1' 'gtk3' 'hicolor-icon-theme')
+makedepends=('git' 'cargo' 'nodejs' 'npm')
+optdepends=('hunspell-en_us: English spell checking'
+            'pandoc: export to and import from Word, OpenDocument, EPUB, LaTeX and more')
+source=("$pkgname::git+$url.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+_tree() {
+  if [ -n "$_srcdir" ]; then echo "$_srcdir"; else echo "$srcdir/$pkgname"; fi
+}
+
+build() {
+  cd "$(_tree)"
+  export CARGO_TARGET_DIR="$srcdir/target"
+  npm ci
+  npx tauri build --no-bundle
+}
+
+check() {
+  cd "$(_tree)"
+  scripts/check-no-http.sh
+}
+
+package() {
+  cd "$(_tree)"
+  install -Dm755 "$srcdir/target/release/scrim" "$pkgdir/usr/bin/scrim"
+  install -Dm644 packaging/linux/scrim.desktop "$pkgdir/usr/share/applications/scrim.desktop"
+  install -Dm644 src-tauri/icons/128x128.png "$pkgdir/usr/share/icons/hicolor/128x128/apps/scrim.png"
+  install -Dm644 src-tauri/icons/32x32.png "$pkgdir/usr/share/icons/hicolor/32x32/apps/scrim.png"
+  install -Dm644 THIRD_PARTY.md "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY.md"
+}

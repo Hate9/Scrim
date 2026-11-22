@@ -1,5 +1,6 @@
 // Editing commands (spec 03, 3.3–3.7; spec 04, lists and quotes; spec 12, editing keys).
 
+import { writingStyle } from "../md/style";
 import { chainCommands, deleteSelection, joinBackward, joinForward, selectNodeBackward, selectNodeForward, splitBlock } from "prosemirror-commands";
 import { closeHistory } from "prosemirror-history";
 import { Fragment, type Node, type NodeType, type ResolvedPos } from "prosemirror-model";
@@ -48,7 +49,8 @@ function spaceRule(state: EditorState, $from: ResolvedPos, prefix: string): Tran
   }
   if ((m = /^(#{1,6}) $/.exec(trigger))) {
     tr.delete(start, end);
-    tr.setNodeMarkup($from.before(), S.heading, { ...keepLeaf(para.attrs), level: m[1].length });
+    // The user typed an ATX heading: it stays ATX whatever the writing style (02).
+    tr.setNodeMarkup($from.before(), S.heading, { ...keepLeaf(para.attrs), level: m[1].length, open: trigger, openLevel: m[1].length, close: "" });
     return tr;
   }
   if (trigger === "> ") {
@@ -522,9 +524,9 @@ const FORMAT_KIND: Record<InlineFormat, InlineKind | "underline" | "highlight"> 
 function markersFor(format: InlineFormat, content: string): [string, string] {
   switch (format) {
     case "strong":
-      return ["**", "**"];
+      return [writingStyle.strong, writingStyle.strong];
     case "em":
-      return ["*", "*"];
+      return [writingStyle.em, writingStyle.em];
     case "underline":
       return ["<u>", "</u>"];
     case "strike":
@@ -726,8 +728,9 @@ export function shiftHeading(delta: 1 | -1): Command {
   };
 }
 
-function toggleList(listType: NodeType, attrs: Record<string, unknown>): Command {
+function toggleList(listType: NodeType, attrsOf: () => Record<string, unknown>): Command {
   return (state, dispatch) => {
+    const attrs = attrsOf();
     const { $from } = state.selection;
     const d = inList($from);
     if (d > 0 && $from.node(d - 1).type === listType) return liftListItem(S.list_item)(state, dispatch);
@@ -743,8 +746,8 @@ function toggleList(listType: NodeType, attrs: Record<string, unknown>): Command
   };
 }
 
-export const toggleBulletList = toggleList(S.bullet_list, { bullet: "-", tight: true, items: null });
-export const toggleOrderedList = toggleList(S.ordered_list, { start: 1, delim: ".", numbering: "seq", tight: true, items: null });
+export const toggleBulletList = toggleList(S.bullet_list, () => ({ bullet: writingStyle.bullet, tight: true, items: null }));
+export const toggleOrderedList = toggleList(S.ordered_list, () => ({ start: 1, delim: ".", numbering: "seq", tight: true, items: null }));
 
 export const toggleQuote: Command = (state, dispatch) => {
   const { $from, $to } = state.selection;

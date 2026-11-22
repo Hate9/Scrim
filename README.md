@@ -26,9 +26,10 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
 - **Open time for large files.** About 10 s for 1 MB under Xvfb after the P8 work
   (DESIGN.md, "P8: performance and coverage"); a faster block parser or viewport-only
   rendering is the next step, after measuring on real hardware.
-- **Settings stored but not yet in effect.** Strict mode, the subscript, superscript,
-  highlight, and diagram switches, writing style, code indent, cursor
-  blink, window style (custom title bar), language, and `global:` shortcuts. They are saved and shown; the features behind them are pending.
+- **Settings stored but not yet in effect.** Strict mode, cursor blink,
+  window style (custom title bar), language, and `global:` shortcuts. They are saved and
+  shown; the features behind them are pending. (Diagrams render as code blocks until
+  diagram rendering lands, spec 21.)
 - **Window size and position per screen configuration (7.1)** are not remembered yet.
 - **T-1 fixture themes.** T-1 runs `scripts/fetch-fixture-themes.mjs` first (the pinned,
   hash-checked list in `spec/fixtures/themes.lock.json`, into the git-ignored

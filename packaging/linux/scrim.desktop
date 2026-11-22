@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Scrim
+GenericName=Markdown Editor
+Comment=Live-preview Markdown editor
+Exec=scrim %F
+Icon=scrim
+Terminal=false
+Categories=Office;TextEditor;Utility;
+MimeType=text/markdown;text/x-markdown;
+StartupWMClass=scrim

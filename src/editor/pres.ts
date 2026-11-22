@@ -36,6 +36,9 @@ const PAIR: Partial<Record<string, string>> = {
   strike: "del",
   code: "code",
   math: "inline_math",
+  highlight: "mark",
+  sub: "sub",
+  sup: "sup",
 };
 /** Inline HTML elements that are emphasis-like (`<u>` is Mod+U's underline). */
 const HTML_PAIR: Record<string, string> = { u: "underline", mark: "mark", sub: "sub", sup: "sup" };

@@ -311,6 +311,15 @@ test("D-3 inline math: on renders $x^2$, off shows it literally", async (s) => {
   await waitFor(() => s.exec("return !document.querySelector('#write .md-inline-math') && document.querySelector('#write p').textContent.includes('$x^2$')"), "literal text");
 }, () => fixture("d3.md", "Area $x^2$ here.\n"));
 
+test("02 subscript, superscript, highlight render when switched on", async (s) => {
+  await ready(s);
+  await s.exec("window.__scrim.setSetting('subscript', true); window.__scrim.setSetting('superscript', true); window.__scrim.setSetting('highlight', true); return true");
+  await waitFor(() => s.exec("return !!document.querySelector('#write [md-inline=sub] sub') && !!document.querySelector('#write [md-inline=sup] sup') && !!document.querySelector('#write [md-inline=mark] mark')"), "sub, sup, mark elements");
+  await s.exec("window.__scrim.setSetting('highlight', false); return true");
+  await waitFor(() => s.exec("return !document.querySelector('#write mark') && !!document.querySelector('#write sub')"), "highlight off");
+  await expectMd(s, "H~2~O, x^2^, ==hi==\n");
+}, () => fixture("ext02.md", "H~2~O, x^2^, ==hi==\n"));
+
 // E-14 needs a mid-range laptop with GPU compositing. Under Xvfb with software
 // rendering, WebKit's layout of a 10,000-line document dominates, so the budget is
 // reported, and enforced only with SCRIM_PERF_STRICT=1. Lines: SCRIM_E14_LINES.

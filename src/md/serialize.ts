@@ -7,6 +7,7 @@
 // canonically from the current containers. Text inside a leaf is always emitted from
 // the node's content, which is its Markdown source.
 
+import { writingStyle } from "./style";
 import type { Node } from "prosemirror-model";
 import { CONTAINER_TYPES, tableRows } from "./schema";
 
@@ -233,14 +234,16 @@ export class Serializer {
         return this.table(e, ok);
       case "heading": {
         const { level, setext } = n.attrs;
-        if (setext && level <= 2) {
+        // A new heading (no source yet) in setext writing style, levels 1–2 (02).
+        const newSetext = !setext && n.attrs.open === null && writingStyle.heading === "setext" && level <= 2 && !n.textContent.includes("\n");
+        if ((setext || newSetext) && level <= 2) {
           let line: string;
-          if (ok) {
+          if (ok && setext) {
             line = setext.line.replace(/[=-]+/, (u: string) => (level === 1 ? "=" : "-").repeat(u.length));
           } else {
             line = this.continuation(e.chain) + (level === 1 ? "===" : "---");
           }
-          return this.inline(e, ok) + (setext.term ?? this.eol) + line;
+          return this.inline(e, ok) + (setext?.term ?? this.eol) + line;
         }
         const open =
           n.attrs.open !== null && n.attrs.openLevel === level && !setext ? n.attrs.open : `${"#".repeat(level)} `;

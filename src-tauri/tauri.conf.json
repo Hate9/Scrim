@@ -48,6 +48,37 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "Live-preview Markdown editor"
+    "shortDescription": "Live-preview Markdown editor",
+    "fileAssociations": [
+      {
+        "ext": [
+          "md",
+          "markdown"
+        ],
+        "mimeType": "text/markdown",
+        "name": "Markdown document",
+        "description": "Markdown document",
+        "role": "Editor"
+      }
+    ],
+    "longDescription": "Scrim is a live-preview Markdown editor for Linux and Windows: Markdown renders as you type and the file on disk stays plain Markdown.",
+    "linux": {
+      "deb": {
+        "recommends": [
+          "hunspell-en-us"
+        ],
+        "section": "editors",
+        "desktopTemplate": "../packaging/linux/scrim.desktop"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "publisher": "Scrim developers"
   }
 }
