@@ -1108,14 +1108,21 @@ async function loadConfig() {
   const tree = menuTree({ isWindows, recent: () => recentCache, openRecent: () => {}, clearRecent: () => {}, themes: () => [], currentTheme: () => "", setTheme: () => {}, checked: () => false, debugging: () => true, hasPath: () => true, pandoc: () => true, customExports: () => [], runCustomExport: () => {}, pandocHelp: () => {}, spellLanguages: () => [], spellLanguage: () => "auto", setSpellLanguage: () => {}, snippets: () => [] });
   const { overrides, global: globals, problems } = shortcutOverrides(tree, (config.shortcuts ?? {}) as Record<string, unknown>);
   dispatcher.rebind(overrides);
-  if (globals.size) void ipc.log("info", `global shortcuts are not supported on this platform yet: ${[...globals.keys()].join(", ")}`);
-  const errors = [info.error, ...problems.map((p) => `config.jsonc shortcuts: ${p}`)].filter(Boolean);
+  // `global:` entries (12): registered system-wide by Rust, best effort.
+  const globalProblems = await ipc.globalShortcutsSet(Object.fromEntries(globals)).catch((e) => [String(e)]);
+  const errors = [info.error, ...problems.map((p) => `config.jsonc shortcuts: ${p}`), ...globalProblems.map((p) => `global shortcut ${p}`)].filter(Boolean);
   if (errors.length) showNotice(errors.join(" · "));
   await appMenu.rebuild();
 }
 void listen("scrim://config-changed", () => void loadConfig());
+// A global shortcut pressed while this window had focus last (or opened it).
+void appWindow.listen<string>("scrim://global-shortcut", (e) => void dispatcher.runId(e.payload, "native"));
 themes.onApplied.push(() => void appMenu.rebuild());
-void refreshRecent().then(loadConfig).then(detectPandoc);
+void refreshRecent()
+  .then(loadConfig)
+  .then(() => ipc.globalShortcutTake())
+  .then((id) => id && dispatcher.runId(id, "native"))
+  .then(detectPandoc);
 spelling.onChange.push(() => void appMenu.rebuild());
 void spelling.init();
 

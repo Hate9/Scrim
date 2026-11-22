@@ -2,6 +2,7 @@
 //! wires it to windows, IPC commands, the `scrim-file` protocol, and the webviews.
 
 mod caret;
+mod hotkeys;
 mod commands;
 mod config;
 mod embed;
@@ -46,6 +47,8 @@ pub fn run() {
     let result = tauri::Builder::default()
         // Must be the first plugin: a second instance hands its arguments over here and
         // exits before anything else starts (spec 01, "Single instance").
+        .manage(hotkeys::Hotkeys::default())
+        .plugin(hotkeys::plugin())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             let state = app.state::<AppState>();
             state.logger.info(&format!("second instance forwarded {} argument(s)", argv.len().saturating_sub(1)));
@@ -71,6 +74,8 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol(embed::SCHEME, embed::handle)
         .invoke_handler(tauri::generate_handler![
             commands::doc_init,
+            hotkeys::global_shortcuts_set,
+            hotkeys::global_shortcut_take,
             export::export_theme_css,
             export::export_write,
             export::export_embed_image,
@@ -153,6 +158,9 @@ pub fn run() {
             workspace::fs_copy,
         ])
         .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(true) = event {
+                hotkeys::note_focus(window.app_handle(), window.label());
+            }
             if let tauri::WindowEvent::Destroyed = event {
                 workspace::unwatch(window.app_handle(), window.label());
                 let state = window.state::<AppState>();

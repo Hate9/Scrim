@@ -36,6 +36,7 @@ lopdf = { version = "0.38", default-features = false }
 wait-timeout = "0.2"
 spellbook = "0.4"
 encoding_rs = "0.8"
+tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2"

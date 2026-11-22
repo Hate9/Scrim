@@ -139,6 +139,17 @@ window's menu bar and carries no native accelerators: the dispatcher runs every 
 the DOM (the global commands included, which it already handles). Colors come from the
 theme's sidebar and control variables (10.4).
 
+### `global:` shortcuts (spec 12)
+
+Each window sends the `global:` entries of `config.jsonc` (command id → key) to
+`hotkeys::global_shortcuts_set` after reading the config; Rust skips a map it already
+applied, so registration happens once per change (tauri-plugin-global-shortcut, X11 key
+grabs on Linux). A press runs the command in the document window that had focus last
+(shown and focused first) through the `scrim://global-shortcut` event and the dispatcher;
+with no window open it opens one, which picks the command up at startup
+(`global_shortcut_take`). Keys that cannot be registered (taken by another program,
+Wayland) are shown in the config notice and logged.
+
 ### Cursor blink (spec 11)
 
 `src-tauri/src/caret.rs` sets GTK's `gtk-cursor-blink` at startup and when the

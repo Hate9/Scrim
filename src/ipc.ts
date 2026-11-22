@@ -92,6 +92,8 @@ function inOrder<T>(call: () => Promise<T>): Promise<T> {
 }
 
 export const ipc = {
+  globalShortcutsSet: (map: Record<string, string>) => invoke<string[]>("global_shortcuts_set", { map }),
+  globalShortcutTake: () => invoke<string | null>("global_shortcut_take"),
   listDir: (path: string, options: ListOptions) => invoke<DirEntry[]>("fs_list_dir", { path, options }),
   walk: (path: string, options: ListOptions, limit?: number, details?: boolean) =>
     invoke<FileInfo[]>("fs_walk", { path, options, limit, details }),

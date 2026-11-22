@@ -26,9 +26,10 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
 - **Open time for large files.** About 10 s for 1 MB under Xvfb after the P8 work
   (DESIGN.md, "P8: performance and coverage"); a faster block parser or viewport-only
   rendering is the next step, after measuring on real hardware.
-- **Settings stored but not yet in effect.** Cursor blink on Windows (WebView2 has no
-  switch; the system setting applies) and `global:` shortcuts. The UI exists only in
-  English, so Language has nothing to switch to yet. The custom title bar is checked on
+- **Settings with platform limits.** Cursor blink on Windows (WebView2 has no switch;
+  the system setting applies). `global:` shortcuts need X11 or Windows (Wayland has no
+  global key grabs; the failure is shown and logged). The UI exists only in English, so
+  Language has nothing to switch to yet. The custom title bar is checked on
   Linux only; on Windows it needs a look (menu popup, snapping, DWM caption color). (Diagrams render as code blocks until
   diagram rendering lands, spec 21.)
 - **Window size and position per screen configuration (7.1)** are not remembered yet.

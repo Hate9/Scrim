@@ -154,7 +154,7 @@ are not listed.
 | yaml | 2.9.1 | ISC |
 | zwitch | 2.0.4 | MIT |
 
-## Rust crates compiled into the app (397, Linux and Windows targets)
+## Rust crates compiled into the app (401, Linux and Windows targets)
 
 | Package | Version | License |
 |---|---|---|
@@ -287,6 +287,7 @@ are not listed.
 | glib-macros | 0.18.5 | MIT |
 | glib-sys | 0.18.1 | MIT |
 | glob | 0.3.4 | MIT OR Apache-2.0 |
+| global-hotkey | 0.8.0 | Apache-2.0 OR MIT |
 | globset | 0.4.21 | Unlicense OR MIT |
 | gobject-sys | 0.18.0 | MIT |
 | grep-matcher | 0.1.9 | Unlicense OR MIT |
@@ -331,6 +332,7 @@ are not listed.
 | jiff-core | 1.0.1 | Unlicense OR MIT |
 | json-patch | 4.2.0 | MIT/Apache-2.0 |
 | jsonptr | 0.7.1 | MIT OR Apache-2.0 |
+| keyboard-types | 0.7.0 | MIT OR Apache-2.0 |
 | keyboard-types | 0.8.3 | MIT OR Apache-2.0 |
 | libc | 0.2.191 | MIT OR Apache-2.0 |
 | libdbus-sys | 0.2.7 | Apache-2.0/MIT |
@@ -449,6 +451,7 @@ are not listed.
 | tauri-macros | 2.7.6 | Apache-2.0 OR MIT |
 | tauri-plugin-dialog | 2.8.4 | Apache-2.0 OR MIT |
 | tauri-plugin-fs | 2.7.1 | Apache-2.0 OR MIT |
+| tauri-plugin-global-shortcut | 2.4.1 | Apache-2.0 OR MIT |
 | tauri-plugin-opener | 2.7.3 | Apache-2.0 OR MIT |
 | tauri-plugin-single-instance | 2.5.5 | Apache-2.0 OR MIT |
 | tauri-runtime | 2.12.4 | Apache-2.0 OR MIT |
@@ -537,6 +540,7 @@ are not listed.
 | x11rb | 0.13.2 | MIT OR Apache-2.0 |
 | x11rb-protocol | 0.13.2 | MIT OR Apache-2.0 |
 | xattr | 1.7.0 | MIT OR Apache-2.0 |
+| xkeysym | 0.2.1 | MIT OR Apache-2.0 OR Zlib |
 | yoke | 0.8.4 | Unicode-3.0 |
 | yoke-derive | 0.8.4 | Unicode-3.0 |
 | zbus | 5.19.0 | MIT |

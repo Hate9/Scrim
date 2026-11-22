@@ -353,3 +353,19 @@ test("11 custom title bar: frameless window, title, menu button, rename by click
   writeFileSync(join(process.env.SCRIM_CONFIG_DIR, "settings.json"), JSON.stringify({ windowStyle: "custom" }) + "\n");
   return fixture("titled.md", "# Titled\n");
 });
+
+test("12 global: shortcuts are registered system-wide and run in the last focused window", async (s) => {
+  const cfg = join(process.env.SCRIM_CONFIG_DIR, "config.jsonc");
+  await ready(s);
+  const original = readFileSync(cfg, "utf8");
+  const log = () => readFileSync(join(process.env.SCRIM_CONFIG_DIR, "app.log"), "utf8");
+  try {
+    writeFileSync(cfg, original.replace('"shortcuts": {}', '"shortcuts": { "Quick Open": "global:Ctrl+Alt+K" }'));
+    await waitFor(() => log().includes("global shortcut Ctrl+Alt+K → file.quickOpen"), "registered", 8000);
+    // An X key event that the webview does not see first: the grab takes it.
+    spawnSync("xdotool", ["key", "ctrl+alt+k"], { env: process.env });
+    await waitFor(() => s.exec("const q = document.querySelector('.scrim-quick-open'); return !!q && !q.hidden"), "quick open shown");
+  } finally {
+    writeFileSync(cfg, original);
+  }
+}, () => fixture("g12.md", "text\n"));
