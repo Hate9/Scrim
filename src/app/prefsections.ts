@@ -13,6 +13,8 @@ export interface SectionHooks {
   resetAdvanced(): void;
   openAdvanced(): void;
   customizeAvailable(): boolean;
+  /** the Customize pane (18) */
+  customizePane(): HTMLElement;
   pickFolder(key: string): void;
   testUpload(): void;
   /** spell check languages from the system (13) */
@@ -387,6 +389,11 @@ export function preferenceSections(h: SectionHooks): Section[] {
         },
       ],
     },
-    { id: "customize", title: "Customize", visible: h.customizeAvailable, groups: [] },
+    {
+      id: "customize",
+      title: "Customize",
+      visible: h.customizeAvailable,
+      groups: [{ title: "", controls: [{ kind: "custom", label: "Snippets Shortcut Picker Custom HTML Tags base.user.css config.jsonc", render: h.customizePane }] }],
+    },
   ];
 }

@@ -888,3 +888,133 @@ footer button,
   padding: 6px 8px;
   opacity: 0.7;
 }
+
+/* Preferences → Customize (18). */
+.scrim-customize {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+.scrim-cz-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.3);
+}
+.scrim-cz-tab {
+  font: 13px system-ui, sans-serif;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.scrim-cz-tab.active {
+  border-color: rgba(127, 127, 127, 0.3);
+  background: var(--bg-color, #fff);
+}
+.scrim-cz-status {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.scrim-cz-status.error,
+.scrim-cz-error {
+  color: #d03030;
+  opacity: 1;
+}
+.scrim-cz-error {
+  font: 12px var(--monospace, monospace);
+  white-space: pre-wrap;
+}
+.scrim-cz-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 4px;
+}
+.scrim-cz-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.scrim-preferences-control .scrim-cz-row input.scrim-cz-name {
+  flex: 1;
+  width: auto;
+  margin-left: 0;
+}
+.scrim-preferences-control input.scrim-shortcut-field {
+  width: 170px;
+  text-align: center;
+  margin-left: 0;
+}
+.scrim-cz-delete {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+}
+.scrim-cz-warn {
+  color: #b7791f;
+  font-size: 12px;
+}
+.scrim-cz-warn[hidden],
+.scrim-cz-error[hidden],
+.scrim-cz-banner[hidden] {
+  display: none;
+}
+.scrim-cz-bodyfield {
+  font: 12px/1.4 var(--monospace, monospace);
+  resize: vertical;
+  width: 100%;
+  box-sizing: border-box;
+}
+.scrim-cz-tagrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
+}
+.scrim-preferences-control .scrim-cz-tagrow input.scrim-cz-tags {
+  flex: 1;
+  font-family: var(--monospace, monospace);
+}
+.scrim-cz-muted {
+  opacity: 0.65;
+  font-size: 12px;
+}
+.scrim-cz-path {
+  font: 12px var(--monospace, monospace);
+  opacity: 0.65;
+  user-select: text;
+  margin-bottom: 6px;
+}
+.scrim-cz-editor {
+  min-height: 200px;
+  height: 50vh;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.scrim-cz-editor .cm-editor {
+  height: 100%;
+}
+.scrim-cz-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.scrim-cz-banner {
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  background: var(--notice-bg, #fff6d6);
+  color: var(--notice-fg, #5c4a00);
+  border-radius: 3px;
+}

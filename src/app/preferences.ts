@@ -10,7 +10,9 @@ export type Control =
   | { kind: "number"; key: string; label: string; def: number; min?: number; max?: number; step?: number; unit?: string; hint?: string }
   | { kind: "textarea"; key: string; label: string; def: string; placeholder?: string; hint?: string }
   /** custom export commands (09 9.5): name, output extension, command template */
-  | { kind: "commands"; key: string; label: string; hint?: string };
+  | { kind: "commands"; key: string; label: string; hint?: string }
+  /** a whole pane drawn by its owner (Customize, 18); `label` is for search */
+  | { kind: "custom"; label: string; render: () => HTMLElement; hint?: string };
 
 export interface Group {
   title: string;
@@ -151,9 +153,11 @@ export class Preferences {
       const controls = g.controls.filter((c) => this.matches(c, q) && !(c.kind === "button" && c.visible && !c.visible()));
       if (!controls.length) continue;
       const group = el("div", "scrim-preferences-group");
-      const head = el("div", "scrim-preferences-group-title", g.title);
-      if (g.hint) head.appendChild(el("span", "scrim-preferences-hint", ` (${g.hint})`));
-      group.appendChild(head);
+      if (g.title) {
+        const head = el("div", "scrim-preferences-group-title", g.title);
+        if (g.hint) head.appendChild(el("span", "scrim-preferences-hint", ` (${g.hint})`));
+        group.appendChild(head);
+      }
       for (const c of controls) group.appendChild(this.control(c));
       this.body.appendChild(group);
     }
@@ -281,6 +285,9 @@ export class Preferences {
         row.appendChild(box);
         break;
       }
+      case "custom":
+        row.appendChild(c.render());
+        break;
       case "button": {
         const b = el("button", "scrim-preferences-button", c.label);
         b.type = "button";

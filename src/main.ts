@@ -43,6 +43,9 @@ import { DocumentMenu } from "./app/contextmenu";
 import { Spelling } from "./app/spelling";
 import { LocalStore, snippetLabel } from "./app/local";
 import { SnippetPicker } from "./app/snippetpicker";
+import { CustomizePane } from "./app/customize";
+import { EditorView as CMEditorView } from "@codemirror/view";
+import type { MenuNode } from "./app/menu";
 import { focusedCodeMirror, insertSnippet, type Snippet } from "./editor/snippets";
 import { customTags as customTagsRef, setCustomTags } from "./md/customtags";
 import { rebuildInline } from "./editor/decorations";
@@ -865,8 +868,12 @@ const preferences = new Preferences({
         const ok = await message("Restore the default config.jsonc? Your advanced settings and shortcuts are replaced.", { title: "Reset Advanced Settings", kind: "warning", buttons: "OkCancel" });
         if (ok === "Ok") await ipc.configReset();
       },
-      openAdvanced: () => {},
-      customizeAvailable: () => false, // the Customize pane arrives in P7 (18)
+      openAdvanced: () => openCustomize("config"),
+      customizeAvailable: () => true,
+      customizePane: () => {
+        void customize().show();
+        return customize().root;
+      },
       pickFolder: () => {},
       testUpload: () => showNotice("The upload command runs when an image is inserted with the Upload policy."),
       pandocVersion: () => pandocVersion,
@@ -1116,6 +1123,37 @@ local.onChange.push((d) => {
   ]);
   void appMenu.rebuild();
 });
+// Preferences → Customize (18).
+let customizePane: CustomizePane | null = null;
+function customize(): CustomizePane {
+  customizePane ??= new CustomizePane({
+    local,
+    menuShortcuts: () => {
+      const out: { path: string; key: string }[] = [];
+      const walk = (nodes: MenuNode[], path: string[]) => {
+        for (const n of nodes) {
+          const label = n.label.replace(/&/g, "").replace(/…$/, "");
+          if (n.id && !n.id.startsWith("snippet")) {
+            const key = dispatcher.keyOf(n.id);
+            if (key) out.push({ path: [...path, label].join(" → "), key });
+          }
+          if (n.children) walk(typeof n.children === "function" ? n.children() : n.children, [...path, label]);
+        }
+      };
+      walk(appMenu.nodes(), []);
+      return out;
+    },
+    capturing: (on) => {
+      dispatcher.suspended = on;
+      void appMenu.suspendAccelerators(on);
+    },
+  });
+  return customizePane;
+}
+function openCustomize(tab?: "snippets" | "css" | "config") {
+  preferences.open("customize");
+  void customize().show(tab);
+}
 function customTagsBlockSnapshot(): Set<string> {
   return new Set(customTagsRef.block);
 }
@@ -1189,6 +1227,8 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   spelling,
   local,
   picker,
+  /** the CodeMirror view of an element (tests drive the Customize editors) */
+  cmFind: (el: HTMLElement) => CMEditorView.findFromDOM(el),
   themes,
   zoomLevel: () => zoomLevel,
 };

@@ -13,6 +13,7 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `src/md/` | Markdown layer, DOM-free: schema, parser, serializer, inline analyzer, HTML for the clipboard. |
 | `src/editor/` | The live-preview editor: decorations, reveal, commands, escapes, clipboard, links, emoji, key dispatcher. |
 | `src/app/` | Command table (ids and default keys) and the window chrome: sidebar, find bar, quick open, source mode, status bar, workspace behavior (external changes, autosave, recovery, view modes). |
+| `src/app/customize.ts`, `src/app/local.ts`, `src/app/snippetpicker.ts`, `src/editor/snippets.ts`, `src/md/customtags.ts` | Snippets, custom tags, the Customize pane (16–18). |
 | `src/app/spelling.ts`, `src/editor/spell.ts` | Spell check (13): language choice, marks, suggestions. |
 | `src/export/` | Export (09): the static export page from the editor's DOM, settings and front matter overrides, the export/print/import controller, pandoc pre-processing. |
 | `src/content.css` | Document content CSS shared by the editor and exports (the 10.3 base stylesheet and static rendering rules); `styles.css` has the editing mechanics. |
@@ -23,6 +24,56 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `tests/e2e/` | WebDriver acceptance tests (tauri-driver + WebKitWebDriver). |
 | `scripts/` | Test wrappers (`e2e.sh`, `n1-network.sh`, `check-no-http.sh`) and generators. |
 | `spec/` | The specification (read-only for the implementation team). |
+
+## P7: personal features
+
+### local.json (`src-tauri/src/local.rs`, `src/app/local.ts`)
+
+Snippets, custom HTML tags, and the picker shortcut. Rust reads it (missing keys from
+the defaults) and writes it atomically, pretty-printed, keeping unknown keys; the config
+folder watcher reports any change, including external edits, as `scrim://local-changed`
+to every window.
+
+### Snippets (`src/editor/snippets.ts`, `src/app/snippetpicker.ts`)
+
+The body is scanned left to right (`$$` → `$`, the first `$0` → cursor). Insertion works
+on source offsets: within one textblock (inline body, plain text) it is a single
+`insertText`; otherwise the selection becomes source ranges of the serialized document
+(one range for a multi-line body, one per touched textblock for an inline body), the
+body is applied to the text, the document is updated with `applyText` (one transaction,
+one undo step, minimal block diff), and the selection is set from the precomputed source
+offsets through the new source map. Multi-line bodies are indented to the list item's
+content column. With a CodeMirror editor focused (code block, math, front matter, source
+mode) the same rules insert literal text there. Snippet shortcuts are run-time dispatcher
+commands with scope "editing" (live document or one of its CodeMirror editors); their
+keys win over built-in ones. The Snippets menu lists them by name with their keys. The
+picker saves the selection (ProseMirror or CodeMirror) when it opens and restores it
+before inserting; Escape restores it.
+
+### Custom HTML tags (`src/md/customtags.ts`)
+
+A registry shared by the inline analyzer (registered inline names are elements like
+`span`), the sanitizer (`ADD_TAGS` for HTML blocks; attributes are sanitized as for any
+element), and the block parser: registered block names are appended to micromark's
+CommonMark type-6 tag list (`micromark-util-html-tag-name`'s `htmlBlockNames`, the one
+copy micromark reads), so a line starting with `<callout` starts an HTML block ending at
+the next blank line, and removed again on unregistering. Names must match
+`^[a-z][a-z0-9-]*$` and not be HTML, SVG, MathML, or obsolete element names. When the
+registry changes, inline-only changes re-render every block (`rebuildInline`, the inline
+analysis cache is keyed by the registry version); block changes re-parse the unchanged
+text (cursor, scroll, and dirty state kept, not an undo step).
+
+### Customize pane (`src/app/customize.ts`)
+
+A Preferences section drawn by its owner (control kind `custom`), one DOM tree for the
+window's lifetime so unsaved text survives switching tabs or closing Preferences.
+Snippets & Tags saves 400 ms after the last change. Shortcut fields capture with every
+app shortcut suspended (the dispatcher's `suspended` flag and a menu rebuild without
+native accelerators), record layout-logical keys as `Ctrl+Alt+Shift+Super+Key`, and list
+conflicts with menu items (with their menu path), other snippets, and the picker.
+`base.user.css` and `config.jsonc` are CodeMirror editors; config is validated with the
+JSONC parser before saving (the error carries line and column) and saved verbatim. Files
+changed on disk reload silently, or ask when the tab has edits.
 
 ## P6: spell check
 

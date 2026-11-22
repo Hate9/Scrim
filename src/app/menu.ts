@@ -105,8 +105,16 @@ export class AppMenu {
   private checks: { item: CheckMenuItem; node: MenuNode }[] = [];
   private building: Promise<void> | null = null;
   private again = false;
+  /** While a shortcut field captures keys (18), no native accelerator is installed. */
+  private suspended = false;
 
   constructor(private tree: () => MenuNode[], private dispatcher: Dispatcher) {}
+
+  async suspendAccelerators(on: boolean) {
+    if (this.suspended === on) return;
+    this.suspended = on;
+    await this.rebuild();
+  }
 
   /** The menu as it would be built now (tests read labels and enabled states). */
   nodes(): MenuNode[] {
@@ -140,7 +148,7 @@ export class AppMenu {
         return Submenu.new({ text: n.label, items, enabled: n.enabled ? n.enabled() : true });
       }
       const key = n.id ? this.dispatcher.keyOf(n.id) : "";
-      const accelerator = nativeAccelerator(key, !!n.id && this.dispatcher.byId.get(n.id)?.scope === "global");
+      const accelerator = this.suspended ? undefined : nativeAccelerator(key, !!n.id && this.dispatcher.byId.get(n.id)?.scope === "global");
       const shown = !accelerator && (key || n.display) ? `${n.label}\t${key || n.display}` : n.label;
       const action = () => {
         if (n.run) n.run();
