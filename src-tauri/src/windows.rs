@@ -233,8 +233,12 @@ pub fn create_window(app: &AppHandle, path: Option<PathBuf>) -> tauri::Result<We
         .min_inner_size(400.0, 300.0)
         .decorations(!frameless);
     let builder = hardening::configure_builder(builder);
+    let remembered = crate::winstate::initial(app);
     match builder.build() {
         Ok(window) => {
+            if let Some(g) = remembered {
+                crate::winstate::apply(&window, g);
+            }
             hardening::configure_webview(&window, &state.logger);
             Ok(window)
         }

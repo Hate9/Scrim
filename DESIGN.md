@@ -150,6 +150,15 @@ with no window open it opens one, which picks the command up at startup
 (`global_shortcut_take`). Keys that cannot be registered (taken by another program,
 Wayland) are shown in the config notice and logged.
 
+### Window geometry (7.1)
+
+`src-tauri/src/winstate.rs` keys geometry by the monitor layout (each monitor's size,
+position and scale, sorted), records document windows on every move or resize (written
+to `<config>/window-state.json` 500 ms after the last change; a maximized window keeps
+its normal geometry plus the flag), and applies it to new windows, cascading 30 px past
+windows already at that spot. Wayland compositors may ignore the position. The e2e
+harness removes the file before each test.
+
 ### Cursor blink (spec 11)
 
 `src-tauri/src/caret.rs` sets GTK's `gtk-cursor-blink` at startup and when the

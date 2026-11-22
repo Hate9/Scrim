@@ -32,7 +32,6 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   Language has nothing to switch to yet. The custom title bar is checked on
   Linux only; on Windows it needs a look (menu popup, snapping, DWM caption color). (Diagrams render as code blocks until
   diagram rendering lands, spec 21.)
-- **Window size and position per screen configuration (7.1)** are not remembered yet.
 - **T-1 fixture themes.** T-1 runs `scripts/fetch-fixture-themes.mjs` first (the pinned,
   hash-checked list in `spec/fixtures/themes.lock.json`, into the git-ignored
   `tests/fixtures/themes/`). Approved screenshots are committed in `tests/golden/themes/`;

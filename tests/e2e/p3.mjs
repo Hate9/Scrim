@@ -360,3 +360,24 @@ test("Q-016 the implicit folder follows the document and is not a recent folder"
   const recent = await js(s, "return window.__TAURI_INTERNALS__.invoke('recent_get')");
   if (recent.folders.some((f) => f.includes("q016"))) throw new Error(`implicit folder in recent folders: ${recent.folders}`);
 });
+
+test("7.1 window size and position are remembered per screen configuration", async (s) => {
+  await ready(s);
+  await s.cmd("POST", "/window/rect", { x: 120, y: 90, width: 700, height: 520 });
+  const stateFile = join(process.env.SCRIM_CONFIG_DIR, "window-state.json");
+  const saved = () => (existsSync(stateFile) ? Object.values(JSON.parse(readFileSync(stateFile, "utf8"))) : []);
+  await waitFor(() => saved().some((g) => g.width === 700 && g.height === 520), "geometry saved", 5000).catch((e) => {
+    throw new Error(`${e.message}: ${existsSync(stateFile) ? readFileSync(stateFile, "utf8") : "no file"}`);
+  });
+  const before = await s.cmd("GET", "/window/handles");
+  await js(s, "window.__scrim.command('file.newWindow'); return true");
+  await waitFor(async () => (await s.cmd("GET", "/window/handles")).length > before.length, "a new window", 30000);
+  const handle = (await s.cmd("GET", "/window/handles")).find((h) => !before.includes(h));
+  await s.switchTo(handle);
+  await waitFor(() => js(s, "return !!window.__scrim"), "new window ready");
+  const rect = await s.cmd("GET", "/window/rect");
+  const g = saved()[0];
+  if (rect.width !== 700 || rect.height !== 520) throw new Error(`new window is ${rect.width}x${rect.height}`);
+  // Another window already sits at the remembered spot: the new one cascades.
+  if (rect.x === g.x && rect.y === g.y) throw new Error("new window covers the first one exactly");
+}, () => fixture("w71.md", "text\n"));

@@ -5,7 +5,7 @@
 // provides the display and bus.
 
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -91,6 +91,8 @@ export async function main(filter) {
       await waitFor(() => !appRunning(), "previous app instance to exit", 15000);
       // Each test starts with default preferences (they persist in settings.json).
       writeFileSync(join(process.env.SCRIM_CONFIG_DIR, "settings.json"), "{}\n");
+      // ... and the default window geometry (7.1 remembers it per screen configuration).
+      rmSync(join(process.env.SCRIM_CONFIG_DIR, "window-state.json"), { force: true });
       const prepared = t.prepare();
       const [file, extra] = Array.isArray(prepared) ? prepared : [prepared];
       let s;

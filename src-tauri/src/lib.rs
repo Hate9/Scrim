@@ -2,6 +2,7 @@
 //! wires it to windows, IPC commands, the `scrim-file` protocol, and the webviews.
 
 mod caret;
+mod winstate;
 mod hotkeys;
 mod commands;
 mod config;
@@ -48,6 +49,7 @@ pub fn run() {
         // Must be the first plugin: a second instance hands its arguments over here and
         // exits before anything else starts (spec 01, "Single instance").
         .manage(hotkeys::Hotkeys::default())
+        .manage(winstate::WindowStates::default())
         .plugin(hotkeys::plugin())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             let state = app.state::<AppState>();
@@ -160,6 +162,9 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(true) = event {
                 hotkeys::note_focus(window.app_handle(), window.label());
+            }
+            if let tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) = event {
+                winstate::record(window);
             }
             if let tauri::WindowEvent::Destroyed = event {
                 workspace::unwatch(window.app_handle(), window.label());
