@@ -15,9 +15,15 @@ on:
         default: ""
   push:
     branches: [main]
+    # Only what changes how a document renders.
     paths:
-      - "src/**"
-      - "src-tauri/**"
+      - "src/*.css"
+      - "src/editor/**"
+      - "src/md/**"
+      - "src-tauri/themes/**"
+      - "src-tauri/src/protocol.rs"
+      - "crates/scrim-core/src/theme_css.rs"
+      - "package-lock.json"
       - "spec/fixtures/themes.lock.json"
       - "tests/golden/themes/*.png"
       - "tests/e2e/p4.mjs"
@@ -27,7 +33,7 @@ permissions:
 
 concurrency:
   group: goldens
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   t1:

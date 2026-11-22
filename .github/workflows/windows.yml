@@ -1,0 +1,27 @@
+name: Windows
+
+# Windows build and unit tests (Windows minutes are billed double): weekly and on
+# demand instead of on every push.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+concurrency:
+  group: windows
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - run: cargo test --workspace
+      - run: npx tauri build --debug --no-bundle

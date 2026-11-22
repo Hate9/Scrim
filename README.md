@@ -13,8 +13,9 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
 
 ## Open items
 
-- **Windows verification (QA-LOG Q-006).** Until a Windows machine is available, CI's
-  Windows job (build + unit tests) is the only Windows coverage. Before P8, run S-1, S-3,
+- **Windows verification (QA-LOG Q-006).** Until a Windows machine is available, the
+  Windows workflow (build + unit tests; weekly and on demand, `windows.yml`) is the only
+  Windows coverage. Before P8, run S-1, S-3,
   and N-1 (per-process firewall or ETW trace of `scrim.exe` and its WebView2 children)
   on Windows 11 and confirm the WebView2 settings in `src-tauri/src/hardening.rs` take
   effect.

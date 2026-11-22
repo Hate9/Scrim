@@ -640,6 +640,14 @@ folder, P4 the theme CSS selector rewrite.
 window prints itself to that file without a dialog. The P5 pipeline ("P5: output") grew
 out of it.
 
+## CI budget
+
+`ci.yml` (Linux: lint, unit tests, build, full E2E under the N-1 trace) runs on pushes
+that change code or tests, not on spec pulls, questions, or documents; a newer push
+cancels a running check. `windows.yml` (build and unit tests, billed double) runs weekly
+and on demand. `goldens.yml` runs only when files that affect rendering change. The full
+E2E suite also runs locally before each push.
+
 ## Testing
 
 | Command | What |
