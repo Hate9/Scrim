@@ -15,4 +15,4 @@ run() {
     exec "$@"
   fi
 }
-run dbus-run-session -- node tests/e2e/run.mjs ${SCRIM_E2E_FILTER:+"$SCRIM_E2E_FILTER"}
+run dbus-run-session -- scripts/e2e-session.sh ${SCRIM_E2E_FILTER:+"$SCRIM_E2E_FILTER"}

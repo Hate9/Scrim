@@ -443,3 +443,45 @@ editor screenshot hides the blocks that are not exported content. The export sta
 exists to compare rendering. The iframe is a test-harness arrangement: the editor's
 CSP (19) still applies in the product, so if the iframe needs a CSP exception, add it
 only in test builds. X-1 is updated.
+
+## Q-026: Plan for the P8 performance work after the real-hardware run
+**Asked by:** spec team, from the owner's real-hardware run, 2026-11-22
+**Question:** On real hardware (Ryzen 5 3600, RTX 3070, KDE on Wayland via XWayland,
+debug build, `SCRIM_PERF_STRICT=1`) the results are: PF-1 open 1 MB 6,162 ms (budget
+2,000); E-14 median 19.0 ms, p95 34.0 ms (budget 16); first switch to source mode on
+10,000 lines 789 ms (budget 300); sidebar with 5,000 files 122 ms (passes). Real hardware
+is only about 2 times faster than the software-rendered display, so the budgets are not
+met by hardware alone. Which approach?
+**Answer (spec team, approved by the project owner, 2026-11-22):** The budgets stand.
+Do both of the following, measure each separately, and record the numbers in DESIGN.md.
+
+1. **Block parsing in Rust for whole-document parses** (open, reload, leaving source
+   mode). 01 now allows this. The Rust side returns block spans with byte offsets
+   together with the file text, in one IPC reply. Requirements:
+   - The Rust block model MUST equal the frontend's for all 699 documents in the
+     existing equivalence test, with strict mode both on and off. Add that check to CI,
+     so the two parsers cannot drift apart.
+   - Every Markdown extension the editor supports (front matter, math blocks, footnote
+     and link definitions, HTML blocks, `[TOC]`, tables, task lists, lenient headings
+     with strict mode off) MUST be covered. Where a crate's behavior differs, a small
+     purpose-built block scanner is acceptable.
+   - Incremental parsing while typing stays in the frontend, so a keystroke never waits
+     on IPC.
+   - Measure in a release build too: run the e2e performance tests with
+     `SCRIM_APP` pointing at a release binary, and report both numbers.
+2. **CSS containment on top-level blocks with measured heights**, as Q-011 described:
+   `content-visibility: auto; contain-intrinsic-size: auto <measured height>` plus
+   `contain: layout style`. The heights must come from real layout, not a constant. The
+   earlier attempt with a fixed 1.6em was 30 times slower. Re-measure after theme
+   changes, font changes and window resizes. Before adding containment, profile one
+   E-14 run and check whether Scrim's own code forces the layouts (reading geometry
+   after each keystroke: cursor coordinates, scroll-into-view, status bar, toolbar).
+   Remove any such forced layout first. Provide a way to enable WebKit's inspector in
+   debug builds so the owner can profile on real hardware. Containment MUST NOT break
+   find, selection across offscreen blocks, spell check, IME, or scroll restore.
+   Existing tests cover most of these. Add one that selects from the top of a 10,000-line
+   document to the bottom and copies.
+
+Fallback: if E-14 p95 still exceeds 16 ms on the owner's machine after both changes,
+report the numbers and the profile before starting viewport-only rendering. That is a
+separate decision.

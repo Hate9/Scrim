@@ -41,6 +41,20 @@ hardware.
 | Sidebar, 5,000 files | about 2.5 s | about 235 ms | 1 s |
 | E-14 typing p95, 10,000 lines | 37–62 ms | about 60 ms (layout-bound) | 16 ms |
 
+Real-hardware baseline (QA-LOG Q-026; the owner's machine: Ryzen 5 3600, RTX 3070, KDE
+on Wayland via XWayland; `SCRIM_PERF_STRICT=1`, commit 326442d). Every Q-026 change is
+measured against these columns.
+
+| Measure | Debug build | Release build | Budget |
+|---|---|---|---|
+| Open 1 MB | 6,162 ms | 4,961 ms | 2,000 ms |
+| E-14 typing, 10,000 lines | median 19.0 ms, p95 34.0 ms | median 19.0 ms, p95 35.0 ms | p95 16 ms |
+| First switch to source mode, 10,000 lines | 789 ms | 777 ms | 300 ms |
+| Sidebar, 5,000 files | 122 ms | 48 ms | 1,000 ms |
+
+Rust optimization saves about 1.2 s of the open and nothing on typing: what remains is
+the JavaScript parse and WebKit's layout.
+
 What changed:
 
 - The document parse builds block-level mdast only (inline constructs disabled; the
