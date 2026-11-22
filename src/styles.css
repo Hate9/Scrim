@@ -123,6 +123,9 @@ pre {
   display: block;
   background: inherit;
   position: relative;
+  /* theme pseudo-elements with content ' ' collapse to zero height (Q-021); CodeMirror
+     sets the code lines' own wrapping */
+  white-space: normal;
 }
 .CodeMirror-line {
   padding: 0 4px;

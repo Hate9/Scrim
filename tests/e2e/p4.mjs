@@ -81,6 +81,11 @@ test("T-3 built-in paper matches 22.2", async (s) => {
   await expectStyle(s, "#write hr", { "border-bottom-width": 1, "border-bottom-color": "rgb(197, 197, 197)", "margin-top": 20 });
   await expectStyle(s, "#write pre.md-meta-block", { "font-size": 12.8, color: "rgb(85, 85, 85)" });
   await expectStyle(s, "footer", { "font-size": 12 });
+  // A theme's `content: ' '` pseudo-element on the code block has zero height (Q-021).
+  const gap = `const pre = document.querySelector('#write pre.md-fences'); return pre.querySelector('.cm-editor').getBoundingClientRect().top - pre.getBoundingClientRect().top`;
+  const plain = await js(s, gap);
+  const withPseudo = await js(s, `const st = document.createElement('style'); st.id = 'q021'; st.textContent = '#write .md-fences::before { content: " "; display: block }'; document.head.append(st); ${gap.replace("return ", "const r = ")}; st.remove(); return r`);
+  if (Math.abs(withPseudo - plain) > 0.5) throw new Error(`code block pseudo-element takes ${withPseudo - plain}px`);
 }, () => fixture("t3.md", FEATURES));
 
 test("T-6 compatibility rewrite: sidebar red; url() and strings untouched", async (s) => {

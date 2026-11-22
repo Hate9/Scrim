@@ -90,6 +90,9 @@ Implementation decisions and deviations from the spec's "recommended" designs
   `.CodeMirror` (or on `pre.md-fences`) reaches the code; Scrim sets no font on the
   editor itself. Front matter gets no CodeMirror alias classes, so code block theme
   rules never reach it.
+- **Code block wrapping** (QA-LOG Q-021): `pre.md-fences` has `white-space: normal`, so
+  theme pseudo-elements with `content: ' '` collapse to zero height; CodeMirror's own
+  content rule keeps the code lines' pre-style wrapping.
 - **CodeMirror's injected styles** are wrapped in `@layer scrim-cm`
   (`src/editor/cmlayer.ts` wraps each style-mod module's rules before CodeMirror first
   mounts them), so unlayered theme CSS beats them at any specificity.
