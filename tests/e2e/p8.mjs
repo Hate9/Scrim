@@ -39,9 +39,15 @@ test("PF-1 toggle source mode on 10,000 lines (< 300 ms)", async (s) => {
 
 test("PF-1 sidebar with 5,000 files (< 1 s)", async (s) => {
   await waitFor(() => js(s, "return window.__scrim?.openMs?.() != null"), "document open");
+  await sleep(1500); // let the document's own after-load work finish
+  if (process.env.PF_CSS) await js(s, "const st = document.createElement('style'); st.textContent = " + JSON.stringify(process.env.PF_CSS) + "; document.head.appendChild(st); return true");
+  // Until the visible rows are in the DOM and drawn (two frames); a big tree is virtual.
   const ms = await js(s, `const t = performance.now(); window.__scrim.sidebar.showFiles(false);
-    return new Promise((r) => { const tick = () => document.querySelectorAll('#file-library .file-tree-node').length >= 500 ? requestAnimationFrame(() => r(performance.now() - t)) : setTimeout(tick, 5); tick(); })`);
+    return new Promise((r) => { const tick = () => document.querySelectorAll('#file-library .file-tree-node').length >= 20 ? requestAnimationFrame(() => requestAnimationFrame(() => r(performance.now() - t))) : setTimeout(tick, 20); tick(); })`);
   budget("sidebar 5,000 files", ms, 1000);
+  // The virtual tree draws rows as they scroll into view.
+  await js(s, "const l = document.getElementById('file-library'); l.scrollTop = l.scrollHeight; return true");
+  await waitFor(() => js(s, "return !!document.querySelector('#file-library [data-path$=\"note-4999.md\"]')"), "last row drawn after scrolling");
 }, () => {
   const dir = join(docs, "pf1-many");
   mkdirSync(dir, { recursive: true });

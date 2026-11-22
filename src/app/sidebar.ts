@@ -20,6 +20,15 @@ export interface SidebarHooks {
 
 type Tab = "files" | "outline" | "search";
 
+/** Trees with more rows than this are drawn virtually. */
+const VIRTUAL_MIN_ROWS = 1000;
+
+interface FlatRow {
+  entry: DirEntry;
+  depth: number;
+  open: boolean;
+}
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = "", text = ""): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -53,6 +62,7 @@ export class Sidebar {
 
   constructor(private editor: Editor, private hooks: SidebarHooks) {
     this.library.id = "file-library";
+    this.library.addEventListener("scroll", () => this.drawVirtual(), { passive: true });
     this.outline.id = "outline-content";
     this.root.append(this.tabs, this.library, this.outline, this.search, this.bottom, this.resizeHandle());
     this.renderTabs();
@@ -203,6 +213,7 @@ export class Sidebar {
   async refreshFiles() {
     if (this.tab !== "files" || !this.visible) return;
     this.library.textContent = "";
+    this.virtual = null;
     if (!this.folder) {
       const empty = el("div", "scrim-sidebar-empty");
       const b = el("button", "", "Open Folder…");
@@ -212,7 +223,83 @@ export class Sidebar {
       return;
     }
     if (this.listView) return this.renderList();
-    await this.renderDir(this.folder, this.library, 0);
+    // Big trees (PF-1: a folder of 5,000 files) are drawn as a virtual list: only the rows
+    // near the viewport exist. Smaller ones keep the nested structure.
+    const flat: FlatRow[] = [];
+    const ok = await this.collect(this.folder, 0, flat);
+    if (ok && flat.length > VIRTUAL_MIN_ROWS) this.renderVirtual(flat);
+    else await this.renderDir(this.folder, this.library, 0);
+  }
+
+  /** Every visible row of the tree (expanded folders included), or false on an error. */
+  private async collect(dir: string, depth: number, out: FlatRow[]): Promise<boolean> {
+    let entries: DirEntry[];
+    try {
+      entries = await ipc.listDir(dir, this.listOptions());
+    } catch {
+      return false;
+    }
+    for (const entry of entries) {
+      const open = entry.isDir && this.expanded.has(entry.path);
+      out.push({ entry, depth, open });
+      if (open && !(await this.collect(entry.path, depth + 1, out))) return false;
+      if (out.length > VIRTUAL_MIN_ROWS * 20) return true;
+    }
+    return true;
+  }
+
+  private virtual: { rows: FlatRow[]; height: number; shown: Map<number, HTMLElement>; spacer: HTMLElement } | null = null;
+
+  private renderVirtual(rows: FlatRow[]) {
+    const spacer = el("div", "scrim-virtual-tree");
+    spacer.style.position = "relative";
+    this.library.appendChild(spacer);
+    // Row height from one real row (themes may change it).
+    const probe = this.makeRow(rows[0], null);
+    spacer.appendChild(probe);
+    const height = probe.getBoundingClientRect().height || 25;
+    probe.remove();
+    spacer.style.height = `${rows.length * height}px`;
+    this.virtual = { rows, height, shown: new Map(), spacer };
+    this.drawVirtual();
+  }
+
+  private drawVirtual() {
+    const v = this.virtual;
+    if (!v || !v.spacer.isConnected) return;
+    const top = this.library.scrollTop - v.spacer.offsetTop;
+    const first = Math.max(0, Math.floor(top / v.height) - 30);
+    const last = Math.min(v.rows.length - 1, Math.ceil((top + this.library.clientHeight) / v.height) + 30);
+    for (const [i, row] of v.shown) {
+      if ((i < first || i > last) && !row.contains(document.activeElement)) {
+        row.remove();
+        v.shown.delete(i);
+      }
+    }
+    for (let i = first; i <= last; i++) {
+      if (v.shown.has(i)) continue;
+      const row = this.makeRow(v.rows[i], null);
+      row.style.position = "absolute";
+      row.style.top = `${i * v.height}px`;
+      row.style.left = "0";
+      row.style.right = "0";
+      v.spacer.appendChild(row);
+      v.shown.set(i, row);
+    }
+  }
+
+  /** A tree row (shared by the nested and the virtual tree). */
+  private makeRow(r: FlatRow, current: string | null | undefined): HTMLElement {
+    const { entry, depth, open } = r;
+    const row = el("div", "file-library-node file-tree-node");
+    row.dataset.path = entry.path;
+    row.dataset.dir = String(entry.isDir);
+    row.style.paddingLeft = `${8 + depth * 14}px`;
+    row.append(el("span", "file-tree-arrow", entry.isDir ? (open ? "▾" : "▸") : ""), el("span", "file-node-title", entry.name));
+    if (entry.path === (current === undefined ? this.hooks.currentPath() : (current ?? this.hooks.currentPath()))) row.classList.add("active");
+    if (entry.path === this.selectedDir) row.classList.add("selected");
+    this.bindRow(row, entry.path, entry.isDir);
+    return row;
   }
 
   private async renderDir(dir: string, into: HTMLElement, depth: number) {
@@ -225,16 +312,9 @@ export class Sidebar {
     }
     const current = this.hooks.currentPath();
     for (const entry of entries) {
-      const row = el("div", "file-library-node file-tree-node");
-      row.dataset.path = entry.path;
-      row.dataset.dir = String(entry.isDir);
-      row.style.paddingLeft = `${8 + depth * 14}px`;
       const open = entry.isDir && this.expanded.has(entry.path);
-      row.append(el("span", "file-tree-arrow", entry.isDir ? (open ? "▾" : "▸") : ""), el("span", "file-node-title", entry.name));
-      if (entry.path === current) row.classList.add("active");
-      if (entry.path === this.selectedDir) row.classList.add("selected");
+      const row = this.makeRow({ entry, depth, open }, current);
       into.appendChild(row);
-      this.bindRow(row, entry.path, entry.isDir);
       if (open) {
         const children = el("div", "file-tree-children");
         into.appendChild(children);
@@ -475,6 +555,12 @@ export class Sidebar {
   /** F2 on the current file (W-2) or the selected tree row. */
   renameCurrent() {
     const current = this.hooks.currentPath();
+    // In a virtual tree the row may not be drawn yet: scroll to it first.
+    const i = this.virtual?.rows.findIndex((r) => r.entry.path === current) ?? -1;
+    if (this.virtual && i >= 0) {
+      this.library.scrollTop = this.virtual.spacer.offsetTop + i * this.virtual.height - this.library.clientHeight / 2;
+      this.drawVirtual();
+    }
     const row = this.library.querySelector<HTMLElement>(`[data-path="${CSS.escape(current ?? "")}"]`);
     if (row && current) this.inlineRename(row, current);
   }
