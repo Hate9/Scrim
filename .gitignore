@@ -5,3 +5,6 @@ node_modules/
 /tests/fixtures/themes/
 /tests/corpus/generated/
 *.log
+
+# Local T-1 renders; candidates are committed only to goldens/ branches (by CI)
+tests/golden/themes/candidates/

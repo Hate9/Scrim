@@ -85,7 +85,7 @@ jobs:
           mkdir -p tests/golden/themes/candidates
           rm -f tests/golden/themes/candidates/*.png
           cp "$RUNNER_TEMP"/candidates/*.png tests/golden/themes/candidates/
-          git add tests/golden/themes/candidates
+          git add -f tests/golden/themes/candidates   # ignored on main
           if git diff --cached --quiet; then
             echo "Candidates on $branch are already up to date."
             exit 0
