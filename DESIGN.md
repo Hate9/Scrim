@@ -88,8 +88,10 @@ are end-to-end tests in `tests/e2e/p1.mjs`.
 - Checked in the Linux container (2026-11-22): the release .deb installs (Depends
   `libwebkit2gtk-4.1-0, libgtk-3-0`, Recommends `hunspell-en-us`), GIO lists it for
   `text/markdown`, `gio open note.md` opens a window titled `note.md - Scrim`, and
-  `dpkg -r` leaves no binary, desktop file or icon behind. AppImage, PKGBUILD and the
-  Windows installers still need their P8-1 run on the target systems.
+  `dpkg -r` leaves no binary, desktop file or icon behind. The AppImage (about 83 MB,
+  WebKitGTK bundled) carries the same desktop file and opens a file given on its command
+  line. PKGBUILD and the Windows installers still need their P8-1 run on the target
+  systems.
 
 ### Subscript, superscript, highlight (spec 02)
 
