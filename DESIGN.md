@@ -85,6 +85,11 @@ Implementation decisions and deviations from the spec's "recommended" designs
   Links keep a text cursor except while Mod is held or with single-click opening (Q-012,
   confirmed in Q-019). Scrim's look (colors, code tokens, borders) is in the built-in
   themes only.
+- **CodeMirror fonts** (QA-LOG Q-020): `.CodeMirror-scroll` and `.CodeMirror-code`
+  inherit `font-family`, `font-size` and `line-height`, so a theme's font on
+  `.CodeMirror` (or on `pre.md-fences`) reaches the code; Scrim sets no font on the
+  editor itself. Front matter gets no CodeMirror alias classes, so code block theme
+  rules never reach it.
 - **CodeMirror's injected styles** are wrapped in `@layer scrim-cm`
   (`src/editor/cmlayer.ts` wraps each style-mod module's rules before CodeMirror first
   mounts them), so unlayered theme CSS beats them at any specificity.

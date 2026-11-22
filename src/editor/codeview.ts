@@ -282,7 +282,9 @@ export class CodeBlockView implements NodeView {
       cmKeymap.of([...this.escapeKeys(), ...defaultKeymap]),
       syntaxHighlighting(scrimHighlighter),
       this.lang.of([]),
-      cmAliases("cm-s-inner", this.kind !== "code" || this.opts.codeWrap),
+      // Front matter carries no CodeMirror aliases, so code block theme rules never
+      // reach it (QA-LOG Q-020).
+      this.kind === "frontmatter" ? [] : cmAliases("cm-s-inner", this.kind !== "code" || this.opts.codeWrap),
       CMView.contentAttributes.of({ spellcheck: "false" }),
       CMState.tabSize.of(4),
       CMView.updateListener.of((u) => {

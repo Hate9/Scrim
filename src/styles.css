@@ -127,6 +127,14 @@ pre {
 .CodeMirror-line {
   padding: 0 4px;
 }
+/* CodeMirror 6 declares a font and line height on .cm-scroller; everything inside
+   .CodeMirror inherits them from the theme instead (QA-LOG Q-020). */
+.CodeMirror-scroll,
+.CodeMirror-code {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
 .CodeMirror.cm-s-inner {
   background: inherit;
 }
@@ -432,7 +440,6 @@ body.scrim-dragging-text * {
 @layer scrim-cm {
   #write .cm-editor {
     background: transparent;
-    font-family: var(--monospace);
   }
   #write .cm-editor.cm-focused {
     outline: none;
