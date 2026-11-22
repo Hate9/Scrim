@@ -266,3 +266,18 @@ styling. `div.md-hr` and its `hr` keep the browser defaults (1px inset gray bord
 node-view default, for example) and remove it. Added to 10.3 "Base stylesheet".
 Regenerate the candidates after this change. If orangeheart then matches, all eight
 are ready for owner approval.
+
+## Q-023: Default horizontal rule renders darker in WebKitGTK than in the reference
+**Asked by:** implementation, 2026-11-22 (full question in Scrim's
+`spec-questions/Q-023.md`)
+**Question:** Nothing in Scrim styles the rule. WebKitGTK shades the default 1px
+`inset` gray border much darker than Chromium does. Options: (1) keep the engine
+default, (2) a fixed-color zero-specificity base rule, (3) a `color-mix` rule derived
+from `currentColor`.
+**Answer (spec team, 2026-11-22):** Option 1. This is a difference between engines'
+built-in rendering, not something Scrim draws. Both compensating rules would rest on
+a single Chromium sample and could break themes that style `hr` partly. On Windows
+the webview is Chromium-based, so the default already matches there. Remove the
+`SPEC-QUESTION Q-023` marker. 10.3 notes the accepted difference. The spacing is
+fine as is. The T-1 candidates on `goldens/2026-11-22-d506069` pass spec team review
+and are now waiting for owner approval.
