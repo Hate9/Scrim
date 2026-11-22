@@ -15,6 +15,8 @@ export interface SectionHooks {
   customizeAvailable(): boolean;
   pickFolder(key: string): void;
   testUpload(): void;
+  /** spell check languages from the system (13) */
+  spellLanguages(): string[];
   /** detected pandoc version line, or "" */
   pandocVersion(): string;
   isWindows: boolean;
@@ -185,7 +187,8 @@ export function preferenceSections(h: SectionHooks): Section[] {
           title: "Spell Check",
           controls: [
             { kind: "toggle", key: "spellCheck", label: "Spell check", def: true },
-            { kind: "select", key: "spellLanguage", label: "Spell check language", def: "auto", options: [["auto", "Auto"]] },
+            { kind: "select", key: "spellLanguage", label: "Spell check language", def: "auto", options: () => [["auto", "Auto"], ...h.spellLanguages().map((l) => [l, l] as [string, string])] },
+            { kind: "info", label: "Dictionaries", text: () => h.spellLanguages().join(", ") || "none installed" },
           ],
         },
         {

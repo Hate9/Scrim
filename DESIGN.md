@@ -13,6 +13,7 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `src/md/` | Markdown layer, DOM-free: schema, parser, serializer, inline analyzer, HTML for the clipboard. |
 | `src/editor/` | The live-preview editor: decorations, reveal, commands, escapes, clipboard, links, emoji, key dispatcher. |
 | `src/app/` | Command table (ids and default keys) and the window chrome: sidebar, find bar, quick open, source mode, status bar, workspace behavior (external changes, autosave, recovery, view modes). |
+| `src/app/spelling.ts`, `src/editor/spell.ts` | Spell check (13): language choice, marks, suggestions. |
 | `src/export/` | Export (09): the static export page from the editor's DOM, settings and front matter overrides, the export/print/import controller, pandoc pre-processing. |
 | `src/content.css` | Document content CSS shared by the editor and exports (the 10.3 base stylesheet and static rendering rules); `styles.css` has the editing mechanics. |
 | `src/main.ts` | Window glue: load/save, dialogs, link opening, settings, wiring of the chrome. |
@@ -22,6 +23,45 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `tests/e2e/` | WebDriver acceptance tests (tauri-driver + WebKitWebDriver). |
 | `scripts/` | Test wrappers (`e2e.sh`, `n1-network.sh`, `check-no-http.sh`) and generators. |
 | `spec/` | The specification (read-only for the implementation team). |
+
+## P6: spell check
+
+### Provider (`src-tauri/src/spell.rs`)
+
+`SpellProvider` (languages, check, suggest, system locale) has two implementations.
+Linux: Hunspell `.dic`/`.aff` pairs from `$DICPATH`, `~/.local/share/hunspell`,
+`/usr/share/hunspell`, `/usr/share/myspell`, `/usr/share/myspell/dicts` (first location
+wins; `hyph_*` and `th_*` files skipped), read in the encoding their `.aff` names (`SET`)
+and checked with `spellbook` (pure Rust, MPL-2.0); a dictionary loads on first use and
+stays cached. Windows: the Spell Checking API (`ISpellCheckerFactory`, languages
+installed in Windows settings), COM initialized per worker thread. Tags are BCP 47
+(`en-US`). "Auto": the locale's dictionary (`LC_ALL`/`LC_MESSAGES`/`LANG`, or the user
+locale on Windows), then the first English one, then the first. The personal dictionary
+`<config>/dictionary.txt` is Scrim's own on both platforms; it is re-read after Open
+Personal Dictionary when the window is next focused. Checks and suggestions run on
+blocking worker threads.
+
+### Marks (`src/editor/spell.ts`, `src/app/spelling.ts`)
+
+The words are those in text carrying a `md-plain` presentation mark: exactly the rendered
+prose (link text included, autolink text excluded); code, math, URLs and destinations,
+HTML tags, emoji shortcodes, markers, front matter, and code blocks have none. Tokens
+with digits or underscores and all-caps words of up to five letters are skipped. Changed
+blocks lose their marks and are queued; 300 ms after the last change the queued blocks'
+distinct words go to Rust in one batch, and the result applies only if the text has not
+changed since (presentation-mark updates do not count). The word under the cursor after
+an edit stays unmarked until the cursor leaves it. Marks are inline decorations
+(`span.md-spell-error`, wavy underline in `--spell-error-color`, default `#e5484d`);
+exports strip them.
+
+Language: front matter `lang` (matched exactly, else by primary language; also the
+export page's `<html lang>`), else the setting (Preferences → Editor, Edit → Spell Check,
+the status bar's language menu), else Auto. The status bar shows the code (`EN-US`) or ⚠
+with the install hint. Context menu on a marked word: up to six suggestions (replace is
+one undo step), Add to Dictionary, Ignore (this document, this session).
+
+L-4 (German installed in Windows settings) is manual until a Windows machine is
+available.
 
 ## P5: output
 

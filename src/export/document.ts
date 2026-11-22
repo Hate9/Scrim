@@ -221,6 +221,8 @@ export interface PageParts {
   bodyEnd?: string;
   /** paged output (PDF, print) */
   pdf?: PdfSettings;
+  /** front matter `lang` (13: also the HTML `lang`) */
+  lang?: string;
 }
 
 function escapeHtml(s: string): string {
@@ -248,7 +250,7 @@ export async function buildPage(p: PageParts): Promise<string> {
     .map((c) => `<style>\n${c.replace(/<\/style/gi, "<\\/style")}\n</style>`)
     .join("\n");
   return `<!doctype html>
-<html>
+<html${p.lang ? ` lang="${escapeHtml(p.lang)}"` : ""}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

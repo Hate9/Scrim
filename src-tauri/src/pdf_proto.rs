@@ -6,6 +6,7 @@
 //! window prints itself to that file without a dialog once its document has loaded, and
 //! the outcome is logged. The real export pipeline (spec 09) is built in P5.
 
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub const ENV: &str = "SCRIM_PROTO_PRINT_PDF";
 
 #[cfg(target_os = "linux")]

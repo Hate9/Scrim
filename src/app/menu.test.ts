@@ -18,6 +18,9 @@ const tree = menuTree({
   customExports: () => [],
   runCustomExport: () => {},
   pandocHelp: () => {},
+  spellLanguages: () => [],
+  spellLanguage: () => "auto",
+  setSpellLanguage: () => {},
 });
 
 describe("accelerators", () => {

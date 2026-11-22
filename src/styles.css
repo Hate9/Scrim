@@ -47,6 +47,13 @@ body.scrim-links-single-click #write a {
   cursor: pointer;
 }
 
+/* Spelling (spec 13): a wavy underline from --spell-error-color; the text is untouched. */
+.md-spell-error {
+  text-decoration: underline wavy var(--spell-error-color, #e5484d);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 2px;
+}
+
 /* ---- syntax reveal (spec 03, 3.2) ---- */
 .md-meta {
   color: var(--md-char-color);

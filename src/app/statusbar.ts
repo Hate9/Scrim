@@ -19,6 +19,9 @@ export class StatusBar {
   root = document.querySelector("footer") as HTMLElement;
   private count = document.createElement("button");
   private popover = document.createElement("div");
+  /** spell check language (13): its code, or a warning when no dictionary is available */
+  private lang = document.createElement("button");
+  private langMenu = document.createElement("div");
   private timer = 0;
   private total: Counts | null = null;
   private selected: Counts | null = null;
@@ -32,6 +35,15 @@ export class StatusBar {
       setting<T>(key: string, fallback: T): T;
       setSetting(key: string, value: unknown): void;
       sourceText(): string | null;
+      spell: {
+        enabled(): boolean;
+        available(): boolean;
+        hint(): string;
+        language(): string | null;
+        languages(): string[];
+        choice(): string;
+        choose(lang: string): void;
+      };
     },
   ) {
     const left = document.createElement("div");
@@ -53,8 +65,15 @@ export class StatusBar {
     this.count.addEventListener("click", () => this.togglePopover());
     this.popover.className = "scrim-count-popover";
     this.popover.hidden = true;
-    right.appendChild(this.count);
-    this.root.append(left, right, this.popover);
+    this.lang.className = "footer-item scrim-footer-lang";
+    this.lang.addEventListener("click", () => this.toggleLangMenu());
+    this.langMenu.className = "scrim-count-popover scrim-lang-popover";
+    this.langMenu.hidden = true;
+    right.append(this.lang, this.count);
+    this.root.append(left, right, this.popover, this.langMenu);
+    document.addEventListener("mousedown", (e) => {
+      if (!this.langMenu.hidden && !this.langMenu.contains(e.target as Node) && e.target !== this.lang) this.langMenu.hidden = true;
+    });
     editor.onUpdate.push(() => this.schedule());
     this.schedule();
     this.syncButtons();
@@ -64,6 +83,45 @@ export class StatusBar {
     const side = this.root.querySelector(".scrim-footer-sidebar") as HTMLElement;
     side.textContent = this.hooks.sidebarOpen() ? "<" : "○";
     this.root.hidden = !this.hooks.setting("showStatusBar", true);
+  }
+
+  /** The language item: hidden while spell check is off. */
+  syncSpell() {
+    const sp = this.hooks.spell;
+    this.lang.hidden = !sp.enabled();
+    if (!sp.available()) {
+      this.lang.textContent = "⚠";
+      this.lang.title = sp.hint();
+    } else {
+      this.lang.textContent = (sp.language() ?? "").toUpperCase();
+      this.lang.title = "Spell check language";
+    }
+    if (!this.langMenu.hidden) this.renderLangMenu();
+  }
+
+  private toggleLangMenu() {
+    if (!this.hooks.spell.available()) return;
+    this.langMenu.hidden = !this.langMenu.hidden;
+    if (!this.langMenu.hidden) this.renderLangMenu();
+  }
+
+  private renderLangMenu() {
+    const sp = this.hooks.spell;
+    this.langMenu.textContent = "";
+    for (const l of ["auto", ...sp.languages()]) {
+      const row = document.createElement("label");
+      row.className = "scrim-count-row";
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "scrim-lang";
+      radio.checked = l === sp.choice();
+      radio.addEventListener("change", () => {
+        sp.choose(l);
+        this.langMenu.hidden = true;
+      });
+      row.append(radio, document.createTextNode(` ${l === "auto" ? "Auto" : l}`));
+      this.langMenu.appendChild(row);
+    }
   }
 
   /** Counts update within 300 ms of typing stopping (14). */

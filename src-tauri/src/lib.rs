@@ -14,6 +14,7 @@ mod pdf;
 mod pdf_windows;
 mod pdf_proto;
 mod protocol;
+mod spell;
 mod state;
 mod themes;
 mod windows;
@@ -61,6 +62,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(state)
         .manage(workspace::Watchers::default())
+        .manage(spell::Spell::default())
         .manage(themes::ThemeWatcher(std::sync::Mutex::new(None)))
         .manage(config::ConfigWatcher(std::sync::Mutex::new(None)))
         .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, protocol::handle)
@@ -79,6 +81,12 @@ pub fn run() {
             pandoc::import_file,
             pandoc::open_untitled_text,
             pandoc::custom_export,
+            spell::spell_info,
+            spell::spell_check,
+            spell::spell_suggest,
+            spell::spell_add,
+            spell::spell_open_personal,
+            spell::spell_reload_personal,
             commands::doc_set_dirty,
             commands::doc_set_title_override,
             commands::doc_save,

@@ -35,9 +35,10 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
             libayatana-appindicator3-dev webkit2gtk-driver xvfb x11-utils dbus strace xclip
           # P5 export tests: pandoc (X-3, X-4), PDF text tools (X-2, X-5), LibreOffice
-          # opens the docx (X-3), CJK and symbol (✓) fonts for the X-5 header (QA-LOG Q-024).
+          # opens the docx (X-3), CJK and symbol (✓) fonts for the X-5 header (QA-LOG Q-024),
+          # an English dictionary for spell check (L-1, L-2).
           sudo apt-get install -y --no-install-recommends pandoc poppler-utils unzip \
-            libreoffice-writer-nogui fonts-noto-cjk fonts-dejavu-core imagemagick
+            libreoffice-writer-nogui fonts-noto-cjk fonts-dejavu-core imagemagick hunspell-en-us
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy

@@ -6,6 +6,7 @@ import "./p2.mjs";
 import "./p3.mjs";
 import "./p4.mjs";
 import "./p5.mjs";
+import "./p6.mjs";
 
 main(process.argv[2] ? new RegExp(process.argv[2]) : null).catch((e) => {
   console.error(e);

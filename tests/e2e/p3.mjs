@@ -202,7 +202,8 @@ test("W-8 find 'bold' matches **bo**ld; Replace All in **bold** gives **x**", as
   await waitFor(() => js(s, "return document.querySelector('.scrim-find-counter').textContent.endsWith('2')"), "2 matches").catch(async (e) => {
     throw new Error(`${e.message}: counter ${await js(s, "return document.querySelector('.scrim-find-counter').textContent + '|' + document.querySelector('.scrim-find-input').value")}; log ${readFileSync(join(process.env.SCRIM_CONFIG_DIR, "app.log"), "utf8").split("\n").filter((l) => l.includes("ERROR")).slice(-2)}`);
   });
-  await waitFor(() => js(s, "return document.querySelectorAll('#write .md-search-hit, #write .md-search-select').length >= 2"), "hits highlighted");
+  // The highlights are for the whole query: a search still on "b" also counts 2.
+  await waitFor(() => js(s, "return [...document.querySelectorAll('#write .md-search-hit, #write .md-search-select')].map((e) => e.textContent).join('').split('*').join('') === 'boldbold'"), "hits highlighted").catch(async (e) => { throw new Error(e.message + ': ' + JSON.stringify(await js(s, "return [...document.querySelectorAll('#write .md-search-hit, #write .md-search-select')].map((e) => e.textContent)"))); });
   await press(s, ESCAPE);
   await ed(s, "view.focus()");
   await press(s, CTRL, "h");

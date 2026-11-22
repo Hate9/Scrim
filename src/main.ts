@@ -40,6 +40,7 @@ import { Dispatcher } from "./editor/keys";
 import { AppMenu, shortcutOverrides } from "./app/menu";
 import { menuTree } from "./app/menutree";
 import { DocumentMenu } from "./app/contextmenu";
+import { Spelling } from "./app/spelling";
 import { Preferences } from "./app/preferences";
 import { preferenceSections } from "./app/prefsections";
 import { redo, undo } from "prosemirror-history";
@@ -140,6 +141,9 @@ function resolveLocal(src: string): string | null {
 /** Local files already granted to the `scrim-file` protocol. */
 const allowed = new Set<string>();
 
+// Spell check (13); the editor reads its configuration when a document state is made.
+const spelling = new Spelling(() => editor.view, setting);
+
 const editorHooks: Parameters<typeof createEditor>[2] = {
     setImageSource(img, src) {
       if (/^(https?:|data:|blob:)/i.test(src)) {
@@ -192,7 +196,13 @@ const editorHooks: Parameters<typeof createEditor>[2] = {
       notify: (m) => showNotice(m),
       readClipboardMedia: () => ipc.clipboardMedia(),
     },
+    spell: {
+      check: (lang, words) => spelling.check(lang, words),
+      config: () => spelling.config(),
+    },
     onFrontMatter(fm) {
+      // 13: front matter `lang` picks the spelling dictionary.
+      spelling.setDocumentLanguage(fm.lang || null);
       // 4.11: title → window title (QA-LOG Q-013), root-url → image base.
       state.rootUrl = fm["root-url"] ?? null;
       state.imageFolder = fm["image-folder"] ?? null;
@@ -611,7 +621,17 @@ const statusBar = new StatusBar(editor, {
   setting,
   setSetting,
   sourceText: () => (sourceMode.active() ? editor.markdown() : null),
+  spell: {
+    enabled: () => spelling.enabled(),
+    available: () => spelling.info.available,
+    hint: () => spelling.info.hint ?? "",
+    language: () => spelling.config().lang,
+    languages: () => spelling.info.languages,
+    choice: () => setting("spellLanguage", "auto"),
+    choose: (l) => setSetting("spellLanguage", l),
+  },
 });
+spelling.onChange.push(() => statusBar.syncSpell());
 let lastFindDoc: unknown = null;
 editor.onUpdate.push((view) => {
   sidebar.updateOutline();
@@ -844,6 +864,7 @@ const preferences = new Preferences({
       pickFolder: () => {},
       testUpload: () => showNotice("The upload command runs when an image is inserted with the Upload policy."),
       pandocVersion: () => pandocVersion,
+      spellLanguages: () => spelling.info.languages,
     }),
 });
 
@@ -870,6 +891,13 @@ new DocumentMenu(editor, {
   openUrl: (url) => void ipc.openExternal(url, false),
   copyText: (t) => void ipc.clipboardFlavors(t, null),
   openLink: (href) => void openLink(href, false),
+  spell: {
+    at: (pos) => spelling.wordAt(pos),
+    suggestions: (word) => spelling.suggestions(word),
+    replace: (w, text) => spelling.replace(w, text),
+    add: (word) => void spelling.addToDictionary(word),
+    ignore: (word) => spelling.ignore(word),
+  },
   image: {
     open: (src) => {
       const p = resolveLocal(src);
@@ -939,6 +967,12 @@ const exportCommands: CommandDef[] = [
   global("file.exportPrevious", "Ctrl+Shift+E", () => void (exporter.hasPrevious() ? exporter.previous() : showNotice("Nothing exported yet in this window."))),
   global("file.exportSettings", "", () => preferences.open("export")),
   global("file.print", "", () => void exporter.print()),
+  global("edit.spellCheck", "", () => setSetting("spellCheck", !setting("spellCheck", true))),
+  global("edit.openPersonalDictionary", "", () => {
+    spelling.openPersonalDictionary();
+    // Edited outside Scrim: read it again when the window is next focused.
+    window.addEventListener("focus", () => void spelling.reloadPersonal(), { once: true });
+  }),
 ];
 
 const commandList = [
@@ -963,6 +997,7 @@ const sourceToggles: Record<string, () => boolean> = {
   "view.sidebar": () => sidebar.visible,
   "view.fullScreen": () => document.body.classList.contains("scrim-full-screen"),
   "view.alwaysOnTop": () => document.body.classList.contains("scrim-always-on-top"),
+  "edit.spellCheck": () => setting("spellCheck", true),
 };
 function blockChecked(id: string): boolean {
   const $h = editor.view.state.selection.$head;
@@ -997,6 +1032,9 @@ const appMenu = new AppMenu(
       customExports: () => customCommands(setting).map((c) => c.name),
       runCustomExport: (name) => void exporter.run({ kind: "custom", name }),
       pandocHelp: () => void ipc.helpOpen("pandoc"),
+      spellLanguages: () => spelling.info.languages,
+      spellLanguage: () => setting("spellLanguage", "auto"),
+      setSpellLanguage: (lang) => setSetting("spellLanguage", lang),
     }),
   dispatcher,
 );
@@ -1007,7 +1045,7 @@ async function refreshRecent() {
 async function loadConfig() {
   const info = await ipc.config();
   config = info.config as Record<string, unknown>;
-  const tree = menuTree({ isWindows, recent: () => recentCache, openRecent: () => {}, clearRecent: () => {}, themes: () => [], currentTheme: () => "", setTheme: () => {}, checked: () => false, debugging: () => true, hasPath: () => true, pandoc: () => true, customExports: () => [], runCustomExport: () => {}, pandocHelp: () => {} });
+  const tree = menuTree({ isWindows, recent: () => recentCache, openRecent: () => {}, clearRecent: () => {}, themes: () => [], currentTheme: () => "", setTheme: () => {}, checked: () => false, debugging: () => true, hasPath: () => true, pandoc: () => true, customExports: () => [], runCustomExport: () => {}, pandocHelp: () => {}, spellLanguages: () => [], spellLanguage: () => "auto", setSpellLanguage: () => {} });
   const { overrides, global: globals, problems } = shortcutOverrides(tree, (config.shortcuts ?? {}) as Record<string, unknown>);
   dispatcher.rebind(overrides);
   if (globals.size) void ipc.log("info", `global shortcuts are not supported on this platform yet: ${[...globals.keys()].join(", ")}`);
@@ -1018,6 +1056,8 @@ async function loadConfig() {
 void listen("scrim://config-changed", () => void loadConfig());
 themes.onApplied.push(() => void appMenu.rebuild());
 void refreshRecent().then(loadConfig).then(detectPandoc);
+spelling.onChange.push(() => void appMenu.rebuild());
+void spelling.init();
 let checksTimer = 0;
 editor.onUpdate.push(() => {
   clearTimeout(checksTimer);
@@ -1084,6 +1124,7 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   writeDraft: () => drafts.writeDraft(),
   testHooks,
   exporter,
+  spelling,
   themes,
   zoomLevel: () => zoomLevel,
 };
@@ -1094,6 +1135,7 @@ void appWindow.listen("scrim://doc-reload", () => void init());
 void listen("scrim://settings-changed", async () => {
   applySettings((await ipc.settings()) as Record<string, unknown>);
   if (setting("pandocPath", "") !== pandocPathChecked) void detectPandoc();
+  spelling.apply();
   void appMenu.rebuild(); // custom export commands
   rerenderHtmlBlocks();
   preferences.refresh();

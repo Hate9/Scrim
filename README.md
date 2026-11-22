@@ -27,8 +27,7 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
 - **Settings stored but not yet in effect.** Strict mode, the subscript, superscript,
   highlight, diagram, and smart punctuation switches, writing style, code indent, cursor
-  blink, window style (custom title bar), language, spell check (P6), and `global:`
-  shortcuts. They are saved and shown; the features behind them are pending.
+  blink, window style (custom title bar), language, and `global:` shortcuts. They are saved and shown; the features behind them are pending.
 - **Window size and position per screen configuration (7.1)** are not remembered yet.
 - **T-1 fixture themes.** T-1 runs `scripts/fetch-fixture-themes.mjs` first (the pinned,
   hash-checked list in `spec/fixtures/themes.lock.json`, into the git-ignored
@@ -42,7 +41,10 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   `cmd` quoting; both compile in CI but have not been run on Windows (see Q-006).
 - **Pandoc** is optional: Word, OpenDocument, EPUB, and the other pandoc formats, and
   importing them, need it installed (Help: Installing Pandoc).
-- **Manual tests.** E-9 (IME with Japanese input) needs a person.
+- **Spell check on Windows** (Windows Spell Checking API) compiles but has not been run
+  on Windows; L-4 is a manual test.
+- **Manual tests.** E-9 (IME with Japanese input) and L-4 (a Windows language) need a
+  person.
 
 ## Documents
 

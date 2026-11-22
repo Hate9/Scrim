@@ -33,6 +33,8 @@ trash = "5"
 natord = "1"
 lopdf = { version = "0.38", default-features = false }
 wait-timeout = "0.2"
+spellbook = "0.4"
+encoding_rs = "0.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2"
@@ -43,6 +45,7 @@ gtk = "0.18"
 [target.'cfg(windows)'.dependencies]
 # Same versions as wry's, for the WebView2 settings in hardening.rs.
 webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Globalization", "Win32_System_Com"] }
 windows-core = "0.62"
 windows-sys = { version = "0.59", features = ["Win32_UI_Input_KeyboardAndMouse"] }
 

@@ -20,6 +20,14 @@ export interface ContextHooks {
   openUrl(url: string): void;
   copyText(text: string): void;
   openLink(href: string): void;
+  /** spelling suggestions for a marked word (13) */
+  spell?: {
+    at(pos: number): { from: number; to: number; word: string } | null;
+    suggestions(word: string): Promise<string[]>;
+    replace(w: { from: number; to: number; word: string }, text: string): void;
+    add(word: string): void;
+    ignore(word: string): void;
+  };
   image: {
     open(src: string): void;
     reveal(src: string): void;
@@ -69,7 +77,23 @@ export class DocumentMenu {
       if ($p.parent.inlineContent) view.dispatch(view.state.tr.setSelection(TextSelection.near($p)));
     }
     view.focus();
-    this.show(e.clientX, e.clientY, this.items(target));
+    const x = e.clientX;
+    const y = e.clientY;
+    const items = this.items(target);
+    // A misspelled word: suggestions first (13, "Context menu on a marked word").
+    const spell = this.hooks.spell;
+    const w = pos && spell ? spell.at(pos.pos) : null;
+    if (!spell || !w) {
+      this.show(x, y, items);
+      return;
+    }
+    void spell.suggestions(w.word).then((list) => {
+      const head: ContextEntry[] = list.length
+        ? list.slice(0, 6).map((s) => ({ label: s, run: () => spell.replace(w, s) }))
+        : [{ label: "No Suggestions" }];
+      head.push({ label: "Add to Dictionary", run: () => spell.add(w.word) }, { label: "Ignore", run: () => spell.ignore(w.word) }, null);
+      this.show(x, y, [...head, ...items]);
+    });
   }
 
   private items(target: HTMLElement): ContextEntry[] {

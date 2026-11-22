@@ -33,6 +33,7 @@ import { createHeadingPlugin } from "./headings";
 import { createLinkPlugin, type LinkHooks } from "./links";
 import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
+import { createSpellPlugin, type SpellHooks } from "./spell";
 import { codeNodeViews, createCodeSelectionPlugin, type CodeViewHooks } from "./codeview";
 import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
@@ -107,6 +108,7 @@ export function createEditor(
       onFrontMatter(fm: Record<string, string>): void;
       images: ImageHooks;
       embedUrl(src: string): string;
+      spell: SpellHooks;
     },
   onChange: (dirty: boolean) => void,
 ): Editor {
@@ -164,6 +166,7 @@ export function createEditor(
     createBlocksPlugin({ onFrontMatter: hooks.onFrontMatter, numberFootnotes: () => options.numberFootnotes }),
     createCodeSelectionPlugin(),
     createFindPlugin(),
+    createSpellPlugin(hooks.spell),
   ];
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {

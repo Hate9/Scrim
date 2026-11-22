@@ -22,6 +22,10 @@ export interface MenuContext {
   customExports: () => string[];
   runCustomExport: (name: string) => void;
   pandocHelp: () => void;
+  /** spell check languages (13); empty when none is installed */
+  spellLanguages: () => string[];
+  spellLanguage: () => string;
+  setSpellLanguage: (lang: string) => void;
 }
 
 const item = (label: string, id: string, extra: Partial<MenuNode> = {}): MenuNode => ({ label, id, ...extra });
@@ -113,6 +117,19 @@ export function menuTree(c: MenuContext): MenuNode[] {
         item("Find Previous", "edit.findPrevious"),
         item("Replace…", "edit.replace"),
         item("Search in Folder…", "edit.searchInFolder"),
+        SEP,
+        {
+          label: "Spell Check",
+          children: () => [
+            toggle("Check Spelling", "edit.spellCheck"),
+            SEP,
+            { label: "Auto", checked: () => c.spellLanguage() === "auto", run: () => c.setSpellLanguage("auto") },
+            ...c.spellLanguages().map((l) => ({ label: l, checked: () => c.spellLanguage() === l, run: () => c.setSpellLanguage(l) })),
+            ...(c.spellLanguages().length ? [] : [{ label: "No Dictionaries Installed", enabled: () => false }]),
+            SEP,
+            item("Open Personal Dictionary", "edit.openPersonalDictionary"),
+          ],
+        },
         ...(c.isWindows ? [SEP, item("Emoji and Symbols…", "edit.emojiPanel")] : []),
       ],
     },

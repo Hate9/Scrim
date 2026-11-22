@@ -414,7 +414,7 @@ export interface BlockHooks {
 
 export function createBlocksPlugin(hooks: BlockHooks): Plugin {
   const popover = new FootnotePopover();
-  let lastTitle: string | undefined;
+  let lastTitle = "{}"; // the front matter last reported (JSON)
   return new Plugin({
     key: blocksKey,
     state: {
@@ -443,8 +443,9 @@ export function createBlocksPlugin(hooks: BlockHooks): Plugin {
         const list = headingKey.getState(v.state)?.list ?? [];
         for (const t of tocViews) t.render(list);
         const fm = frontMatter(v.state.doc);
-        if (fm.title !== lastTitle) {
-          lastTitle = fm.title;
+        const sig = JSON.stringify(fm);
+        if (sig !== lastTitle) {
+          lastTitle = sig;
           hooks.onFrontMatter(fm);
         }
         // Footnote numbers in document order (4.13).

@@ -278,6 +278,7 @@ pub fn open_untitled_text(app: AppHandle, text: String) -> Result<(), String> {
 // ---- custom export commands (9.5) -----------------------------------------------------
 
 /// POSIX single-quote a value (`'` becomes `'\''`).
+#[cfg_attr(windows, allow(dead_code))]
 pub fn sh_quote(v: &str) -> String {
     format!("'{}'", v.replace('\'', "'\\''"))
 }

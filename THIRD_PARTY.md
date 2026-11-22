@@ -154,7 +154,7 @@ are not listed.
 | yaml | 2.9.1 | ISC |
 | zwitch | 2.0.4 | MIT |
 
-## Rust crates compiled into the app (396, Linux and Windows targets)
+## Rust crates compiled into the app (397, Linux and Windows targets)
 
 | Package | Version | License |
 |---|---|---|
@@ -434,6 +434,7 @@ are not listed.
 | softbuffer | 0.4.8 | MIT OR Apache-2.0 |
 | soup3 | 0.5.0 | MIT |
 | soup3-sys | 0.5.0 | MIT |
+| spellbook | 0.4.2 | MPL-2.0 |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 |
 | string_cache | 0.9.0 | MIT OR Apache-2.0 |
 | stringprep | 0.1.5 | MIT/Apache-2.0 |

@@ -547,6 +547,10 @@ footer .footer-left .footer-item {
   top: auto;
   min-width: 220px;
 }
+.scrim-lang-popover {
+  right: 120px;
+  min-width: 140px;
+}
 .scrim-count-row {
   display: flex;
   gap: 10px;

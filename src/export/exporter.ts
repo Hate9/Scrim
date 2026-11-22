@@ -109,6 +109,10 @@ export class Exporter {
       head: paged ? (document.getElementById("scrim-test-csp")?.outerHTML ?? "") : s.html.head,
       bodyEnd: paged ? "" : s.html.bodyEnd,
       pdf: paged ?? undefined,
+      lang: (() => {
+        const l = frontMatter(this.host.markdown())?.lang;
+        return typeof l === "string" && /^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$/.test(l) ? l.replace(/_/g, "-") : undefined;
+      })(),
     });
   }
 
