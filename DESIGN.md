@@ -93,6 +93,10 @@ Implementation decisions and deviations from the spec's "recommended" designs
 - **Code block wrapping** (QA-LOG Q-021): `pre.md-fences` has `white-space: normal`, so
   theme pseudo-elements with `content: ' '` collapse to zero height; CodeMirror's own
   content rule keeps the code lines' pre-style wrapping.
+- **Horizontal rules** (QA-LOG Q-022): no base styling; `div.md-hr > hr` keeps the
+  engine defaults. WebKitGTK shades the default `1px inset gray` border darker than the
+  reference engine (`#2C2C2C`/`#D4D4D4` against `#9A9A9A`/`#EEEEEE`); open as
+  spec-questions/Q-023.
 - **CodeMirror's injected styles** are wrapped in `@layer scrim-cm`
   (`src/editor/cmlayer.ts` wraps each style-mod module's rules before CodeMirror first
   mounts them), so unlayered theme CSS beats them at any specificity.
