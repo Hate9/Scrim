@@ -50,7 +50,7 @@ test("X-1 HTML export: collapsed, themed, code tokens; matches the editor within
   if (text.includes("title: Feature document")) throw new Error("front matter in the export");
   if (!text.includes("<title>Feature document</title>")) throw new Error("title is not the front matter title");
 
-  // Screenshot comparison (QA-LOG Q-025 interim): the editor with every block collapsed
+  // Screenshot comparison (QA-LOG Q-025): the editor with every block collapsed
   // and the blocks an export leaves out hidden, against the export page in an iframe of
   // this webview at the same width.
   await js(s, `const v = window.__scrim.editor.view; v.dom.blur(); document.getElementById('notice').hidden = true;

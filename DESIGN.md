@@ -101,8 +101,9 @@ caret-escaped double-quoted values on Windows.
 ### Tests
 
 X-1 compares the export page in an iframe of the document window with the editor at the
-same size (front matter, link definitions, and comment placeholders hidden in the editor;
-Q-025 asks whether that is the intent). CI installs pandoc, poppler-utils, LibreOffice
+same size, with front matter, link definitions, and comment placeholders hidden in the
+editor (QA-LOG Q-025). The iframe needs no CSP exception: its `srcdoc` page inherits the
+window's policy, which allows the inline styles it uses. CI installs pandoc, poppler-utils, LibreOffice
 Writer (X-3 converts the docx with `soffice --headless`), and `fonts-noto-cjk` (X-5).
 `tests/fixtures/feature.md` is the feature document (20).
 
