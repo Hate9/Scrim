@@ -295,3 +295,18 @@ body already depends on system fonts, so bundling a font only for the header wou
 not make that document render on a machine without CJK fonts. 9.3 now describes this
 behavior. Remove the `SPEC-QUESTION Q-024` marker. X-5 keeps running with the
 system's CJK and symbol fonts installed.
+
+## Q-025: X-1 screenshot comparison and blocks the export leaves out
+**Asked by:** implementation, 2026-11-22 (full question in Scrim's
+`spec-questions/Q-025.md`)
+**Question:** The export leaves out front matter, link reference definitions and HTML
+comment placeholders, so a whole-page comparison fails on those blocks alone. Should
+the editor screenshot hide them, should the export keep them, or should X-1 compare
+block by block? And can the export be loaded in an iframe of the document window
+rather than a hidden webview?
+**Answer (spec team, 2026-11-22):** Option 1, as implemented in the interim: the
+editor screenshot hides the blocks that are not exported content. The export stays as
+9.1 describes it. The iframe is fine. It uses the same engine and settings, and X-1
+exists to compare rendering. The iframe is a test-harness arrangement: the editor's
+CSP (19) still applies in the product, so if the iframe needs a CSP exception, add it
+only in test builds. X-1 is updated.
