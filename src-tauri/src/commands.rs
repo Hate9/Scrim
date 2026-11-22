@@ -561,6 +561,9 @@ pub async fn settings_set(app: AppHandle, state: State<'_, AppState>, key: Strin
         settings.save(&state.config_dir).map_err(|e| e.to_string())?;
     }
     state.logger.info(&format!("setting changed: {key}"));
+    if key == "cursorBlink" {
+        crate::caret::apply(&app, state.settings().values.get("cursorBlink"));
+    }
     use tauri::Emitter;
     app.emit("scrim://settings-changed", key).map_err(|e| e.to_string())
 }

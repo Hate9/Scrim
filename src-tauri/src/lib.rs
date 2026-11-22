@@ -1,6 +1,7 @@
 //! Scrim's Tauri shell. Platform-independent logic lives in `scrim-core`; this crate
 //! wires it to windows, IPC commands, the `scrim-file` protocol, and the webviews.
 
+mod caret;
 mod commands;
 mod config;
 mod embed;
@@ -165,6 +166,7 @@ pub fn run() {
             themes::install_builtin(&app.state::<AppState>());
             themes::watch(app.handle());
             config::setup(app.handle());
+            caret::apply(app.handle(), app.state::<AppState>().settings().values.get("cursorBlink"));
             let cwd = std::env::current_dir().unwrap_or_default();
             let args: Vec<String> = std::env::args().skip(1).collect();
             let paths = windows::paths_from_args(args.clone(), &cwd);

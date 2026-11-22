@@ -323,3 +323,13 @@ test("T-1 fixture themes appear in the Themes menu and match approved screenshot
   const r = spawnSync("node", [join(import.meta.dirname, "../../scripts/fetch-fixture-themes.mjs")], { encoding: "utf8", timeout: 300000 });
   return [fixture("t1.md", FEATURES), { ok: r.status === 0, message: (r.stderr || r.stdout || "").trim().split("\n").slice(-3).join("; ") }];
 });
+
+test("11 cursor blink preference reaches GTK (Linux)", async (s) => {
+  await waitFor(() => s.exec("return !!window.__scrim"), "app");
+  const log = () => readFileSync(join(process.env.SCRIM_CONFIG_DIR, "app.log"), "utf8");
+  await s.exec("window.__scrim.setSetting('cursorBlink', false); return true");
+  const last = () => [...log().matchAll(/cursor blink: (on|off)/g)].pop()?.[1];
+  await waitFor(() => last() === "off", "blink off applied");
+  await s.exec("window.__scrim.setSetting('cursorBlink', null); return true");
+  await waitFor(() => last() === "on", "blink back on");
+});

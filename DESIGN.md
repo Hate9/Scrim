@@ -113,6 +113,13 @@ source keeps its markers, and a heading typed as `# ` stays ATX. The code indent
 (Preferences → Editor) is CodeMirror's indent unit and what Tab inserts in code blocks
 and source mode; code blocks pick it up when they are created.
 
+### Cursor blink (spec 11)
+
+`src-tauri/src/caret.rs` sets GTK's `gtk-cursor-blink` at startup and when the
+preference changes; WebKitGTK (and CodeMirror, which uses the native caret) follow it.
+It logs the value GTK reports back, which the e2e test reads. WebView2 offers no caret
+setting, so on Windows the system's blink setting applies.
+
 ### Smart punctuation (spec 03, D-1)
 
 `src/editor/smart.ts`: in plain text runs (the `md-plain` presentation marks), each

@@ -26,7 +26,7 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
 - **Open time for large files.** About 10 s for 1 MB under Xvfb after the P8 work
   (DESIGN.md, "P8: performance and coverage"); a faster block parser or viewport-only
   rendering is the next step, after measuring on real hardware.
-- **Settings stored but not yet in effect.** Strict mode, cursor blink,
+- **Settings stored but not yet in effect.** Strict mode, cursor blink on Windows (WebView2 has no switch; the system setting applies),
   window style (custom title bar), language, and `global:` shortcuts. They are saved and
   shown; the features behind them are pending. (Diagrams render as code blocks until
   diagram rendering lands, spec 21.)
