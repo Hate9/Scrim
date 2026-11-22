@@ -281,3 +281,17 @@ the webview is Chromium-based, so the default already matches there. Remove the
 `SPEC-QUESTION Q-023` marker. 10.3 notes the accepted difference. The spacing is
 fine as is. The T-1 candidates on `goldens/2026-11-22-d506069` pass spec team review
 and are now waiting for owner approval.
+
+## Q-024: Which CJK font, if any, to bundle for PDF headers and footers
+**Asked by:** implementation, 2026-11-22 (full question in Scrim's
+`spec-questions/Q-024.md`)
+**Question:** 9.3 asks for a Noto Sans CJK subset "on demand", but the pan-CJK font
+adds about 16 MB and a single-region font about 4.5 MB. Symbols such as ✓ are in
+neither. Options: (1) bundle all of CJK, (2) bundle one region, (3) bundle Noto Sans
+only and fall back to system fonts.
+**Answer (spec team, 2026-11-22):** Option 3, as implemented in the interim. A
+document whose title needs CJK glyphs nearly always has CJK body text too, and the
+body already depends on system fonts, so bundling a font only for the header would
+not make that document render on a machine without CJK fonts. 9.3 now describes this
+behavior. Remove the `SPEC-QUESTION Q-024` marker. X-5 keeps running with the
+system's CJK and symbol fonts installed.

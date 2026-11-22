@@ -54,9 +54,10 @@ document.
   numbers, so Scrim stamps them onto the finished PDF in Rust by editing it with `lopdf`
   (or an equivalent crate that can modify existing PDFs): text templates with
   `{{title}}`, `{{page}}`, `{{pages}}`, `{{date}}` placeholders, left/center/right slots,
-  9 pt, placed inside the top/bottom margins. The text uses a subset of a bundled
-  Unicode font (Noto Sans, plus Noto Sans CJK subset on demand), embedded into the PDF,
-  so titles in any script render. Defaults: header empty, footer center
+  9 pt, placed inside the top/bottom margins. The text is set in the bundled Noto Sans
+  (Latin, Greek, Cyrillic), falling back to the system's sans-serif fonts for anything
+  it lacks (CJK, symbols), the same fallback the document body uses. Used glyphs are
+  subset and embedded into the PDF. No CJK font is bundled (Q-024). Defaults: header empty, footer center
   `{{page}}`. The webview's own headers/footers are disabled.
 - Code blocks and tables avoid breaking inside when shorter than one page
   (`break-inside: avoid`). Headings avoid page breaks right after them.
