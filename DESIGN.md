@@ -104,8 +104,12 @@ are end-to-end tests in `tests/e2e/p1.mjs`.
   `text/markdown`, `gio open note.md` opens a window titled `note.md - Scrim`, and
   `dpkg -r` leaves no binary, desktop file or icon behind. The AppImage (about 83 MB,
   WebKitGTK bundled) carries the same desktop file and opens a file given on its command
-  line. PKGBUILD and the Windows installers still need their P8-1 run on the target
-  systems.
+  line.
+- P8-1 on Arch (owner, 2026-11-22): the PKGBUILD package built from a checkout with
+  `_srcdir` installs, appears in the launcher, opens files (launcher, Open With, command
+  line) and uninstalls; `~/.config/scrim` stays, as intended. The default `source` needs
+  a `v0.1.0` tag, left until a release is tagged. The Windows installers still need their
+  P8-1 run.
 
 ### Subscript, superscript, highlight (spec 02)
 
@@ -172,6 +176,15 @@ to `<config>/window-state.json` 500 ms after the last change; a maximized window
 its normal geometry plus the flag), and applies it to new windows, cascading 30 px past
 windows already at that spot. Wayland compositors may ignore the position. The e2e
 harness removes the file before each test.
+
+### Export temporary files
+
+`src-tauri/src/exporttmp.rs` owns `<config>/tmp-export` (PDF and print pages, pandoc
+input). The folder is created when an export needs it; each export deletes its files
+through a drop guard on every return path and removes the folder once it is empty (an
+export still running keeps it). The start deletes anything a crash left, and exit
+deletes the folder. The protocol's file scope lists the folder by its eventual real path,
+since it usually does not exist.
 
 ### Bundled theme fonts (spec 22)
 

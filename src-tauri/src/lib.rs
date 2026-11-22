@@ -2,6 +2,7 @@
 //! wires it to windows, IPC commands, the `scrim-file` protocol, and the webviews.
 
 mod caret;
+mod exporttmp;
 mod winstate;
 mod hotkeys;
 mod commands;
@@ -199,6 +200,7 @@ pub fn run() {
     match result {
         Ok(app) => app.run(|app, event| {
             if let tauri::RunEvent::Exit = event {
+                exporttmp::clear(&app.state::<AppState>().config_dir);
                 app.state::<AppState>().logger.info("exit");
             }
         }),

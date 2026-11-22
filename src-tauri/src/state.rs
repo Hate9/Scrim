@@ -81,12 +81,16 @@ impl AppState {
             logger.warn(&format!("settings ignored: {err}"));
         }
         let mut scope = FileScope::default();
-        for sub in ["themes", "recovery", "tmp-images", "tmp-export"] {
+        // Export temporary files left by a crash (exports delete their own).
+        crate::exporttmp::clear(&config_dir);
+        let real_config = std::fs::canonicalize(&config_dir).unwrap_or_else(|_| config_dir.clone());
+        for sub in ["themes", "recovery", "tmp-images", crate::exporttmp::NAME] {
             let d = config_dir.join(sub);
-            if sub == "themes" || sub == "tmp-export" {
+            if sub == "themes" {
                 let _ = std::fs::create_dir_all(&d);
             }
-            scope.dirs.insert(std::fs::canonicalize(&d).unwrap_or(d));
+            // Folders that do not exist yet are allowed by their eventual real path.
+            scope.dirs.insert(std::fs::canonicalize(&d).unwrap_or_else(|_| real_config.join(sub)));
         }
         Self {
             logger,

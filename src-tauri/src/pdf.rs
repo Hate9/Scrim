@@ -57,9 +57,7 @@ impl PageSpec {
 static SEQ: AtomicU64 = AtomicU64::new(1);
 
 fn tmp_dir(state: &AppState) -> Result<PathBuf, String> {
-    let d = state.config_dir.join("tmp-export");
-    std::fs::create_dir_all(&d).map_err(|e| format!("cannot create {}: {e}", d.display()))?;
-    Ok(std::fs::canonicalize(&d).unwrap_or(d))
+    crate::exporttmp::dir(state)
 }
 
 /// Load `html` (a file in the temporary folder) in a hidden window and print it to `out`.
@@ -227,7 +225,7 @@ async fn make_pdf(app: &AppHandle, html: &str, out: &Path, page: &PageSpec, titl
     let n = SEQ.fetch_add(1, Ordering::Relaxed);
     let html_path = dir.join(format!("export-{n}.html"));
     let pdf_path = dir.join(format!("export-{n}.pdf"));
-    let cleanup = [html_path.clone(), pdf_path.clone(), dir.join(format!("stamp-{n}.html")), dir.join(format!("stamp-{n}.pdf"))];
+    let _cleanup = crate::exporttmp::Cleanup(vec![html_path.clone(), pdf_path.clone(), dir.join(format!("stamp-{n}.html")), dir.join(format!("stamp-{n}.pdf"))]);
     let result = async {
         std::fs::write(&html_path, html).map_err(|e| e.to_string())?;
         print_file(app, &html_path, &pdf_path, page).await?;
@@ -253,9 +251,6 @@ async fn make_pdf(app: &AppHandle, html: &str, out: &Path, page: &PageSpec, titl
         Ok::<(), String>(())
     }
     .await;
-    for f in cleanup {
-        let _ = std::fs::remove_file(f);
-    }
     result
 }
 
@@ -273,6 +268,7 @@ pub async fn export_print(app: AppHandle, state: State<'_, AppState>, html: Stri
     let path = dir.join(format!("print-{}.html", SEQ.fetch_add(1, Ordering::Relaxed)));
     std::fs::write(&path, html).map_err(|e| e.to_string())?;
     let url = scrim_file_url(&path);
+    let path_for_error = path.clone();
     let label = format!("print-{}", SEQ.fetch_add(1, Ordering::Relaxed));
     let initial = url.clone();
     let spec = page.clone();
@@ -290,14 +286,20 @@ pub async fn export_print(app: AppHandle, state: State<'_, AppState>, html: Stri
             std::thread::spawn(move || {
                 std::thread::sleep(Duration::from_millis(500));
                 let w2 = w.clone();
+                // The page is loaded: its file goes when the dialog is done (or with the
+                // callback, where the platform does not call it).
+                let cleanup = std::sync::Mutex::new(Some(crate::exporttmp::Cleanup(vec![p])));
                 let _ = w.with_webview(move |pw| platform::print_dialog(pw, &spec, move || {
                     let _ = w2.destroy();
-                    let _ = std::fs::remove_file(&p);
+                    drop(cleanup.lock().unwrap().take());
                 }));
             });
         })
         .build()
-        .map_err(|e| format!("cannot open the print window: {e}"))?;
+        .map_err(|e| {
+            drop(crate::exporttmp::Cleanup(vec![path_for_error.clone()]));
+            format!("cannot open the print window: {e}")
+        })?;
     Ok(())
 }
 

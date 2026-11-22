@@ -92,9 +92,7 @@ fn run(mut cmd: Command) -> Result<Vec<u8>, String> {
 }
 
 fn tmp_dir(state: &AppState) -> Result<PathBuf, String> {
-    let d = state.config_dir.join("tmp-export");
-    std::fs::create_dir_all(&d).map_err(|e| e.to_string())?;
-    Ok(d)
+    crate::exporttmp::dir(state)
 }
 
 /// The pandoc export argument vector (9.4).
@@ -139,6 +137,7 @@ pub async fn pandoc_export(
     let pandoc = find_pandoc(pandoc_path.as_deref()).ok_or("Requires pandoc")?;
     let dir = tmp_dir(&state)?;
     let input = dir.join(format!("pandoc-{}.md", std::process::id() as u64 * 1000 + rand_suffix()));
+    let _cleanup = crate::exporttmp::Cleanup(vec![input.clone()]);
     std::fs::write(&input, markdown).map_err(|e| e.to_string())?;
     let mut cmd = Command::new(&pandoc);
     cmd.args(export_args(&input, &to, &out, doc_dir.as_deref(), &extensions, reference_doc.as_deref().filter(|p| p.is_file())));
@@ -147,7 +146,6 @@ pub async fn pandoc_export(
     }
     state.logger.info(&format!("pandoc export to {} ({to})", out.display()));
     let res = tauri::async_runtime::spawn_blocking(move || run(cmd)).await.map_err(|e| e.to_string())?;
-    let _ = std::fs::remove_file(&input);
     res.map(|_| ()).map_err(|e| format!("pandoc: {e}"))
 }
 

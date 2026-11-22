@@ -229,3 +229,20 @@ test("X-8 front matter cannot inject head content or run commands", async (s) =>
   const marker = join(work, "x8-ran");
   return fixture("x8.md", `---\nexport:\n  html:\n    head: "<script>alert(1)</script>"\n    bodyEnd: "<script>alert(2)</script>"\n  commands:\n    - { name: Evil, ext: txt, command: "touch ${marker}" }\nexportCustomCommands:\n  - { name: Evil, ext: txt, command: "touch ${marker}" }\n---\n\nbody\n`);
 });
+
+test("export temp files: stale ones cleared at start, none left after an export", async (s) => {
+  const tmp = join(process.env.SCRIM_CONFIG_DIR, "tmp-export");
+  await ready(s);
+  if (existsSync(join(tmp, "stale-1.html"))) throw new Error("a stale export file survived the start");
+  const pdf = out("tmp-clean.pdf");
+  await exportTo(s, "file.exportPdf", pdf, 90000);
+  await waitFor(() => existsSync(pdf), "PDF written", 30000);
+  await waitFor(() => !existsSync(tmp), "tmp-export removed after the export", 5000).catch(() => {
+    throw new Error(`left behind: ${existsSync(tmp) ? require("node:fs").readdirSync(tmp).join(", ") : ""}`);
+  });
+}, () => {
+  const tmp = join(process.env.SCRIM_CONFIG_DIR, "tmp-export");
+  mkdirSync(tmp, { recursive: true });
+  writeFileSync(join(tmp, "stale-1.html"), "<p>left by a crash</p>");
+  return fixture("tmpclean.md", "# Temp\n\ntext\n");
+});

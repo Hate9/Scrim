@@ -97,7 +97,7 @@ fn status(code: StatusCode) -> Response<Vec<u8>> {
 /// them to its own temporary folder and loads them in a hidden window. Any other `.html`
 /// stays `application/octet-stream`, so local HTML files are never run as pages.
 fn export_page_mime(state: &AppState, resolved: &Path) -> Option<&'static str> {
-    let dir = state.config_dir.join("tmp-export");
+    let dir = state.config_dir.join(crate::exporttmp::NAME);
     let dir = std::fs::canonicalize(&dir).unwrap_or(dir);
     let html = resolved.extension().is_some_and(|e| e.eq_ignore_ascii_case("html"));
     (html && resolved.parent() == Some(dir.as_path())).then_some("text/html; charset=utf-8")
