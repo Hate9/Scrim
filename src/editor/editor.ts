@@ -270,12 +270,24 @@ export function createEditor(
       return serialize(view.state.doc, { prettyTables: options.prettyTables });
     },
     load(text: string, newFile: boolean, eol: string) {
+      // Timings for PF-1 (performance.getEntriesByType("measure")).
+      performance.mark("scrim-load");
       let { doc } = parseMarkdown(text, { inlineMath: options.inlineMath }, eol);
+      performance.measure("scrim-parse", "scrim-load");
       if (newFile && !text) doc = schema.nodes.doc.create({ ...doc.attrs, finalNewline: true }, doc.content);
-      view.updateState(makeState(doc));
+      performance.mark("scrim-state");
+      const state = makeState(doc);
+      performance.measure("scrim-make-state", "scrim-state");
+      performance.mark("scrim-view");
+      view.updateState(state);
+      performance.measure("scrim-update-view", "scrim-view");
       // Applies the first presentation marks (spec 10.3); not an edit.
+      performance.mark("scrim-kick");
       view.dispatch(view.state.tr.setMeta("scrim-pres-kick", true));
+      performance.measure("scrim-first-marks", "scrim-kick");
+      performance.mark("scrim-saved");
       savedText = serialize(doc, { prettyTables: options.prettyTables });
+      performance.measure("scrim-serialize", "scrim-saved");
       dirty = false;
     },
     isDirty: () => dirty,

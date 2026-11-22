@@ -18,15 +18,30 @@ const textCache = new WeakMap<Node, string>();
 export function headingText(node: Node): string {
   let t = textCache.get(node);
   if (t === undefined) {
-    const root = parseMdast(blockSource(node), { frontMatter: false });
-    t = toString(root.children[0] ?? root);
+    const src = blockSource(node);
+    // Most headings are plain words: nothing for the inline parser to do (PF-1, a 1 MB
+    // document has thousands of headings).
+    if (/^[\p{L}\p{N} ,.;?'"()/%+-]*$/u.test(src) && !/ {2,}$/.test(src)) t = textOfPlain(src);
+    else {
+      const root = parseMdast(src, { frontMatter: false });
+      t = toString(root.children[0] ?? root);
+    }
     textCache.set(node, t);
   }
   return t;
 }
 
+/** The rendered text of a heading whose source has no inline syntax. */
+function textOfPlain(src: string): string {
+  // The heading's own text (markers are not part of the block source); CommonMark
+  // strips leading and trailing spaces and collapses nothing else.
+  return src.replace(/^[ \t]+|[ \t]+$/g, "");
+}
+
 export interface HeadingInfo {
   pos: number;
+  /** the heading node's size (so its end needs no lookup) */
+  size: number;
   level: number;
   text: string;
   id: string;
@@ -38,7 +53,7 @@ export function headings(doc: Node): HeadingInfo[] {
   doc.descendants((node, pos) => {
     if (node.type.name === "heading") {
       const text = headingText(node);
-      out.push({ pos, level: node.attrs.level, text, id: slugger.slug(text) });
+      out.push({ pos, size: node.nodeSize, level: node.attrs.level, text, id: slugger.slug(text) });
       return false;
     }
     return !node.isTextblock;
@@ -52,7 +67,7 @@ function build(doc: Node) {
   const list = headings(doc);
   const set = DecorationSet.create(
     doc,
-    list.map((h) => Decoration.node(h.pos, h.pos + doc.nodeAt(h.pos)!.nodeSize, { id: h.id })),
+    list.map((h) => Decoration.node(h.pos, h.pos + h.size, { id: h.id })),
   );
   return { set, list };
 }

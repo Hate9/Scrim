@@ -352,15 +352,16 @@ function definitionDecorations(node: Node, pos: number): Decoration[] {
   return out;
 }
 
-function textblockDecorations(doc: Node, node: Node, pos: number): Decoration[] {
+/** `parent` and `index` locate the textblock (from the tree walk: resolving each position
+ * would scan the parent's children every time, PF-1). */
+function textblockDecorations(node: Node, pos: number, parent: Node | null, index: number): Decoration[] {
   const out: Decoration[] = [];
   if (node.type.name === "raw" && node.attrs.kind === "definition") return definitionDecorations(node, pos);
   if (node.type === S.paragraph && isImageParagraphSource(blockSource(node))) {
     out.push(Decoration.node(pos, pos + node.nodeSize, { class: "md-image-paragraph" }));
   }
-  const $p = doc.resolve(pos);
-  const item = $p.depth > 0 ? $p.parent : null;
-  if (item && item.type === S.list_item && item.attrs.task !== null && $p.index() === 0) {
+  const item = parent;
+  if (item && item.type === S.list_item && item.attrs.task !== null && index === 0) {
     const checked = item.attrs.task !== " ";
     // The checkbox is the list item's first child, before its paragraph (10.3).
     out.push(Decoration.widget(pos, () => taskCheckbox(checked), { side: -1, key: `task-${checked}`, ignoreSelection: true }));
@@ -374,10 +375,10 @@ function updateDecorations(tr: Transaction, set: DecorationSet): DecorationSet {
   let next = set.map(tr.mapping, tr.doc);
   const doc = tr.doc;
   for (const [from, to] of changedRanges(tr)) {
-    doc.nodesBetween(Math.min(from, doc.content.size), Math.min(to, doc.content.size), (node, pos) => {
+    doc.nodesBetween(Math.min(from, doc.content.size), Math.min(to, doc.content.size), (node, pos, parent, index) => {
       if (!node.isTextblock) return true;
       next = next.remove(next.find(pos, pos + node.nodeSize, (spec) => spec.block !== true));
-      next = next.add(doc, textblockDecorations(doc, node, pos));
+      next = next.add(doc, textblockDecorations(node, pos, parent, index));
       return false;
     });
   }
@@ -386,12 +387,12 @@ function updateDecorations(tr: Transaction, set: DecorationSet): DecorationSet {
 
 function listDecorations(doc: Node): DecorationSet {
   const decos: Decoration[] = [];
-  doc.descendants((node, pos) => {
+  doc.descendants((node, pos, parent, index) => {
     if ((node.type === S.bullet_list || node.type === S.ordered_list) && someTask(node)) {
       decos.push(Decoration.node(pos, pos + node.nodeSize, { class: "contains-task-list" }, { block: true }));
     }
     if (node.isTextblock) {
-      decos.push(...textblockDecorations(doc, node, pos));
+      decos.push(...textblockDecorations(node, pos, parent === doc ? null : parent, index));
       return false;
     }
     return true;

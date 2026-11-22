@@ -297,7 +297,11 @@ function applySettings(next: Record<string, unknown>) {
   if (typeof themes !== "undefined") void themes.apply().then(() => document.head.appendChild(fs!));
 }
 
+/** Time from asking for the document to its first frame (PF-1), for tests. */
+let openMs: number | null = null;
+
 async function init() {
+  const t0 = performance.now();
   const d = await ipc.docInit();
   if (d.testNoRemote && !document.getElementById("scrim-test-csp")) {
     // Debug test hook: a second, stricter policy for theme resources (T-1).
@@ -313,6 +317,7 @@ async function init() {
   editor.options.docDir = d.path ? dirname(d.path) : null;
   const eol = EOLS[d.lineEnding ?? d.defaultLineEnding];
   editor.load(d.text, !d.path || d.missing, eol);
+  requestAnimationFrame(() => requestAnimationFrame(() => (openMs = performance.now() - t0)));
   document.title = d.title;
   editor.view.focus();
   if (pendingAnchor) {
@@ -1231,6 +1236,7 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   cmFind: (el: HTMLElement) => CMEditorView.findFromDOM(el),
   themes,
   zoomLevel: () => zoomLevel,
+  openMs: () => openMs,
 };
 
 void appWindow.listen("scrim://doc-reload", () => void init());

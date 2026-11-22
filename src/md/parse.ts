@@ -115,7 +115,9 @@ export class Parser {
   }
 
   parse(): ParseResult {
-    const root = parseMdast(this.src, { ...this.opts, frontMatter: true });
+    performance.mark("scrim-mdast");
+    const root = parseMdast(this.src, { ...this.opts, frontMatter: true, blockOnly: this.opts.blockOnly ?? true });
+    performance.measure("scrim-parse-mdast", "scrim-mdast");
     this.defsSuffix = this.collectDefinitions(root);
     const blocks: Node[] = [];
     for (const child of root.children) blocks.push(...this.topLevel(child));
@@ -398,7 +400,12 @@ export class Parser {
     if (chain.length === 0) return;
     let text = "";
     for (const n of content) text += n.isText ? n.text : "\n";
-    const reparsed = parseMdast(text + this.defsSuffix, { ...this.opts, frontMatter: false });
+    // Lines that cannot start or end a block parse as this same paragraph on their own:
+    // no need to parse them again (PF-1: thousands of list items and quotes).
+    if (safeParagraphText(text) && original.children.length === 1 && original.children[0].type === "text" && (original.children[0] as { value: string }).value === text) return;
+    // Block-only parses on both sides: inline parsing depends only on the paragraph's
+    // text, so equal text (and still one paragraph) means equal meaning.
+    const reparsed = parseMdast(text + this.defsSuffix, { ...this.opts, frontMatter: false, blockOnly: this.opts.blockOnly ?? true });
     const first = reparsed.children[0];
     const want = original.children.map(fingerprint).join();
     const got = first && first.type === "paragraph" ? first.children.map(fingerprint).join() : first ? "!" : "";
@@ -701,4 +708,18 @@ export function parseMarkdown(src: string, opts: ParseOptions = {}, defaultEol =
     return true;
   });
   return result;
+}
+
+/**
+ * Whether paragraph text, parsed on its own, is certainly one paragraph with exactly this
+ * text: every line starts with a character that cannot begin a block (letters, digits not
+ * forming a list marker, quotes, some punctuation), and no `|` could make a table.
+ */
+export function safeParagraphText(text: string): boolean {
+  if (!text || text.includes("|")) return false;
+  for (const line of text.split("\n")) {
+    if (!/^[\p{L}\p{N}("'“‘.,;:!?/@%^&]/u.test(line)) return false;
+    if (/^\d{1,9}[.)]( |$)/.test(line)) return false; // ordered list start
+  }
+  return true;
 }

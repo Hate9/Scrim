@@ -23,7 +23,35 @@ export interface ParseOptions {
   inlineMath?: boolean;
   /** Parse YAML front matter at the start (only for whole documents). */
   frontMatter?: boolean;
+  /**
+   * Block structure only (whole documents): inline constructs are not tokenized, so
+   * paragraphs, headings, and cells hold one text node with their raw content. CommonMark
+   * determines block structure before and independently of inline content, so the blocks
+   * are the same; parsing is several times faster. Task list checks stay (they decide a
+   * list item's kind).
+   */
+  blockOnly?: boolean;
 }
+
+const INLINE_CONSTRUCTS = [
+  "attention",
+  "autolink",
+  "characterEscape",
+  "characterReference",
+  "codeText",
+  "hardBreakEscape",
+  "htmlText",
+  "labelEnd",
+  "labelStartImage",
+  "labelStartLink",
+  "emailAutolink",
+  "protocolAutolink",
+  "wwwAutolink",
+  "gfmFootnoteCall",
+  "gfmPotentialFootnoteCall",
+  "mathText",
+  "strikethrough",
+];
 
 export function parseMdast(src: string, opts: ParseOptions = {}): Root {
   const extensions = [
@@ -47,6 +75,7 @@ export function parseMdast(src: string, opts: ParseOptions = {}): Root {
     extensions.unshift(frontmatter(["yaml"]));
     mdastExtensions.unshift(frontmatterFromMarkdown(["yaml"]));
   }
+  if (opts.blockOnly) extensions.push({ disable: { null: INLINE_CONSTRUCTS } });
   return fromMarkdown(src, { extensions, mdastExtensions });
 }
 
