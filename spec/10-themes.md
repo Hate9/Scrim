@@ -204,7 +204,9 @@ generated selectors and loses on order.
   child of `blockquote`: `margin-bottom: 0`. `blockquote { margin: 1rem 0 }`.
 - Horizontal rules: no base styling at all. `div.md-hr` and its `hr` keep the browser
   defaults (a 1px inset gray border, `0.5em` vertical margins), which is what themes
-  without an `hr` rule show in the reference (Q-022).
+  without an `hr` rule show in the reference (Q-022). Engines shade the inset border
+  differently (WebKitGTK draws the top edge much darker than Chromium); that
+  difference is accepted, and no base rule compensates for it (Q-023).
 - Task items: no list bullet; the checkbox absolutely positioned at the item's left,
   `margin-left: -1.2em`.
 - Tables: `figure { margin: 1.2em 0; overflow-x: auto; max-width: calc(100% + 16px) }`;
