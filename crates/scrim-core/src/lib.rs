@@ -10,6 +10,7 @@ pub mod images;
 pub mod line_endings;
 pub mod logging;
 pub mod paths;
+pub mod blocks;
 pub mod save;
 pub mod settings;
 pub mod theme_css;

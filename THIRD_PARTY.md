@@ -156,7 +156,7 @@ are not listed.
 | yaml | 2.9.1 | ISC |
 | zwitch | 2.0.4 | MIT |
 
-## Rust crates compiled into the app (401, Linux and Windows targets)
+## Rust crates compiled into the app (403, Linux and Windows targets)
 
 | Package | Version | License |
 |---|---|---|
@@ -343,6 +343,7 @@ are not listed.
 | lock_api | 0.4.14 | MIT OR Apache-2.0 |
 | log | 0.4.35 | MIT OR Apache-2.0 |
 | lopdf | 0.38.0 | MIT |
+| markdown | 1.0.0 | MIT |
 | markup5ever | 0.39.0 | MIT OR Apache-2.0 |
 | md-5 | 0.10.6 | MIT OR Apache-2.0 |
 | memchr | 2.8.3 | Unlicense OR MIT |
@@ -486,6 +487,7 @@ are not listed.
 | typeid | 1.0.3 | MIT OR Apache-2.0 |
 | typenum | 1.20.1 | MIT OR Apache-2.0 |
 | unicode-bidi | 0.3.18 | MIT OR Apache-2.0 |
+| unicode-id | 0.3.7 | MIT OR Apache-2.0 |
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | unicode-normalization | 0.1.26 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | unicode-properties | 0.1.5 | (MIT OR Apache-2.0) AND Unicode-3.0 |

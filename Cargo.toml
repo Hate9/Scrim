@@ -11,3 +11,12 @@ authors = ["Scrim developers"]
 [profile.release]
 lto = true
 codegen-units = 1
+
+# The block parser runs on every open (Q-026): optimized in debug builds too, so the
+# e2e performance numbers of debug builds are not dominated by unoptimized parsing.
+[profile.dev.package.markdown]
+opt-level = 3
+[profile.dev.package.scrim-core]
+opt-level = 3
+[profile.dev.package.serde_json]
+opt-level = 3

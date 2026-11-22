@@ -1,5 +1,6 @@
 // The live-preview editor: ProseMirror view over the Markdown document model.
 
+import type { Root } from "mdast";
 import { createFindPlugin } from "./find";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { closeHistory, history, redo, undo } from "prosemirror-history";
@@ -48,7 +49,7 @@ export interface Editor {
   /** Markdown text of the current document, with original line endings. */
   markdown(): string;
   /** Replace the document (load). `eol` is the line ending for files without one. */
-  load(text: string, newFile: boolean, eol: string): void;
+  load(text: string, newFile: boolean, eol: string, blockTree?: Root): void;
   isDirty(): boolean;
   markSaved(): void;
   run(cmd: Command): boolean;
@@ -63,7 +64,7 @@ export interface Editor {
    * reload). Unchanged top-level blocks keep their identity; the result serializes to
    * exactly `text`. Returns the transaction's document.
    */
-  applyText(text: string, addToHistory?: boolean): Node;
+  applyText(text: string, addToHistory?: boolean, blockTree?: Root): Node;
   /** Number of source lines (status bar). */
   markdownLines(): number;
   /** Hook for other modules: called after every view update. */
@@ -277,10 +278,10 @@ export function createEditor(
       flushEscapes(view, options);
       return serialize(view.state.doc, { prettyTables: options.prettyTables });
     },
-    load(text: string, newFile: boolean, eol: string) {
+    load(text: string, newFile: boolean, eol: string, blockTree?: Root) {
       // Timings for PF-1 (performance.getEntriesByType("measure")).
       performance.mark("scrim-load");
-      let { doc } = parseMarkdown(text, { inlineMath: options.inlineMath }, eol);
+      let { doc } = parseMarkdown(text, { inlineMath: options.inlineMath, blockTree }, eol);
       performance.measure("scrim-parse", "scrim-load");
       if (newFile && !text) doc = schema.nodes.doc.create({ ...doc.attrs, finalNewline: true }, doc.content);
       performance.mark("scrim-state");
@@ -312,9 +313,9 @@ export function createEditor(
     markdownLines() {
       return serialize(view.state.doc, { prettyTables: options.prettyTables }).split(/\r\n?|\n/).length;
     },
-    applyText(text: string, addToHistory = true) {
+    applyText(text: string, addToHistory = true, blockTree?: Root) {
       const state = view.state;
-      const { doc: next } = parseMarkdown(text, { inlineMath: options.inlineMath }, state.doc.attrs.eol);
+      const { doc: next } = parseMarkdown(text, { inlineMath: options.inlineMath, blockTree }, state.doc.attrs.eol);
       const old = state.doc;
       let a = 0;
       while (a < old.childCount && a < next.childCount && sameBlock(old.child(a), next.child(a))) a++;

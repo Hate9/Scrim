@@ -37,6 +37,8 @@ export interface ParseOptions {
    * list item's kind).
    */
   blockOnly?: boolean;
+  /** The document's block tree, already parsed by Rust (Q-026; whole documents only). */
+  blockTree?: Root;
 }
 
 const INLINE_CONSTRUCTS = [
@@ -69,8 +71,9 @@ export function parseMdast(src: string, opts: ParseOptions = {}): Root {
     // Block math `$$` is always on; inline math only when enabled.
     math({ singleDollarTextMath: !!opts.inlineMath }),
   ];
+  const literalLinks = gfmAutolinkLiteralFromMarkdown();
   const mdastExtensions = [
-    gfmAutolinkLiteralFromMarkdown(),
+    literalLinks,
     gfmFootnoteFromMarkdown(),
     gfmStrikethroughFromMarkdown(),
     gfmTableFromMarkdown(),
@@ -82,7 +85,13 @@ export function parseMdast(src: string, opts: ParseOptions = {}): Root {
     mdastExtensions.unshift(frontmatterFromMarkdown(["yaml"]));
   }
   if (!dialect.strict) extensions.unshift(lenient);
-  if (opts.blockOnly) extensions.push({ disable: { null: INLINE_CONSTRUCTS } });
+  if (opts.blockOnly) {
+    extensions.push({ disable: { null: INLINE_CONSTRUCTS } });
+    // Literal URLs are found by an mdast transform that rebuilds the inline children
+    // without positions (headings and table cells need them); block structure never
+    // depends on them, and the inline analyzer finds them itself.
+    mdastExtensions.splice(mdastExtensions.indexOf(literalLinks), 1);
+  }
   return fromMarkdown(src, { extensions, mdastExtensions });
 }
 

@@ -29,6 +29,8 @@ export interface DocInit {
   folder: string | null;
   recovered: boolean;
   testNoRemote: boolean;
+  /** Rust's block tree of `text` (Q-026). */
+  blocks: unknown;
 }
 
 export type SaveResult =
@@ -120,7 +122,8 @@ export const ipc = {
   themesOpenFolder: (theme: string | null) => invoke<void>("themes_open_folder", { theme }),
   folderWatchImplicit: (path: string) => invoke<void>("folder_watch_implicit", { path }),
   folderDialog: () => invoke<string | null>("folder_dialog"),
-  reload: () => invoke<string>("doc_reload"),
+  reload: () => invoke<{ text: string; blocks: unknown }>("doc_reload"),
+  parseBlocks: (text: string) => invoke<unknown>("parse_blocks", { text }),
   readText: (path: string) => invoke<string>("fs_read_text", { path }),
   copyFile: (from: string, to: string) => invoke<void>("fs_copy", { from, to }),
   recoveryOpen: (id: string) => invoke<void>("recovery_open", { id }),

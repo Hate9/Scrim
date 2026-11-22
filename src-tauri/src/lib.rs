@@ -77,6 +77,7 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol(embed::SCHEME, embed::handle)
         .invoke_handler(tauri::generate_handler![
             commands::doc_init,
+            commands::parse_blocks,
             hotkeys::global_shortcuts_set,
             hotkeys::global_shortcut_take,
             export::export_theme_css,

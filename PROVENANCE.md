@@ -18,3 +18,4 @@ have not been consulted.
 | 2026-11-22 | Source of `spellbook` 0.4 and `windows` 0.62 (Globalization, COM), local cargo registry | API signatures for the spell providers |
 | 2026-11-22 | Source of `micromark-core-commonmark` 2.0 (`heading-atx.js`, `list.js`, node_modules, MIT) | Token names and the interrupt rule for the lenient constructs (`src/md/lenient.ts`); the heading tokenizer is written for Scrim, the list one wraps the package's own |
 | 2026-11-22 | PT Serif (raw.githubusercontent.com/google/fonts, `ofl/ptserif`) and Open Sans (raw.githubusercontent.com/googlefonts/opensans, `fonts/ttf`) TTF files and their `OFL.txt` | Bundled fonts of the built-in paper and clean themes (spec 22), unmodified |
+| 2026-11-22 | Source of the `markdown` 1.0 crate (markdown-rs, MIT, local cargo registry): `configuration.rs`, `unist.rs`, `mdast.rs` | Construct switches and position fields for the Rust block tree (`crates/scrim-core/src/blocks.rs`) |

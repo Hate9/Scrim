@@ -116,7 +116,8 @@ export class Parser {
 
   parse(): ParseResult {
     performance.mark("scrim-mdast");
-    const root = parseMdast(this.src, { ...this.opts, frontMatter: true, blockOnly: this.opts.blockOnly ?? true });
+    // A block tree from Rust (Q-026) when the caller has one for exactly this text.
+    const root = this.opts.blockTree ?? parseMdast(this.src, { ...this.opts, frontMatter: true, blockOnly: this.opts.blockOnly ?? true });
     performance.measure("scrim-parse-mdast", "scrim-mdast");
     this.defsSuffix = this.collectDefinitions(root);
     const blocks: Node[] = [];

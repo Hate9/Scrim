@@ -47,6 +47,8 @@ pub struct DocInit {
     /// Debug builds with `SCRIM_TEST_NO_REMOTE` set: block remote styles and fonts (T-1
     /// screenshots must not depend on the network).
     pub test_no_remote: bool,
+    /// The text's block tree, parsed in Rust (QA-LOG Q-026, `scrim_core::blocks`).
+    pub blocks: serde_json::Value,
 }
 
 #[tauri::command]
@@ -82,6 +84,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         folder: None,
         recovered: false,
         test_no_remote: cfg!(debug_assertions) && std::env::var_os("SCRIM_TEST_NO_REMOTE").is_some(),
+        blocks: serde_json::Value::Null,
     };
     let mut doc = DocState { initialized: true, folder: folder.clone(), ..Default::default() };
     init.folder = folder.map(|f| f.to_string_lossy().into_owned());
@@ -148,6 +151,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
     state.docs().insert(label.clone(), doc);
     init.title = windows::update_title(window.app_handle(), &label);
     crate::pdf_proto::maybe_print(&window);
+    init.blocks = timed_blocks(&state, &init.text);
     Ok(init)
 }
 
@@ -595,4 +599,20 @@ pub async fn clipboard_read_html() -> Result<Option<String>, String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// The block tree of a whole document, with its time in the log (Q-026 measurements).
+pub fn timed_blocks(state: &AppState, text: &str) -> serde_json::Value {
+    let t = std::time::Instant::now();
+    let tree = scrim_core::blocks::block_tree(text);
+    if text.len() > 100_000 {
+        state.logger.info(&format!("block tree of {} bytes in {} ms", text.len(), t.elapsed().as_millis()));
+    }
+    tree
+}
+
+/// The block tree of text the frontend has (leaving source mode, Q-026).
+#[tauri::command]
+pub async fn parse_blocks(state: State<'_, AppState>, text: String) -> Result<serde_json::Value, String> {
+    Ok(timed_blocks(&state, &text))
 }

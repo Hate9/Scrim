@@ -51,3 +51,11 @@ it("safe paragraph text really is one paragraph with the same text", () => {
   expect(safeParagraphText("x\n===")).toBe(false);
   expect(safeParagraphText("1. no")).toBe(false);
 });
+
+it("headings and table cells with a bare URL parse (block-only keeps inline positions)", () => {
+  for (const t of ["# see https://x.com now\n", "| a https://x.com |\n|---|\n| b |\n", "Title www.example.com\n===\n"]) {
+    const r = parseMarkdown(t);
+    expect(r.fallbacks).toBe(0);
+    expect(r.doc.firstChild!.type.name).toMatch(/heading|table/);
+  }
+});

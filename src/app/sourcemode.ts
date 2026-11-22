@@ -14,6 +14,9 @@ import { buildRegex, type FindQuery } from "../editor/find";
 import { flushEscapes } from "../editor/escapes";
 import { posToSource, serializeWithMap, sourceToPos } from "../md/serialize";
 import type { SourceSearch } from "./findbar";
+import type { Root } from "mdast";
+import { ipc } from "../ipc";
+import { usableTree } from "../md/rustblocks";
 
 export class SourceMode implements SourceSearch {
   private cm: EditorView | null = null;
@@ -40,9 +43,9 @@ export class SourceMode implements SourceSearch {
   }
 
   /** Mod+/: switch to source mode or back. */
-  toggle() {
-    if (this.cm) this.leave();
-    else this.enter();
+  toggle(): void | Promise<void> {
+    if (this.cm) return this.leave();
+    this.enter();
   }
 
   enter() {
@@ -102,16 +105,39 @@ export class SourceMode implements SourceSearch {
     return true;
   }
 
-  leave() {
+  /** Large texts are parsed by Rust (Q-026); smaller ones here, which is as fast. */
+  static readonly RUST_PARSE_MIN = 50_000;
+  private leaving: Promise<void> | null = null;
+
+  /** Back to the live document. Asynchronous when Rust parses the text (large documents). */
+  leave(): void | Promise<void> {
     const cm = this.cm;
     if (!cm) return;
+    if (this.leaving) return this.leaving;
+    const text = cm.state.doc.toString();
+    if (text === this.initial || text.length < SourceMode.RUST_PARSE_MIN) return this.finishLeave(cm, text, undefined);
+    performance.mark("scrim-src-leave-rust");
+    this.leaving = ipc
+      .parseBlocks(text)
+      .catch(() => null)
+      .then((tree) => {
+        this.leaving = null;
+        performance.measure("scrim-src-leave-rust", "scrim-src-leave-rust");
+        if (this.cm !== cm) return;
+        // Typed while Rust was parsing: that text needs its own parse.
+        const now = cm.state.doc.toString();
+        this.finishLeave(cm, now, now === text ? usableTree(text, tree) : undefined);
+      });
+    return this.leaving;
+  }
+
+  private finishLeave(cm: EditorView, text: string, blockTree: Root | undefined) {
     performance.mark("scrim-src-leave");
     const scroller = document.querySelector("content") as HTMLElement;
     const topLine = cm.lineBlockAtHeight(scroller.getBoundingClientRect().top + 8 - cm.documentTop);
     const { anchor, head } = cm.state.selection.main;
-    const text = cm.state.doc.toString();
     // The whole source-mode session is one undo step (01, "Undo across live and source").
-    if (text !== this.initial) this.editor.applyText(text);
+    if (text !== this.initial) this.editor.applyText(text, true, blockTree);
     cm.destroy();
     this.cm = null;
     this.host.hidden = true;

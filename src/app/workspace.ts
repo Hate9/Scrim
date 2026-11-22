@@ -1,6 +1,7 @@
 // Window-level workspace behavior (spec 07, 15): external changes, autosave, draft
 // recovery, view modes, Save As image paths.
 
+import { usableTree } from "../md/rustblocks";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -30,14 +31,14 @@ export interface WorkspaceHooks {
 
 /** Replace the document with the file's new text, keeping the cursor on the same source
  * offset and the scroll position; one undo step (7.3). */
-export function reloadKeepingCursor(editor: Editor, text: string, opts: { history?: boolean; markSaved?: boolean } = {}) {
+export function reloadKeepingCursor(editor: Editor, text: string, opts: { history?: boolean; markSaved?: boolean; blocks?: unknown } = {}) {
   const view = editor.view;
   const scroller = view.dom.closest("content") as HTMLElement;
   const scroll = scroller.scrollTop;
   const { map } = serializeWithMap(view.state.doc, { prettyTables: editor.options.prettyTables });
   const offset = posToSource(map, view.state.selection.head);
   const wasDirty = editor.isDirty();
-  editor.applyText(text, opts.history ?? true);
+  editor.applyText(text, opts.history ?? true, usableTree(text, opts.blocks));
   const after = serializeWithMap(view.state.doc, { prettyTables: editor.options.prettyTables }).map;
   const pos = sourceToPos(after, offset);
   if (pos !== null) {
@@ -64,8 +65,8 @@ export function watchExternalChanges(editor: Editor, hooks: WorkspaceHooks) {
       return;
     }
     if (!hooks.isDirty()) {
-      const text = await ipc.reload();
-      reloadKeepingCursor(editor, text);
+      const r = await ipc.reload();
+      reloadKeepingCursor(editor, r.text, { blocks: r.blocks });
       document.title = await ipc.setDirty(false);
       return;
     }
@@ -74,7 +75,8 @@ export function watchExternalChanges(editor: Editor, hooks: WorkspaceHooks) {
         "Reload",
         async () => {
           hooks.notice(null);
-          reloadKeepingCursor(editor, await ipc.reload());
+          const r = await ipc.reload();
+          reloadKeepingCursor(editor, r.text, { blocks: r.blocks });
           editor.view.focus();
           document.title = await ipc.setDirty(false);
         },

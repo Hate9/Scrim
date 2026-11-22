@@ -52,7 +52,12 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npx tsc --noEmit
+      # Q-026: the parity test (src/md/rustparity.test.ts) needs Rust's block-tree helper;
+      # without it the test is skipped, so build it first.
+      - run: cargo build --release -p scrim-core --example block_tree
       - run: npm test
+      - name: Rust and frontend block parsers agree (Q-026)
+        run: test -x target/release/examples/block_tree && npx vitest run src/md/rustparity.test.ts
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - name: No HTTP client crates (N-1 / P8-1)

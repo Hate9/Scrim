@@ -5,6 +5,7 @@ import { setSmartPunctuation } from "./editor/smart";
 import { frameless, setupTitleBar } from "./app/titlebar";
 import { setCodeIndent, setWritingStyle } from "./md/style";
 import { dialect } from "./md/mdast";
+import { usableTree } from "./md/rustblocks";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -348,7 +349,7 @@ async function init() {
   state.path = d.path;
   editor.options.docDir = d.path ? dirname(d.path) : null;
   const eol = EOLS[d.lineEnding ?? d.defaultLineEnding];
-  editor.load(d.text, !d.path || d.missing, eol);
+  editor.load(d.text, !d.path || d.missing, eol, usableTree(d.text, d.blocks));
   requestAnimationFrame(() => requestAnimationFrame(() => (openMs = performance.now() - t0)));
   document.title = d.title;
   editor.view.focus();
@@ -386,7 +387,7 @@ async function init() {
     sourceMode.enter();
     showNotice("This file is large, so it opened in source code mode.", [["Switch to Live Preview", () => {
       showNotice(null);
-      sourceMode.leave();
+      void sourceMode.leave();
     }]]);
     return;
   }
