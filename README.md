@@ -33,8 +33,10 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   hash-checked list in `spec/fixtures/themes.lock.json`, into the git-ignored
   `tests/fixtures/themes/`). Approved screenshots are committed in `tests/golden/themes/`;
   new or changed renders go to `tests/golden/themes/candidates/` and are committed on a
-  `goldens/<date>` branch for the owner to review. Goldens should come from the CI Linux
-  image (fonts).
+  `goldens/<date>-<tag>` branch (by the goldens workflow) for review. The goldens come from
+  the CI Linux image: elsewhere, themes that use system fonts (notion, orangeheart,
+  blackout) differ by a few percent of pixels and T-1 fails; check T-1 in the goldens
+  workflow.
 - **Manual tests.** E-9 (IME with Japanese input) needs a person.
 
 ## Documents
