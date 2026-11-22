@@ -82,8 +82,14 @@ are end-to-end tests in `tests/e2e/p1.mjs`.
   `tauri build --no-bundle`), runs `scripts/check-no-http.sh` in `check()`, and installs
   the binary, `packaging/linux/scrim.desktop` and the icons. Help documents, built-in
   themes and fonts are compiled into the binary, so nothing else is installed.
-- The AppImage bundler downloads its tools from GitHub at build time; it runs in the
-  release workflow, not in the offline test container.
+- The desktop file is ours (`packaging/linux/scrim.desktop`, the .deb's
+  `desktopTemplate`): Tauri's generated one had `Exec=scrim` without `%F`, so a
+  double-clicked file would not reach the app.
+- Checked in the Linux container (2026-11-22): the release .deb installs (Depends
+  `libwebkit2gtk-4.1-0, libgtk-3-0`, Recommends `hunspell-en-us`), GIO lists it for
+  `text/markdown`, `gio open note.md` opens a window titled `note.md - Scrim`, and
+  `dpkg -r` leaves no binary, desktop file or icon behind. AppImage, PKGBUILD and the
+  Windows installers still need their P8-1 run on the target systems.
 
 ### Subscript, superscript, highlight (spec 02)
 
