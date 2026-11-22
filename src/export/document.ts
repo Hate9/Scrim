@@ -2,6 +2,7 @@
 
 import { parse as parseYaml } from "yaml";
 import contentCss from "../content.css?raw";
+import { bundledFontsCss } from "./fonts";
 import katexCss from "katex/dist/katex.min.css?raw";
 
 type Setting = <T>(key: string, fallback: T) => T;
@@ -243,6 +244,8 @@ export async function buildPage(p: PageParts): Promise<string> {
   } else css.push(STRUCTURAL_CSS);
   if (p.hasMath) css.push(await katexCssInlined());
   if (p.styled && p.themeCss) css.push(p.themeCss);
+  // Bundled theme fonts the page uses, embedded (22, 9.1).
+  if (p.styled) css.unshift(await bundledFontsCss(`${contentCss}\n${p.themeCss ?? ""}`));
   css.push("html, body { margin: 0; }");
   css.push(printCss(p.pdf ?? null));
   const styles = css

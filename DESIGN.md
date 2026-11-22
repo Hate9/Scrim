@@ -173,6 +173,17 @@ its normal geometry plus the flag), and applies it to new windows, cascading 30 
 windows already at that spot. Wayland compositors may ignore the position. The e2e
 harness removes the file before each test.
 
+### Bundled theme fonts (spec 22)
+
+`src/fonts/` holds PT Serif and Open Sans (four styles each, unmodified upstream TTFs,
+SIL OFL; TTF rather than WOFF2 because PT Serif's license reserves its name for the
+original files). `fonts.css` declares them for the app with `font-display: block`;
+exports embed, as data URLs, only the faces of bundled families that the page's CSS
+names (`src/export/fonts.ts`), and the PDF is printed from that page. The "22" e2e tests
+check that the paragraph's rendered width matches the bundled face, since
+`document.fonts.check` also returns true when no face matches; X-1 checks the embedded
+face, X-2 that the PDF uses PT Serif.
+
 ### Cursor blink (spec 11)
 
 `src-tauri/src/caret.rs` sets GTK's `gtk-cursor-blink` at startup and when the

@@ -1,0 +1,12 @@
+/* Fonts of the built-in themes (spec 22): PT Serif (paper) and Open Sans (clean, and the
+   heading fallback of night), bundled so the themes look the same whether or not the
+   system has them. Unmodified upstream files, SIL Open Font License 1.1 (OFL texts next
+   to them; THIRD_PARTY.md). Exports embed the faces their CSS names (export/fonts.ts). */
+@font-face { font-family: "PT Serif"; font-style: normal; font-weight: 400; font-display: block; src: url("./PT_Serif-Web-Regular.ttf") format("truetype"); }
+@font-face { font-family: "PT Serif"; font-style: italic; font-weight: 400; font-display: block; src: url("./PT_Serif-Web-Italic.ttf") format("truetype"); }
+@font-face { font-family: "PT Serif"; font-style: normal; font-weight: 700; font-display: block; src: url("./PT_Serif-Web-Bold.ttf") format("truetype"); }
+@font-face { font-family: "PT Serif"; font-style: italic; font-weight: 700; font-display: block; src: url("./PT_Serif-Web-BoldItalic.ttf") format("truetype"); }
+@font-face { font-family: "Open Sans"; font-style: normal; font-weight: 400; font-display: block; src: url("./OpenSans-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Open Sans"; font-style: italic; font-weight: 400; font-display: block; src: url("./OpenSans-Italic.ttf") format("truetype"); }
+@font-face { font-family: "Open Sans"; font-style: normal; font-weight: 700; font-display: block; src: url("./OpenSans-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Open Sans"; font-style: italic; font-weight: 700; font-display: block; src: url("./OpenSans-BoldItalic.ttf") format("truetype"); }

@@ -16,3 +16,5 @@ have not been consulted.
 | 2026-11-22 | Source of `lopdf` 0.38, `webview2-com` 0.39 and its macros, `tauri` 2 (`on_page_load`, `PlatformWebview`), local cargo registry | API signatures for PDF overlay and printing |
 | 2026-11-22 | Source of `prosemirror-view` 1.43 (node_modules), DOM observer mutation handling | Found why image markers lost their wrapper: an attribute change on the mark element made ProseMirror re-read the paragraph |
 | 2026-11-22 | Source of `spellbook` 0.4 and `windows` 0.62 (Globalization, COM), local cargo registry | API signatures for the spell providers |
+| 2026-11-22 | Source of `micromark-core-commonmark` 2.0 (`heading-atx.js`, `list.js`, node_modules, MIT) | Token names and the interrupt rule for the lenient constructs (`src/md/lenient.ts`); the heading tokenizer is written for Scrim, the list one wraps the package's own |
+| 2026-11-22 | PT Serif (raw.githubusercontent.com/google/fonts, `ofl/ptserif`) and Open Sans (raw.githubusercontent.com/googlefonts/opensans, `fonts/ttf`) TTF files and their `OFL.txt` | Bundled fonts of the built-in paper and clean themes (spec 22), unmodified |

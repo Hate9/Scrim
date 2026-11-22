@@ -45,6 +45,8 @@ test("X-1 HTML export: collapsed, themed, code tokens; matches the editor within
   if (!/<body class="[^"]*\bscrim-export\b/.test(text)) throw new Error("no body.scrim-export");
   if (!text.includes("x1-base-user-marker")) throw new Error("base.user.css not included");
   if (!text.includes("/* paper.css */")) throw new Error("theme CSS not included");
+  // 22: the theme's bundled font travels with the file.
+  if (!/@font-face \{ font-family: "PT Serif"; font-style: normal; font-weight: 400; src: url\(data:font\/ttf;base64,/.test(text)) throw new Error("PT Serif is not embedded");
   if (!/class="[^"]*\bcm-s-inner\b/.test(text) || !/<span class="cm-keyword">function<\/span>/.test(text)) throw new Error("code blocks lack .cm-s-inner or cm-* tokens");
   if (!text.includes('<section class="footnotes">')) throw new Error("no footnotes section");
   if (text.includes("title: Feature document")) throw new Error("front matter in the export");
@@ -90,6 +92,9 @@ test("X-2 PDF: selectable text, page size and margins, short code blocks not spl
   if (pages < 2) throw new Error(`expected several pages, got ${pages}`);
   const text = spawnSync("pdftotext", ["-layout", pdf, "-"], { encoding: "utf8" }).stdout;
   if (!text.includes("Paragraph 1 of the X-2 document")) throw new Error("text is not selectable");
+  // 22: the PDF uses the bundled PT Serif (not installed on the test machines).
+  const fonts = spawnSync("pdffonts", [pdf], { encoding: "utf8" }).stdout;
+  if (!/PTSerif/i.test(fonts)) throw new Error(`PT Serif not used in the PDF:\n${fonts}`);
   // Margins (18/16 mm = 51/45 pt): no content word starts outside them.
   const bbox = spawnSync("pdftotext", ["-bbox", pdf, "-"], { encoding: "utf8" }).stdout;
   const words = [...bbox.matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/g)].map((m) => ({ x0: +m[1], y0: +m[2], x1: +m[3], y1: +m[4], w: m[5] }));

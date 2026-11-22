@@ -369,3 +369,26 @@ test("12 global: shortcuts are registered system-wide and run in the last focuse
     writeFileSync(cfg, original);
   }
 }, () => fixture("g12.md", "text\n"));
+
+// 22: the built-in themes' fonts are bundled (the test machines have neither installed).
+for (const [theme, family] of [["paper", "PT Serif"], ["clean", "Open Sans"]]) {
+  test(`22 ${theme} renders in the bundled ${family}`, async (s) => {
+    const installed = spawnSync("fc-list", [":", "family"], { encoding: "utf8" }).stdout ?? "";
+    if (installed.includes(family)) console.log(`     note: ${family} is installed on this machine; the check still runs`);
+    await ready(s);
+    await js(s, `window.__scrim.setSetting('theme', '${theme}'); return true`);
+    await waitFor(() => js(s, `return window.__scrim.themes.current === '${theme}'`), `${theme} active`);
+    await waitFor(() => js(s, `return document.fonts.ready.then(() => document.fonts.check('16px "${family}"'))`), `fonts.check ${family}`, 10000);
+    // The face actually used: the paragraph's width equals its width in the bundled face
+    // and differs from the fallback in the theme's stack.
+    const [shown, bundled, fallback, stack] = await js(s, `const p = document.querySelector('#write p'); const cs = getComputedStyle(p);
+      const span = document.createElement('span'); span.textContent = p.textContent; p.replaceChildren(span); const w = span.getBoundingClientRect().width;
+      const c = document.createElement('canvas').getContext('2d'); const size = cs.fontSize;
+      c.font = size + ' "${family}"'; const b = c.measureText(p.textContent).width;
+      c.font = size + ' ${theme === "paper" ? "serif" : "sans-serif"}'; const f = c.measureText(p.textContent).width;
+      return [w, b, f, cs.fontFamily]`);
+    if (!stack.startsWith(`"${family}"`) && !stack.startsWith(family)) throw new Error(`computed font-family is ${stack}`);
+    if (Math.abs(shown - bundled) > 1) throw new Error(`paragraph is ${shown}px wide, ${bundled}px in ${family}`);
+    if (Math.abs(bundled - fallback) < 2) throw new Error(`${family} measures like the fallback (${bundled} vs ${fallback}): not loaded?`);
+  }, () => fixture(`font-${theme}.md`, "The quick brown fox jumps over the lazy dog, again and again.\n"));
+}
