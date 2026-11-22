@@ -55,6 +55,24 @@ measured against these columns.
 Rust optimization saves about 1.2 s of the open and nothing on typing: what remains is
 the JavaScript parse and WebKit's layout.
 
+#### Forced layouts while typing (Q-026, step before containment)
+
+`tests/e2e/tools/profile-layout.mjs` wraps every geometry read (`getBoundingClientRect`,
+`getClientRects`, `offset*`, `client*`, `scroll*`, `getComputedStyle`,
+`elementFromPoint`) and types 44 characters into the 10,000-line E-14 document (Xvfb,
+unminified debug build). Result: no read comes from Scrim's code. All of them are
+ProseMirror's own: `scrollToSelection` after each typed character (coordinates of the
+cursor, then each scrollable ancestor), and `storeScrollPos`/`resetScrollPos` around
+some DOM updates. Together they took about 30 ms over the 44 keystrokes; the
+`elementFromPoint` in `storeScrollPos` is the only read that regularly forces a fresh
+layout (about 2 ms each, 9 times). The 55 view updates took 526 ms (about 10 ms each,
+21 ms at most), so the time is the DOM update and the one layout each keystroke needs,
+not repeated forced layouts. Nothing to remove on Scrim's side; containment is next.
+
+The WebKit inspector is available in every build: Preferences → General → "Enable
+debugging tools", then View → Toggle DevTools (Shift+F12); its Timelines tab records
+layout and script time on the owner's machine.
+
 What changed:
 
 - The document parse builds block-level mdast only (inline constructs disabled; the
