@@ -20,7 +20,7 @@ import {
   selectAll,
   shiftEnter,
   shiftTab,
-  spaceInputRule,
+  laxHeadingInputRule, spaceInputRule,
   tab,
 } from "./commands";
 import { defaultOptions, type EditorOptions } from "./context";
@@ -259,6 +259,7 @@ export function createEditor(
         groups(v, text);
         if (cellTextInput(v.state, from, to, text, v.dispatch)) return true;
         if (spaceInputRule(() => v.state, from, to, text, v.dispatch)) return true;
+        if (laxHeadingInputRule(() => v.state, from, to, text, v.dispatch)) return true;
         return autoPair(v.state, from, to, text, options, v.dispatch);
       },
     },

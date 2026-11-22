@@ -3,6 +3,7 @@
 import "./editor/cmlayer"; // first: CodeMirror styles in @layer scrim-cm (10.3)
 import { setSmartPunctuation } from "./editor/smart";
 import { setCodeIndent, setWritingStyle } from "./md/style";
+import { dialect } from "./md/mdast";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -259,6 +260,7 @@ async function openLink(href: string, newWindow: boolean) {
 }
 
 /** Editor options from settings.json (spec 11; P4 adds the preferences window). */
+let settingsApplied = false;
 function applySettings(next: Record<string, unknown>) {
   settings = next;
   const o = editor.options;
@@ -293,6 +295,18 @@ function applySettings(next: Record<string, unknown>) {
   setWritingStyle(settings);
   setCodeIndent(settings.codeIndent);
   setSmartPunctuation(editor.view, o.smartPunctuation);
+  // Strict mode changes the block structure: parse the document again, not an edit (02).
+  const strict = bool("strictMode", true);
+  if (strict !== dialect.strict) {
+    // The text as written under the old dialect (its automatic escapes are for that one).
+    const reparse = settingsApplied && typeof sourceMode !== "undefined" && !sourceMode.active();
+    const text = reparse ? editor.markdown() : "";
+    dialect.strict = strict;
+    if (reparse) {
+      reloadKeepingCursor(editor, text, { history: false, markSaved: false });
+      void ipc.setDirty(editor.isDirty()).then((t) => (document.title = t));
+    }
+  }
   // Inline math and the sub/superscript/highlight switches change what is an element:
   // analyze and render every block again (11).
   if ([o.inlineMath, o.subscript, o.superscript, o.highlight].join() !== inlineBefore && editor.view.state.doc.childCount) rebuildInline(editor.view);
@@ -308,6 +322,7 @@ function applySettings(next: Record<string, unknown>) {
   }
   fs.textContent = typeof size === "number" && size >= 12 && size <= 24 ? `#write, #scrim-source { font-size: ${size}px; }` : "";
   if (typeof themes !== "undefined") void themes.apply().then(() => document.head.appendChild(fs!));
+  settingsApplied = true;
 }
 
 /** Time from asking for the document to its first frame (PF-1), for tests. */

@@ -113,6 +113,19 @@ source keeps its markers, and a heading typed as `# ` stays ATX. The code indent
 (Preferences → Editor) is CodeMirror's indent unit and what Tab inserts in code blocks
 and source mode; code blocks pick it up when they are created.
 
+### Strict mode off (spec 02)
+
+`src/md/lenient.ts` adds two micromark constructs, tried before CommonMark's when
+`dialect.strict` (in `mdast.ts`) is false: `#Heading` produces CommonMark's ATX heading
+tokens (CommonMark's resolver builds the content), and the ordered list construct runs
+with a view of the tokenizer context in which "interrupting a paragraph" is hidden until
+the marker, so any start number may interrupt while an empty item still cannot. Every
+parse in the window (load, re-parse, escapes, paste) follows the setting. Changing it
+takes the Markdown as written under the old dialect, then re-parses it (not an edit,
+the dirty state is kept). With it off, typing a letter after `#`–`######` at the start
+of a one-line paragraph makes the heading (`laxHeadingInputRule`); otherwise the
+parse/display invariant would escape the `#`.
+
 ### Cursor blink (spec 11)
 
 `src-tauri/src/caret.rs` sets GTK's `gtk-cursor-blink` at startup and when the

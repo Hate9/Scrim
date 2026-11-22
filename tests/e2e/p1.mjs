@@ -320,6 +320,24 @@ test("02 subscript, superscript, highlight render when switched on", async (s) =
   await expectMd(s, "H~2~O, x^2^, ==hi==\n");
 }, () => fixture("ext02.md", "H~2~O, x^2^, ==hi==\n"));
 
+test("02 strict mode off: #Heading is a heading; typing #T makes one", async (s) => {
+  await ready(s);
+  await waitFor(() => s.exec("return document.querySelector('#write p')?.textContent.startsWith('#Heading')"), "paragraph while strict");
+  await s.exec("window.__scrim.setSetting('strictMode', false); return true");
+  await waitFor(() => s.exec("return document.querySelector('#write h1')?.textContent === 'Heading'"), "h1 when lenient");
+  if (await s.exec("return window.__scrim.editor.isDirty()")) throw new Error("re-parsing made the document dirty");
+  await ed(s, "view.focus(); view.dispatch(view.state.tr.setSelection(view.state.selection.constructor.atEnd(view.state.doc)))");
+  await press(s, ENTER);
+  await typeText(s, "##Two");
+  await waitFor(() => s.exec("return document.querySelector('#write h2')?.textContent === 'Two'"), "typed heading").catch(async (e) => {
+    throw new Error(`${e.message}; markdown ${JSON.stringify(await md(s))}, html ${await s.exec("return document.querySelector('#write').innerHTML.slice(-300)")}`);
+  });
+  await expectMd(s, "#Heading\n\n##Two\n");
+  await s.exec("window.__scrim.setSetting('strictMode', null); return true");
+  await waitFor(() => s.exec("return !document.querySelector('#write h1') && document.querySelectorAll('#write p').length === 2"), "paragraphs again");
+  await expectMd(s, "#Heading\n\n##Two\n");
+}, () => fixture("strict.md", "#Heading\n"));
+
 // E-14 needs a mid-range laptop with GPU compositing. Under Xvfb with software
 // rendering, WebKit's layout of a 10,000-line document dominates, so the budget is
 // reported, and enforced only with SCRIM_PERF_STRICT=1. Lines: SCRIM_E14_LINES.

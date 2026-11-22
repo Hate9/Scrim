@@ -1,6 +1,7 @@
 // Editing commands (spec 03, 3.3–3.7; spec 04, lists and quotes; spec 12, editing keys).
 
 import { writingStyle } from "../md/style";
+import { dialect } from "../md/mdast";
 import { chainCommands, deleteSelection, joinBackward, joinForward, selectNodeBackward, selectNodeForward, splitBlock } from "prosemirror-commands";
 import { closeHistory } from "prosemirror-history";
 import { Fragment, type Node, type NodeType, type ResolvedPos } from "prosemirror-model";
@@ -504,6 +505,40 @@ export function spaceInputRule(
   const after = getState();
   const tr = spaceRule(after, after.selection.$from, prefix);
   if (tr) dispatch(closeHistory(tr).scrollIntoView());
+  return true;
+}
+
+/**
+ * Strict mode off (02): `#` to `######` at the start of a one-line paragraph followed by
+ * a typed letter makes an ATX heading written without a space, as the lenient parse
+ * reads it (otherwise the parse/display invariant would escape the `#`). Undo restores
+ * the paragraph.
+ */
+export function laxHeadingInputRule(
+  getState: () => EditorState,
+  from: number,
+  to: number,
+  text: string,
+  dispatch: (tr: Transaction) => void,
+): boolean {
+  if (dialect.strict || from !== to || !/^\p{L}$/u.test(text)) return false;
+  const state = getState();
+  const $from = state.doc.resolve(from);
+  const para = $from.parent;
+  if (para.type !== S.paragraph || para.textContent.includes("\n")) return false;
+  const prefix = para.textBetween(0, $from.parentOffset);
+  if (!/^#{1,6}$/.test(prefix)) return false;
+  dispatch(state.tr.insertText(text, from, to).setMeta(SKIP_ESCAPES, true));
+  const after = getState();
+  const $a = after.selection.$from;
+  const tr = after.tr.delete($a.start(), $a.start() + prefix.length).setNodeMarkup($a.before(), S.heading, {
+    ...keepLeaf(para.attrs),
+    level: prefix.length,
+    open: prefix,
+    openLevel: prefix.length,
+    close: "",
+  });
+  dispatch(closeHistory(tr).scrollIntoView());
   return true;
 }
 

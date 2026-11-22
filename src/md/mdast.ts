@@ -17,6 +17,12 @@ import { gfmStrikethrough } from "micromark-extension-gfm-strikethrough";
 import { gfmTable } from "micromark-extension-gfm-table";
 import { gfmTaskListItem } from "micromark-extension-gfm-task-list-item";
 import { math } from "micromark-extension-math";
+import { lenient } from "./lenient";
+
+/** Strict mode (Preferences → Markdown, default on). Off: the lenient forms of spec 02
+ * (`lenient.ts`). One setting for every parse in the window; the app reloads the
+ * document when it changes. */
+export const dialect = { strict: true };
 
 export interface ParseOptions {
   /** Inline `$…$` math (Preferences → Markdown, default off). */
@@ -75,6 +81,7 @@ export function parseMdast(src: string, opts: ParseOptions = {}): Root {
     extensions.unshift(frontmatter(["yaml"]));
     mdastExtensions.unshift(frontmatterFromMarkdown(["yaml"]));
   }
+  if (!dialect.strict) extensions.unshift(lenient);
   if (opts.blockOnly) extensions.push({ disable: { null: INLINE_CONSTRUCTS } });
   return fromMarkdown(src, { extensions, mdastExtensions });
 }
