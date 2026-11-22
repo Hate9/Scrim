@@ -208,8 +208,11 @@ generated selectors and loses on order.
   `table { border-collapse: collapse; width: 100%; text-align: left }`;
   `table.md-table td { min-width: 32px }`. No borders or backgrounds.
 - Code: `code, pre` use `var(--monospace)`; `.md-fences { font-size: 0.9rem; display:
-  block; background: inherit; position: relative }`; CodeMirror line padding `0 4px`.
-  Every element inside `.CodeMirror` inherits `font-family`, `font-size` and
+  block; background: inherit; position: relative; white-space: normal }`; CodeMirror
+  line padding `0 4px`. The `white-space: normal` on the code block container matters:
+  themes put `content: ' '` pseudo-elements on `.md-fences`, which must collapse to
+  zero height, as in the reference (orangeheart's `.md-fences:before`, Q-021). Code
+  lines inside keep their own pre-style wrapping. Every element inside `.CodeMirror` inherits `font-family`, `font-size` and
   `line-height` from it. CodeMirror 6 sets `font-family: monospace` and
   `line-height: 1.4` on `.cm-scroller`, and a layer does not help there, because a
   theme that sets the font on `.CodeMirror` reaches the scroller only by inheritance.

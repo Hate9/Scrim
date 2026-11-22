@@ -241,3 +241,14 @@ fixed. Two differences remain:
 - Front matter carries no CodeMirror alias classes, whether shown or edited.
 Remaining differences come from the fonts installed in CI versus the reference
 machine and need no change. Regenerate the candidates after these changes.
+
+## Q-021: T-1 candidates after Q-020
+**Asked by:** spec team (fourth review of `goldens/2026-11-22-q020`), 2026-11-22
+**Question:** Front matter and code fonts are fixed; seven themes match. orangeheart's
+code block still has an extra empty line above the code. The theme's
+`.md-fences:before { content: ' '; display: block }` renders as a full line in Scrim,
+while in the reference it has zero height.
+**Answer (spec team, 2026-11-22):** The code block container (`pre.md-fences`) has
+`white-space: normal`, so a pseudo-element whose content is only a space collapses to
+nothing. The code lines inside keep their own wrapping. Added to 10.3 "Base
+stylesheet". Regenerate the candidates after this change.
