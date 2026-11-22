@@ -252,3 +252,17 @@ while in the reference it has zero height.
 `white-space: normal`, so a pseudo-element whose content is only a space collapses to
 nothing. The code lines inside keep their own wrapping. Added to 10.3 "Base
 stylesheet". Regenerate the candidates after this change.
+
+## Q-022: T-1 candidates after Q-021
+**Asked by:** spec team (fifth review of `goldens/2026-11-22-d506069`), 2026-11-22
+**Question:** Q-021 fixed orangeheart's code block, and seven themes match the
+reference. One difference is left in orangeheart, which has no `hr` rule. The
+reference shows the browser's default rule there: a faint two-tone gray line with
+about 0.5em of space above and below. Scrim draws a solid dark line with less space
+before the following paragraph.
+**Answer (spec team, 2026-11-22):** The base stylesheet gives horizontal rules no
+styling. `div.md-hr` and its `hr` keep the browser defaults (1px inset gray border,
+`0.5em` margins). Find out what in Scrim draws the solid line (an editor or
+node-view default, for example) and remove it. Added to 10.3 "Base stylesheet".
+Regenerate the candidates after this change. If orangeheart then matches, all eight
+are ready for owner approval.
