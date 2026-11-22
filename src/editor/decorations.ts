@@ -44,7 +44,7 @@ export interface RenderHooks {
   renderMath(tex: string, el: HTMLElement, display?: boolean): void;
 }
 
-function widgetDom(w: Widget, index: number, hooks: RenderHooks, kind: string): HTMLElement {
+function widgetDom(w: Widget, index: number, hooks: RenderHooks, kind: string, view?: EditorView): HTMLElement {
   const span = document.createElement("span");
   span.className = `md-widget md-widget-${w.type}`;
   span.dataset.el = String(index);
@@ -62,14 +62,25 @@ function widgetDom(w: Widget, index: number, hooks: RenderHooks, kind: string): 
       img.dataset.src = w.src;
       // Missing images: a placeholder with the alt text and the path (4.8).
       // The element's wrapper (span.md-image) gets `md-img-error` (10.3).
+      // The wrapper is ProseMirror's mark element: change it only when needed, with the
+      // DOM observer paused, or ProseMirror re-reads the paragraph from the DOM and drops
+      // the wrapper's presentation mark.
+      const setError = (on: boolean) => {
+        const wrapper = span.closest(".md-image");
+        if (!wrapper || wrapper.classList.contains("md-img-error") === on) return;
+        const observer = (view as unknown as { domObserver?: { stop(): void; start(): void } } | undefined)?.domObserver;
+        observer?.stop();
+        wrapper.classList.toggle("md-img-error", on);
+        observer?.start();
+      };
       img.addEventListener("error", () => {
         wrap.classList.add("md-image-broken");
         wrap.dataset.label = `${w.alt ? w.alt + " — " : ""}${w.src}`;
-        span.closest(".md-image")?.classList.add("md-img-error");
+        setError(true);
       });
       img.addEventListener("load", () => {
         wrap.classList.remove("md-image-broken");
-        span.closest(".md-image")?.classList.remove("md-img-error");
+        setError(false);
       });
       wrap.appendChild(img);
       span.appendChild(wrap);
@@ -143,8 +154,8 @@ export function decorationsForBlock(node: Node, pos: number, defs: Definitions, 
     out.push(
       Decoration.widget(
         base + e.from,
-        () => {
-          const dom = widgetDom(w, i, hooks, e.kind);
+        (view) => {
+          const dom = widgetDom(w, i, hooks, e.kind, view);
           if (brTag) dom.appendChild(document.createElement("br"));
           return dom;
         },

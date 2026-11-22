@@ -76,6 +76,7 @@ are not listed.
 
 | Material | Where | License |
 |---|---|---|
+| Noto Sans Regular (The Noto Project Authors, github.com/notofonts/latin-greek-cyrillic) | `src-tauri/fonts/NotoSans-Regular.ttf`, PDF header and footer text (09 9.3); license text in `src-tauri/fonts/OFL.txt` | SIL OFL 1.1 |
 | CommonMark Spec 0.31.2 examples (John MacFarlane) | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 | GitHub Flavored Markdown Spec 0.29 extension examples | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 

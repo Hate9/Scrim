@@ -11,6 +11,7 @@ pub const DOCS: &[(&str, &str)] = &[
     ("shortcuts", include_str!("../help/Shortcuts.md")),
     ("custom-themes", include_str!("../help/Custom Themes.md")),
     ("snippets-and-custom-tags", include_str!("../help/Snippets and Custom Tags.md")),
+    ("pandoc", include_str!("../help/Installing Pandoc.md")),
     ("credits", include_str!("../../THIRD_PARTY.md")),
 ];
 
@@ -21,6 +22,7 @@ fn file_name(id: &str) -> &'static str {
         "shortcuts" => "Shortcuts.md",
         "custom-themes" => "Custom Themes.md",
         "snippets-and-custom-tags" => "Snippets and Custom Tags.md",
+        "pandoc" => "Installing Pandoc.md",
         _ => "Credits.md",
     }
 }

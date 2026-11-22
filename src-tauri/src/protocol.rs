@@ -78,7 +78,7 @@ fn serve(state: &AppState, uri_path: &str) -> Response<Vec<u8>> {
         }
         Ok(bytes) => Response::builder()
             .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, mime_for(&resolved))
+            .header(header::CONTENT_TYPE, export_page_mime(state, &resolved).unwrap_or_else(|| mime_for(&resolved)))
             .header(header::CACHE_CONTROL, "no-cache")
             .body(bytes)
             .unwrap_or_else(|_| status(StatusCode::INTERNAL_SERVER_ERROR)),
@@ -91,6 +91,16 @@ fn serve(state: &AppState, uri_path: &str) -> Response<Vec<u8>> {
 
 fn status(code: StatusCode) -> Response<Vec<u8>> {
     Response::builder().status(code).body(Vec::new()).expect("static response")
+}
+
+/// Export and print pages (spec 09, 9.3) are the only HTML served as HTML: Scrim writes
+/// them to its own temporary folder and loads them in a hidden window. Any other `.html`
+/// stays `application/octet-stream`, so local HTML files are never run as pages.
+fn export_page_mime(state: &AppState, resolved: &Path) -> Option<&'static str> {
+    let dir = state.config_dir.join("tmp-export");
+    let dir = std::fs::canonicalize(&dir).unwrap_or(dir);
+    let html = resolved.extension().is_some_and(|e| e.eq_ignore_ascii_case("html"));
+    (html && resolved.parent() == Some(dir.as_path())).then_some("text/html; charset=utf-8")
 }
 
 pub fn mime_for(path: &Path) -> &'static str {

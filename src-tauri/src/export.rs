@@ -129,6 +129,42 @@ pub fn export_embed_image(path: PathBuf) -> Option<String> {
     data_url(&path)
 }
 
+/// Where to write an export: a native save dialog in the document's folder.
+#[tauri::command]
+pub async fn export_pick_path(
+    window: tauri::WebviewWindow,
+    default_name: String,
+    directory: Option<PathBuf>,
+    filter_name: String,
+    extensions: Vec<String>,
+) -> Result<Option<PathBuf>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    // Debug builds only: the E2E suite cannot drive the native dialog (same hook as Save As).
+    #[cfg(debug_assertions)]
+    if let Some(f) = std::env::var_os("SCRIM_TEST_SAVE_AS").map(PathBuf::from) {
+        if let Ok(t) = std::fs::read_to_string(&f) {
+            if !t.trim().is_empty() {
+                let _ = std::fs::write(&f, "");
+                return Ok(Some(PathBuf::from(t.trim())));
+            }
+        }
+    }
+    let exts: Vec<&str> = extensions.iter().map(String::as_str).collect();
+    let mut dialog = window.dialog().file().set_parent(&window).set_file_name(default_name).add_filter(filter_name, &exts);
+    if let Some(d) = directory.filter(|d| d.is_dir()) {
+        dialog = dialog.set_directory(d);
+    }
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file()).await.map_err(|e| e.to_string())?;
+    Ok(picked.and_then(|p| p.into_path().ok()))
+}
+
+/// Open an exported file with the system's default application.
+#[tauri::command]
+pub fn export_open(app: tauri::AppHandle, path: PathBuf) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener().open_path(path.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

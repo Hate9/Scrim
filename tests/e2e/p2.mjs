@@ -94,6 +94,23 @@ test("B-6 paste a PNG into a saved document → ./assets", async (s, file) => {
   void file;
 }, () => fixture("b6.md", "text\n"));
 
+test("B-6b a loaded image keeps its markers collapsed (wrapper mark survives the load)", async (s) => {
+  await ready(s);
+  await press(s, CTRL, END);
+  await waitFor(() => js(s, "return [...document.querySelectorAll('#write .md-image img')].every((i) => i.complete && i.naturalWidth > 0)"), "images loaded");
+  await sleep(400);
+  // Collapsed markers take no space (font-size 0, 03 3.2), which only works inside the
+  // element's wrapper.
+  const loose = await js(s, "return [...document.querySelectorAll('#write > p > .md-meta, #write > p > .md-hide')].length");
+  if (loose) throw new Error(`${loose} image marker(s) outside their wrapper`);
+  const sizes = await js(s, "return [...document.querySelectorAll('#write .md-image > .md-meta, #write .md-image > .md-plain')].map((e) => getComputedStyle(e).fontSize)");
+  if (!sizes.length || sizes.some((f) => f !== "0px")) throw new Error(`markers shown: ${sizes}`);
+}, () => {
+  const f = fixture("b6b.md", "![alt](pic.png)\n\na ![x](pic.png) b\n\nend\n");
+  spawnSync("cp", [join(process.cwd(), "src-tauri/icons/32x32.png"), join(docs, "pic.png")]);
+  return f;
+});
+
 test("B-7 task checkbox toggles without moving the cursor; undo reverts", async (s) => {
   await ready(s);
   await cursorAfter(s, "two");

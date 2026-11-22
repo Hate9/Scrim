@@ -52,8 +52,11 @@ pub struct DocInit {
 #[tauri::command]
 pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Result<DocInit, String> {
     let label = window.label().to_string();
-    let (mut path, folder, recover) =
-        state.docs().get(&label).map(|d| (d.path.clone(), d.folder.clone(), d.recover_id.clone())).unwrap_or_default();
+    let (mut path, folder, recover, initial) = state
+        .docs()
+        .get_mut(&label)
+        .map(|d| (d.path.clone(), d.folder.clone(), d.recover_id.clone(), d.initial_text.take()))
+        .unwrap_or_default();
     // A recovered draft (7.6): its text, bound to its file if it had one.
     let mut recovered: Option<String> = None;
     if let Some(id) = &recover {
@@ -135,6 +138,11 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         init.text = text;
         init.recovered = true;
         doc.draft_id = Some(id);
+        doc.dirty = true;
+    } else if let Some(text) = initial {
+        // An imported document (9.4): new, untitled, unsaved.
+        init.text = text;
+        init.recovered = true;
         doc.dirty = true;
     }
     state.docs().insert(label.clone(), doc);

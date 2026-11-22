@@ -14,6 +14,10 @@ const tree = menuTree({
   checked: () => false,
   debugging: () => true,
   hasPath: () => true,
+  pandoc: () => true,
+  customExports: () => [],
+  runCustomExport: () => {},
+  pandocHelp: () => {},
 });
 
 describe("accelerators", () => {

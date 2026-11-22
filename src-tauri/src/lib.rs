@@ -8,6 +8,10 @@ mod export;
 mod hardening;
 mod help;
 mod images;
+mod pandoc;
+mod pdf;
+#[cfg(windows)]
+mod pdf_windows;
 mod pdf_proto;
 mod protocol;
 mod state;
@@ -66,6 +70,15 @@ pub fn run() {
             export::export_theme_css,
             export::export_write,
             export::export_embed_image,
+            export::export_pick_path,
+            export::export_open,
+            pdf::export_pdf,
+            pdf::export_print,
+            pandoc::pandoc_info,
+            pandoc::pandoc_export,
+            pandoc::import_file,
+            pandoc::open_untitled_text,
+            pandoc::custom_export,
             commands::doc_set_dirty,
             commands::doc_set_title_override,
             commands::doc_save,

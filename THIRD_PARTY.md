@@ -8,10 +8,11 @@ are not listed.
 
 | Material | Where | License |
 |---|---|---|
+| Noto Sans Regular (The Noto Project Authors, github.com/notofonts/latin-greek-cyrillic) | `src-tauri/fonts/NotoSans-Regular.ttf`, PDF header and footer text (09 9.3); license text in `src-tauri/fonts/OFL.txt` | SIL OFL 1.1 |
 | CommonMark Spec 0.31.2 examples (John MacFarlane) | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 | GitHub Flavored Markdown Spec 0.29 extension examples | `tests/corpus/spec-examples.json` (test data, not shipped) | CC-BY-SA 4.0 |
 
-## npm packages bundled into the frontend (136)
+## npm packages bundled into the frontend (137)
 
 | Package | Version | License |
 |---|---|---|
@@ -150,13 +151,15 @@ are not listed.
 | unist-util-visit | 5.2.0 | MIT |
 | unist-util-visit-parents | 6.1.0 | MIT |
 | w3c-keyname | 2.2.8 | MIT |
+| yaml | 2.9.1 | ISC |
 | zwitch | 2.0.4 | MIT |
 
-## Rust crates compiled into the app (365, Linux and Windows targets)
+## Rust crates compiled into the app (396, Linux and Windows targets)
 
 | Package | Version | License |
 |---|---|---|
 | adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 |
+| aes | 0.8.4 | MIT OR Apache-2.0 |
 | aho-corasick | 1.1.5 | Unlicense OR MIT |
 | alloc-no-stdlib | 3.0.0 | BSD-3-Clause |
 | alloc-stdlib | 0.3.0 | BSD-3-Clause |
@@ -180,11 +183,14 @@ are not listed.
 | bit-vec | 0.8.0 | Apache-2.0 OR MIT |
 | bitflags | 1.3.2 | MIT/Apache-2.0 |
 | bitflags | 2.13.2 | MIT OR Apache-2.0 |
+| block-buffer | 0.10.4 | MIT OR Apache-2.0 |
 | block-buffer | 0.12.1 | MIT OR Apache-2.0 |
+| block-padding | 0.3.3 | MIT OR Apache-2.0 |
 | blocking | 1.7.0 | Apache-2.0 OR MIT |
 | brotli | 9.1.3 | BSD-3-Clause AND MIT |
 | brotli-decompressor | 6.3.2 | BSD-3-Clause/MIT |
 | bstr | 1.14.0 | MIT OR Apache-2.0 |
+| bytecount | 0.6.9 | Apache-2.0/MIT |
 | bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT |
 | byteorder | 1.5.0 | Unlicense OR MIT |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT |
@@ -194,21 +200,25 @@ are not listed.
 | camino | 1.2.6 | MIT OR Apache-2.0 |
 | cargo-platform | 0.1.9 | MIT OR Apache-2.0 |
 | cargo_metadata | 0.19.2 | MIT |
+| cbc | 0.1.2 | MIT OR Apache-2.0 |
 | cfb | 0.14.0 | MIT |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 |
 | chardetng | 1.0.0 | Apache-2.0 OR MIT |
+| cipher | 0.4.4 | MIT OR Apache-2.0 |
 | clipboard-rs | 0.3.5 | MIT |
 | clipboard-win | 5.4.3 | BSL-1.0 |
 | concurrent-queue | 2.5.0 | Apache-2.0 OR MIT |
 | const-oid | 0.10.3 | Apache-2.0 OR MIT |
 | cookie | 0.18.2 | MIT OR Apache-2.0 |
 | core_detect | 1.0.0 | MIT/Apache-2.0 |
+| cpufeatures | 0.2.17 | MIT OR Apache-2.0 |
 | cpufeatures | 0.3.1 | MIT OR Apache-2.0 |
 | crc32fast | 1.5.5 | MIT OR Apache-2.0 |
 | crossbeam-channel | 0.5.17 | MIT OR Apache-2.0 |
 | crossbeam-deque | 0.8.8 | MIT OR Apache-2.0 |
 | crossbeam-epoch | 0.9.21 | MIT OR Apache-2.0 |
 | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 |
+| crypto-common | 0.1.7 | MIT OR Apache-2.0 |
 | crypto-common | 0.2.2 | MIT OR Apache-2.0 |
 | cssparser | 0.37.0 | MPL-2.0 |
 | cssparser-macros | 0.7.1 | MPL-2.0 |
@@ -220,6 +230,7 @@ are not listed.
 | deranged | 0.5.9 | MIT OR Apache-2.0 |
 | derive_more | 2.1.1 | MIT |
 | derive_more-impl | 2.1.1 | MIT |
+| digest | 0.10.7 | MIT OR Apache-2.0 |
 | digest | 0.11.3 | MIT OR Apache-2.0 |
 | dirs | 7.0.0 | MIT OR Apache-2.0 |
 | dirs-sys | 0.5.0 | MIT OR Apache-2.0 |
@@ -232,6 +243,7 @@ are not listed.
 | dtoa-short | 0.3.5 | MPL-2.0 |
 | dunce | 1.0.5 | CC0-1.0 OR MIT-0 OR Apache-2.0 |
 | dyn-clone | 1.0.20 | MIT OR Apache-2.0 |
+| ecb | 0.1.2 | MIT |
 | encoding_rs | 0.8.44 | (Apache-2.0 OR MIT) AND BSD-3-Clause |
 | encoding_rs_io | 0.1.8 | MIT OR Apache-2.0 |
 | endi | 1.1.1 | MIT |
@@ -265,6 +277,7 @@ are not listed.
 | gdkwayland-sys | 0.18.2 | MIT |
 | gdkx11 | 0.18.2 | MIT |
 | gdkx11-sys | 0.18.2 | MIT |
+| generic-array | 0.14.7 | MIT |
 | gethostname | 1.1.0 | Apache-2.0 |
 | getrandom | 0.3.4 | MIT OR Apache-2.0 |
 | getrandom | 0.4.3 | MIT OR Apache-2.0 |
@@ -308,6 +321,7 @@ are not listed.
 | infer | 0.22.0 | MIT |
 | inotify | 0.11.5 | ISC |
 | inotify-sys | 0.1.8 | ISC |
+| inout | 0.1.4 | MIT OR Apache-2.0 |
 | is-docker | 0.2.0 | MIT |
 | is-wsl | 0.4.0 | MIT |
 | itoa | 1.0.19 | MIT OR Apache-2.0 |
@@ -324,7 +338,9 @@ are not listed.
 | litemap | 0.8.3 | Unicode-3.0 |
 | lock_api | 0.4.14 | MIT OR Apache-2.0 |
 | log | 0.4.35 | MIT OR Apache-2.0 |
+| lopdf | 0.38.0 | MIT |
 | markup5ever | 0.39.0 | MIT OR Apache-2.0 |
+| md-5 | 0.10.6 | MIT OR Apache-2.0 |
 | memchr | 2.8.3 | Unlicense OR MIT |
 | memmap2 | 0.9.12 | MIT OR Apache-2.0 |
 | memoffset | 0.9.1 | MIT |
@@ -337,6 +353,8 @@ are not listed.
 | multiversion_no_op | 1.0.0 | Apache-2.0 OR MIT |
 | natord | 1.0.9 | MIT |
 | new_debug_unreachable | 1.0.6 | MIT |
+| nom | 8.0.0 | MIT |
+| nom_locate | 5.0.0 | MIT |
 | notify | 8.2.2 | CC0-1.0 |
 | notify-types | 2.3.1 | MIT OR Apache-2.0 |
 | num-conv | 0.2.2 | MIT OR Apache-2.0 |
@@ -362,6 +380,7 @@ are not listed.
 | polling | 3.11.0 | Apache-2.0 OR MIT |
 | potential_utf | 0.1.6 | Unicode-3.0 |
 | powerfmt | 0.2.1 | MIT OR Apache-2.0 |
+| ppv-lite86 | 0.2.21 | MIT OR Apache-2.0 |
 | precomputed-hash | 0.1.1 | MIT |
 | proc-macro-crate | 1.3.1 | MIT OR Apache-2.0 |
 | proc-macro-crate | 2.0.2 | MIT OR Apache-2.0 |
@@ -372,6 +391,10 @@ are not listed.
 | pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 |
 | quick-xml | 0.42.0 | MIT |
 | quote | 1.0.47 | MIT OR Apache-2.0 |
+| rand | 0.9.5 | MIT OR Apache-2.0 |
+| rand_chacha | 0.9.0 | MIT OR Apache-2.0 |
+| rand_core | 0.9.5 | MIT OR Apache-2.0 |
+| rangemap | 1.8.0 | MIT/Apache-2.0 |
 | raw-window-handle | 0.6.2 | MIT OR Apache-2.0 OR Zlib |
 | regex | 1.13.2 | MIT OR Apache-2.0 |
 | regex-automata | 0.4.19 | MIT OR Apache-2.0 |
@@ -399,6 +422,7 @@ are not listed.
 | serialize-to-javascript | 0.1.2 | MIT OR Apache-2.0 |
 | serialize-to-javascript-impl | 0.1.2 | MIT OR Apache-2.0 |
 | servo_arc | 0.4.3 | MIT OR Apache-2.0 |
+| sha2 | 0.10.9 | MIT OR Apache-2.0 |
 | sha2 | 0.11.1 | MIT OR Apache-2.0 |
 | signal-hook-registry | 1.4.8 | MIT OR Apache-2.0 |
 | simd-adler32 | 0.3.10 | MIT |
@@ -412,6 +436,7 @@ are not listed.
 | soup3-sys | 0.5.0 | MIT |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 |
 | string_cache | 0.9.0 | MIT OR Apache-2.0 |
+| stringprep | 0.1.5 | MIT/Apache-2.0 |
 | strsim | 0.11.1 | MIT |
 | syn | 1.0.109 | MIT OR Apache-2.0 |
 | syn | 2.0.119 | MIT OR Apache-2.0 |
@@ -437,6 +462,7 @@ are not listed.
 | time-core | 0.1.9 | MIT OR Apache-2.0 |
 | time-macros | 0.2.32 | MIT OR Apache-2.0 |
 | tinystr | 0.8.5 | Unicode-3.0 |
+| tinyvec | 1.13.3 | Zlib OR Apache-2.0 OR MIT |
 | tokio | 1.54.1 | MIT |
 | toml | 1.2.1+spec-1.1.0 | MIT OR Apache-2.0 |
 | toml_datetime | 0.6.3 | MIT OR Apache-2.0 |
@@ -450,9 +476,13 @@ are not listed.
 | tracing-attributes | 0.1.31 | MIT |
 | tracing-core | 0.1.36 | MIT |
 | trash | 5.4.0 | MIT |
+| ttf-parser | 0.25.1 | MIT OR Apache-2.0 |
 | typeid | 1.0.3 | MIT OR Apache-2.0 |
 | typenum | 1.20.1 | MIT OR Apache-2.0 |
+| unicode-bidi | 0.3.18 | MIT OR Apache-2.0 |
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 |
+| unicode-normalization | 0.1.26 | (MIT OR Apache-2.0) AND Unicode-3.0 |
+| unicode-properties | 0.1.5 | (MIT OR Apache-2.0) AND Unicode-3.0 |
 | unicode-segmentation | 1.13.3 | MIT OR Apache-2.0 |
 | url | 2.5.9 | MIT OR Apache-2.0 |
 | urlencoding | 2.1.3 | MIT |
@@ -460,6 +490,7 @@ are not listed.
 | utf8_iter | 1.1.0 | Apache-2.0 OR MIT |
 | utf_types | 1.0.0 | Apache-2.0 OR MIT |
 | uuid | 1.29.3 | Apache-2.0 OR MIT |
+| wait-timeout | 0.2.1 | MIT/Apache-2.0 |
 | walkdir | 2.5.0 | Unlicense/MIT |
 | web-time | 1.1.0 | MIT OR Apache-2.0 |
 | web_atoms | 0.2.6 | MIT OR Apache-2.0 |
@@ -468,6 +499,7 @@ are not listed.
 | webview2-com | 0.39.1 | MIT |
 | webview2-com-macros | 0.8.1 | MIT |
 | webview2-com-sys | 0.39.1 | MIT |
+| weezl | 0.1.12 | MIT OR Apache-2.0 |
 | winapi-util | 0.1.11 | Unlicense OR MIT |
 | window-vibrancy | 0.8.1 | Apache-2.0 OR MIT |
 | windows | 0.59.0 | MIT OR Apache-2.0 |
@@ -510,6 +542,7 @@ are not listed.
 | zbus_macros | 5.19.0 | MIT |
 | zbus_names | 4.3.5 | MIT |
 | zcheapstr | 1.4.0 | MIT |
+| zerocopy | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT |
 | zerofrom | 0.1.8 | Unicode-3.0 |
 | zerofrom-derive | 0.1.8 | Unicode-3.0 |
 | zerotrie | 0.2.5 | Unicode-3.0 |

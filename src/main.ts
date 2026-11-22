@@ -31,6 +31,8 @@ import {
 } from "./app/workspace";
 import type { CommandDef } from "./editor/keys";
 import { createCommands } from "./app/commands";
+import { Exporter, PANDOC_FORMATS, customCommands } from "./export/exporter";
+import { invoke } from "@tauri-apps/api/core";
 import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
 import { createEditor, recordUpdates } from "./editor/editor";
@@ -886,10 +888,52 @@ new DocumentMenu(editor, {
   },
 });
 
+// ---- export, print, import (spec 09) ----
+const exporter = new Exporter({
+  view: editor.view,
+  markdown: () => (sourceMode.sync(), editor.markdown()),
+  setting,
+  currentTheme: () => themes.current,
+  path: () => state.path,
+  fileName: () => state.fileName ?? suggestedFileName(editor.markdown()) ?? "Untitled",
+  save: () => save(false),
+  notice: (t, b) => showNotice(t, b),
+  error: async (title, text) => void (await message(text, { title, kind: "error" })),
+});
+let pandocAvailable = false;
+async function detectPandoc() {
+  const info = await invoke<{ available: boolean }>("pandoc_info", { pandocPath: setting("pandocPath", "") || null }).catch(() => ({ available: false }));
+  if (info.available !== pandocAvailable) {
+    pandocAvailable = info.available;
+    void appMenu.rebuild();
+  }
+}
+async function importDocument() {
+  try {
+    const r = await invoke<{ kind: "markdown" | "html"; text: string } | null>("import_file", { pandocPath: setting("pandocPath", "") || null });
+    if (!r) return;
+    const text = r.kind === "html" ? (await import("./editor/clipboard")).htmlToMarkdown(r.text) : r.text;
+    await invoke("open_untitled_text", { text });
+  } catch (e) {
+    await message(String(e), { title: "Import failed", kind: "error" });
+  }
+}
+const exportCommands: CommandDef[] = [
+  global("file.import", "", () => void importDocument()),
+  global("file.exportPdf", "", () => void exporter.run({ kind: "pdf" })),
+  global("file.exportHtml", "", () => void exporter.run({ kind: "html", styled: true })),
+  global("file.exportHtmlPlain", "", () => void exporter.run({ kind: "html", styled: false })),
+  ...PANDOC_FORMATS.map((f) => global(`file.export.${f.id}`, "", () => void exporter.run({ kind: "pandoc", format: f.id }))),
+  global("file.exportPrevious", "Ctrl+Shift+E", () => void (exporter.hasPrevious() ? exporter.previous() : showNotice("Nothing exported yet in this window."))),
+  global("file.exportSettings", "", () => preferences.open("export")),
+  global("file.print", "", () => void exporter.print()),
+];
+
 const commandList = [
   ...createCommands(editor, { save, isWindows, askTableSize, insertImage: insertImageDialog }),
   ...workspaceCommands,
   ...p4Commands,
+  ...exportCommands,
 ];
 // Document commands run only with focus in the live document; in source mode the
 // CodeMirror keymap owns editing keys.
@@ -937,6 +981,10 @@ const appMenu = new AppMenu(
       checked: (id) => (sourceToggles[id] ? sourceToggles[id]() : blockChecked(id)),
       debugging: () => setting("debugTools", false),
       hasPath: () => state.path !== null,
+      pandoc: () => pandocAvailable,
+      customExports: () => customCommands(setting).map((c) => c.name),
+      runCustomExport: (name) => void exporter.run({ kind: "custom", name }),
+      pandocHelp: () => void ipc.helpOpen("pandoc"),
     }),
   dispatcher,
 );
@@ -947,7 +995,7 @@ async function refreshRecent() {
 async function loadConfig() {
   const info = await ipc.config();
   config = info.config as Record<string, unknown>;
-  const tree = menuTree({ isWindows, recent: () => recentCache, openRecent: () => {}, clearRecent: () => {}, themes: () => [], currentTheme: () => "", setTheme: () => {}, checked: () => false, debugging: () => true, hasPath: () => true });
+  const tree = menuTree({ isWindows, recent: () => recentCache, openRecent: () => {}, clearRecent: () => {}, themes: () => [], currentTheme: () => "", setTheme: () => {}, checked: () => false, debugging: () => true, hasPath: () => true, pandoc: () => true, customExports: () => [], runCustomExport: () => {}, pandocHelp: () => {} });
   const { overrides, global: globals, problems } = shortcutOverrides(tree, (config.shortcuts ?? {}) as Record<string, unknown>);
   dispatcher.rebind(overrides);
   if (globals.size) void ipc.log("info", `global shortcuts are not supported on this platform yet: ${[...globals.keys()].join(", ")}`);
@@ -957,7 +1005,7 @@ async function loadConfig() {
 }
 void listen("scrim://config-changed", () => void loadConfig());
 themes.onApplied.push(() => void appMenu.rebuild());
-void refreshRecent().then(loadConfig);
+void refreshRecent().then(loadConfig).then(detectPandoc);
 let checksTimer = 0;
 editor.onUpdate.push(() => {
   clearTimeout(checksTimer);
@@ -1026,6 +1074,7 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   statusBar,
   writeDraft: () => drafts.writeDraft(),
   testHooks,
+  exporter,
   themes,
   zoomLevel: () => zoomLevel,
 };

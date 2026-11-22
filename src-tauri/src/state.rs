@@ -39,6 +39,8 @@ pub struct DocState {
     pub draft_id: Option<String>,
     /// A recovered draft to load into this (new) window.
     pub recover_id: Option<String>,
+    /// Text for a new untitled document (File → Import), shown unsaved.
+    pub initial_text: Option<String>,
 }
 
 pub struct AppState {
@@ -79,9 +81,9 @@ impl AppState {
             logger.warn(&format!("settings ignored: {err}"));
         }
         let mut scope = FileScope::default();
-        for sub in ["themes", "recovery", "tmp-images"] {
+        for sub in ["themes", "recovery", "tmp-images", "tmp-export"] {
             let d = config_dir.join(sub);
-            if sub == "themes" {
+            if sub == "themes" || sub == "tmp-export" {
                 let _ = std::fs::create_dir_all(&d);
             }
             scope.dirs.insert(std::fs::canonicalize(&d).unwrap_or(d));

@@ -68,9 +68,12 @@ function textOfTitle(doc: PMNode): string | null {
 }
 
 /** Static code block markup (9.1 item 2): the editor's structure, its token classes. */
-async function staticCode(source: string, lang: string, wrap: boolean): Promise<HTMLElement> {
+async function staticCode(source: string, lang: string, wrap: boolean, editorClass?: string): Promise<HTMLElement> {
   const editor = document.createElement("div");
-  editor.className = `cm-editor CodeMirror cm-s-inner${wrap ? " CodeMirror-wrap" : ""}`;
+  // The editor's own classes, including CodeMirror's generated theme classes, so its
+  // (inlined) base styles apply as in the editor.
+  editor.className = editorClass ?? `cm-editor CodeMirror cm-s-inner${wrap ? " CodeMirror-wrap" : ""}`;
+  editor.classList.remove("cm-focused");
   const scroller = editor.appendChild(document.createElement("div"));
   scroller.className = "cm-scroller CodeMirror-scroll";
   const content = scroller.appendChild(document.createElement("div"));
@@ -123,7 +126,7 @@ function unwrap(el: Element) {
  * Render the document of `view` for export. The editor's DOM is copied, so this must run
  * in the document's own window.
  */
-export async function renderBody(view: EditorView, opts: RenderOptions & { codeWrap?: boolean; docDir?: string }): Promise<RenderedBody> {
+export async function renderBody(view: EditorView, opts: RenderOptions & { codeWrap?: boolean; preserveLineBreaks?: boolean }): Promise<RenderedBody> {
   await settled(view);
   const live = view.dom as HTMLElement;
   const root = live.cloneNode(true) as HTMLElement;
@@ -137,6 +140,15 @@ export async function renderBody(view: EditorView, opts: RenderOptions & { codeW
 
   // Blocks that are not content.
   root.querySelectorAll("pre.md-meta-block, .md-def-link, .md-lang-box, .md-fences-copy, .md-math-source, .md-htmlblock-source, .md-comment, img.ProseMirror-separator, br.ProseMirror-trailingBreak, .md-table-toolbar").forEach((e) => e.remove());
+
+  // Soft breaks (02, "Line breaks"): `<br>` with "Preserve single line breaks", else a
+  // space; hard breaks are always `<br>`.
+  root.querySelectorAll(".md-br").forEach((br) => {
+    const prev = br.previousSibling ?? br.parentElement?.previousSibling;
+    const hard = prev instanceof Element && prev.classList.contains("md-inline-break");
+    if (opts.preserveLineBreaks === false && !hard) br.replaceWith(" ");
+    else br.replaceWith(document.createElement("br"));
+  });
 
   // Inline: replaced elements keep only their rendered widget; markers and hidden
   // source go.
@@ -201,7 +213,9 @@ export async function renderBody(view: EditorView, opts: RenderOptions & { codeW
   const pres = Array.from(root.querySelectorAll<HTMLElement>("pre.md-fences:not(.md-math-source)"));
   for (let i = 0; i < pres.length && i < codeNodes.length; i++) {
     const lang = String(codeNodes[i].attrs.info ?? "").split(/\s/)[0] ?? "";
-    pres[i].replaceChildren(await staticCode(codeNodes[i].textContent, lang, opts.codeWrap ?? true));
+    const cm = pres[i].querySelector(".cm-editor");
+    const wrap = cm ? cm.classList.contains("CodeMirror-wrap") : (opts.codeWrap ?? true);
+    pres[i].replaceChildren(await staticCode(codeNodes[i].textContent, lang, wrap, cm?.className));
   }
 
   // Images.
@@ -225,7 +239,7 @@ export async function renderBody(view: EditorView, opts: RenderOptions & { codeW
   for (const el of [root, ...Array.from(root.querySelectorAll("*"))]) {
     for (const a of EDIT_ATTRS) el.removeAttribute(a);
     if (el.classList.length) {
-      for (const c of Array.from(el.classList)) if (EDIT_CLASSES.test(c) || c.startsWith("ͼ")) el.classList.remove(c);
+      for (const c of Array.from(el.classList)) if (EDIT_CLASSES.test(c)) el.classList.remove(c);
       if (!el.classList.length) el.removeAttribute("class");
     }
   }

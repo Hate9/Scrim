@@ -3,6 +3,7 @@
 import type { MenuNode } from "./menu";
 import { SEP } from "./menu";
 import type { ThemeInfo } from "../ipc";
+import { PANDOC_FORMATS } from "../export/exporter";
 
 export interface MenuContext {
   isWindows: boolean;
@@ -15,6 +16,12 @@ export interface MenuContext {
   checked: (id: string) => boolean;
   debugging: () => boolean;
   hasPath: () => boolean;
+  /** pandoc found (9.4); formats are listed but disabled without it */
+  pandoc: () => boolean;
+  /** custom export commands from Export Settings (9.5) */
+  customExports: () => string[];
+  runCustomExport: (name: string) => void;
+  pandocHelp: () => void;
 }
 
 const item = (label: string, id: string, extra: Partial<MenuNode> = {}): MenuNode => ({ label, id, ...extra });
@@ -22,7 +29,6 @@ const basename = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
 export function menuTree(c: MenuContext): MenuNode[] {
   const toggle = (label: string, id: string) => item(label, id, { checked: () => c.checked(id) });
-  const later = (label: string): MenuNode => ({ label, enabled: () => false, children: [] });
   return [
     {
       label: "&File",
@@ -51,10 +57,25 @@ export function menuTree(c: MenuContext): MenuNode[] {
         item("Move To…", "file.moveTo", { enabled: c.hasPath }),
         item("Delete", "file.delete", { enabled: c.hasPath }),
         SEP,
-        // Import, export, and print arrive with spec 09 (phase P5).
-        later("Import…"),
-        later("Export"),
-        { label: "Print…", enabled: () => false },
+        item("Import…", "file.import"),
+        {
+          label: "Export",
+          // 09: PDF, HTML, HTML (without styles), pandoc formats, custom commands, then
+          // Export with Previous and Export Settings.
+          children: () => [
+            item("PDF", "file.exportPdf"),
+            item("HTML", "file.exportHtml"),
+            item("HTML (without styles)", "file.exportHtmlPlain"),
+            SEP,
+            ...PANDOC_FORMATS.map((f) => item(f.label, `file.export.${f.id}`, { enabled: c.pandoc })),
+            ...(c.pandoc() ? [] : [{ label: "Requires pandoc", enabled: () => false }, { label: "How to install pandoc…", run: c.pandocHelp }]),
+            ...(c.customExports().length ? [SEP, ...c.customExports().map((name) => ({ label: name, run: () => c.runCustomExport(name) }))] : []),
+            SEP,
+            item("Export with Previous", "file.exportPrevious"),
+            item("Export Settings…", "file.exportSettings"),
+          ],
+        },
+        item("Print…", "file.print"),
         SEP,
         item("Recover Unsaved Drafts…", "file.recoverDrafts"),
         item("Preferences…", "file.preferences"),
