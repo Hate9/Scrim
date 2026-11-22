@@ -191,6 +191,21 @@ export function createEditor(
   }
 
   const makeState = (doc: Node) => EditorState.create({ doc, plugins });
+
+  /**
+   * Run a view update that replaces much of the document with the editor unfocused, then
+   * focus it again. WebKitGTK makes setting the DOM selection in a focused editable,
+   * right after a large DOM change, extremely slow (a 1 MB document: about 30 s in
+   * `Selection.collapse`, against 1.6 s for the update plus 0.1 s to focus afterwards;
+   * Q-026).
+   */
+  function withoutFocus(update: () => void) {
+    const dom = view.dom as HTMLElement;
+    const focused = view.hasFocus();
+    if (focused) dom.blur();
+    update();
+    if (focused) view.focus();
+  }
   const initial = parseMarkdown("").doc;
 
   const codeHooks: CodeViewHooks = {
@@ -282,13 +297,16 @@ export function createEditor(
       // Timings for PF-1 (performance.getEntriesByType("measure")).
       performance.mark("scrim-load");
       let { doc } = parseMarkdown(text, { inlineMath: options.inlineMath, blockTree }, eol);
+      // The tree is large (a 1 MB document: about 10 MB of objects): let it go before
+      // the view is built.
+      blockTree = undefined;
       performance.measure("scrim-parse", "scrim-load");
       if (newFile && !text) doc = schema.nodes.doc.create({ ...doc.attrs, finalNewline: true }, doc.content);
       performance.mark("scrim-state");
       const state = makeState(doc);
       performance.measure("scrim-make-state", "scrim-state");
       performance.mark("scrim-view");
-      view.updateState(state);
+      withoutFocus(() => view.updateState(state));
       performance.measure("scrim-update-view", "scrim-view");
       // Applies the first presentation marks (spec 10.3); not an edit.
       performance.mark("scrim-kick");
@@ -341,7 +359,9 @@ export function createEditor(
       if (!addToHistory) tr.setMeta("addToHistory", false);
       // A replaced text is its own undo step: not merged with typing before or after it.
       else closeHistory(tr);
-      view.dispatch(tr);
+      // Large replacements: see `withoutFocus`.
+      if (to - from > 50_000) withoutFocus(() => view.dispatch(tr));
+      else view.dispatch(tr);
       if (addToHistory) view.dispatch(closeHistory(view.state.tr));
       for (const h of replaceHooks) h();
       return view.state.doc;

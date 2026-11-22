@@ -151,7 +151,11 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
     state.docs().insert(label.clone(), doc);
     init.title = windows::update_title(window.app_handle(), &label);
     crate::pdf_proto::maybe_print(&window);
-    init.blocks = timed_blocks(&state, &init.text);
+    // Debug builds: `SCRIM_NO_BLOCKS=1` leaves parsing to the frontend, to measure the two
+    // parsers separately (Q-026).
+    if !(cfg!(debug_assertions) && std::env::var_os("SCRIM_NO_BLOCKS").is_some()) {
+        init.blocks = timed_blocks(&state, &init.text);
+    }
     Ok(init)
 }
 

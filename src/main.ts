@@ -330,12 +330,21 @@ function applySettings(next: Record<string, unknown>) {
   settingsApplied = true;
 }
 
+/** The reply's block tree, removed from the reply. */
+function takeTree(d: { text: string; blocks: unknown }) {
+  const t = usableTree(d.text, d.blocks);
+  d.blocks = null;
+  return t;
+}
+
 /** Time from asking for the document to its first frame (PF-1), for tests. */
 let openMs: number | null = null;
 
 async function init() {
   const t0 = performance.now();
+  performance.mark("scrim-doc-init");
   const d = await ipc.docInit();
+  performance.measure("scrim-doc-init", "scrim-doc-init");
   if (d.testNoRemote && !document.getElementById("scrim-test-csp")) {
     // Debug test hook: a second, stricter policy for theme resources (T-1).
     const meta = document.createElement("meta");
@@ -349,7 +358,9 @@ async function init() {
   state.path = d.path;
   editor.options.docDir = d.path ? dirname(d.path) : null;
   const eol = EOLS[d.lineEnding ?? d.defaultLineEnding];
-  editor.load(d.text, !d.path || d.missing, eol, usableTree(d.text, d.blocks));
+  // The block tree is large (about 10 MB of objects for a 1 MB file): nothing may hold it
+  // past the parse, or building the view takes 20 times longer (Q-026).
+  editor.load(d.text, !d.path || d.missing, eol, takeTree(d));
   requestAnimationFrame(() => requestAnimationFrame(() => (openMs = performance.now() - t0)));
   document.title = d.title;
   editor.view.focus();
