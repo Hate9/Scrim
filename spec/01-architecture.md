@@ -30,7 +30,12 @@ why in your repo's `DESIGN.md`.
   mode).
 - **Markdown parsing**: markdown-it with plugins, or micromark/mdast. Whichever is used
   MUST expose source positions for every block (start and end offsets) so round-trip
-  fidelity is possible.
+  fidelity is possible. The block-level parse of a whole document (opening a file,
+  reload, leaving source mode) may run in Rust (for example pulldown-cmark or comrak,
+  or a purpose-built block scanner) and hand the frontend block spans with byte
+  offsets. It MUST produce the same block model as the frontend parser on every
+  document, strict mode on and off; incremental re-parsing while typing may stay in the
+  frontend (Q-026).
 - **Math**: KaTeX (fast, synchronous, small). Fall back to showing the source with an
   error style when KaTeX cannot render an expression.
 - **Syntax highlighting in code blocks**: CodeMirror 6 language packages, loaded lazily.
