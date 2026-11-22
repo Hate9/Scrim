@@ -208,16 +208,30 @@ pub fn focus(app: &AppHandle, label: &str) {
     }
 }
 
+/// Window style (spec 11, Appearance): the unified custom title bar replaces the native
+/// one (default on Windows; native on Linux). Applies to new windows.
+pub fn custom_title_bar(state: &AppState) -> bool {
+    match state.settings().values.get("windowStyle").and_then(|v| v.as_str()) {
+        Some("custom") => true,
+        Some(_) => false,
+        None => cfg!(windows),
+    }
+}
+
 pub fn create_window(app: &AppHandle, path: Option<PathBuf>) -> tauri::Result<WebviewWindow> {
     let state = app.state::<AppState>();
     let label = state.next_window_label();
     let title = window_title(display_name(path.as_deref()).as_deref(), false);
     state.docs().insert(label.clone(), DocState { path: path.map(|p| canonical_or(&p)), ..Default::default() });
 
-    let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html".into()))
+    // The page knows its window style before its first menu build (`?frameless`).
+    let frameless = custom_title_bar(&state);
+    let page = if frameless { "index.html?frameless" } else { "index.html" };
+    let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(page.into()))
         .title(title)
         .inner_size(900.0, 760.0)
-        .min_inner_size(400.0, 300.0);
+        .min_inner_size(400.0, 300.0)
+        .decorations(!frameless);
     let builder = hardening::configure_builder(builder);
     match builder.build() {
         Ok(window) => {

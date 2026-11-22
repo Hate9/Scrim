@@ -13,6 +13,7 @@
 
 import { Menu, MenuItem, Submenu, CheckMenuItem, PredefinedMenuItem } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { LogicalPosition } from "@tauri-apps/api/dpi";
 import type { Dispatcher } from "../editor/keys";
 import { normalizeAccelerator } from "../editor/keys";
 
@@ -107,8 +108,19 @@ export class AppMenu {
   private again = false;
   /** While a shortcut field captures keys (18), no native accelerator is installed. */
   private suspended = false;
+  private menu: Menu | null = null;
+  /** Custom title bar (11, Window style): the menu opens from the title bar's menu button
+   * and is not the window's menu bar, so it has no native accelerators; the dispatcher
+   * runs every key from the DOM. */
+  popupOnly = false;
 
   constructor(private tree: () => MenuNode[], private dispatcher: Dispatcher) {}
+
+  /** Open the menu at a point of the window (custom title bar). */
+  async popup(x: number, y: number) {
+    if (!this.menu) await this.rebuild();
+    await this.menu?.popup(new LogicalPosition(x, y), getCurrentWindow());
+  }
 
   async suspendAccelerators(on: boolean) {
     if (this.suspended === on) return;
@@ -148,7 +160,7 @@ export class AppMenu {
         return Submenu.new({ text: n.label, items, enabled: n.enabled ? n.enabled() : true });
       }
       const key = n.id ? this.dispatcher.keyOf(n.id) : "";
-      const accelerator = this.suspended ? undefined : nativeAccelerator(key, !!n.id && this.dispatcher.byId.get(n.id)?.scope === "global");
+      const accelerator = this.suspended || this.popupOnly ? undefined : nativeAccelerator(key, !!n.id && this.dispatcher.byId.get(n.id)?.scope === "global");
       const shown = !accelerator && (key || n.display) ? `${n.label}\t${key || n.display}` : n.label;
       const action = () => {
         if (n.run) n.run();
@@ -165,7 +177,8 @@ export class AppMenu {
     };
     const top = (await Promise.all(this.tree().map(make))).filter((x): x is NonNullable<typeof x> => x !== null);
     const menu = await Menu.new({ items: top });
-    await menu.setAsWindowMenu(getCurrentWindow());
+    if (!this.popupOnly) await menu.setAsWindowMenu(getCurrentWindow());
+    this.menu = menu;
     this.checks = checks;
   }
 

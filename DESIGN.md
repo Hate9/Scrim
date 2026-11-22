@@ -126,6 +126,19 @@ the dirty state is kept). With it off, typing a letter after `#`–`######` at t
 of a one-line paragraph makes the heading (`laxHeadingInputRule`); otherwise the
 parse/display invariant would escape the `#`.
 
+### Custom title bar (spec 11, Window style; 10.3 `header`)
+
+Rust decides per new window (`windows::custom_title_bar`: the setting, else custom on
+Windows and native on Linux), builds it without decorations, and loads
+`index.html?frameless` so the page knows before its first menu build. The page
+(`src/app/titlebar.ts`) fills `body > header`: a menu button (the native menu as a
+popup at the button), the document title centered on the window (a click starts File →
+Rename when the document has a file, 07), and minimize / maximize / close; the header
+is the drag region and a double click maximizes. In that mode the menu is not the
+window's menu bar and carries no native accelerators: the dispatcher runs every key from
+the DOM (the global commands included, which it already handles). Colors come from the
+theme's sidebar and control variables (10.4).
+
 ### Cursor blink (spec 11)
 
 `src-tauri/src/caret.rs` sets GTK's `gtk-cursor-blink` at startup and when the

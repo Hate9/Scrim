@@ -333,3 +333,23 @@ test("11 cursor blink preference reaches GTK (Linux)", async (s) => {
   await s.exec("window.__scrim.setSetting('cursorBlink', null); return true");
   await waitFor(() => last() === "on", "blink back on");
 });
+
+test("11 custom title bar: frameless window, title, menu button, rename by click", async (s) => {
+  await waitFor(() => s.exec("return !!window.__scrim && document.body.classList.contains('scrim-frameless')"), "frameless page");
+  const title = await s.exec("return document.querySelector('header .scrim-titlebar-title').textContent");
+  if (!title.includes("titled.md")) throw new Error(`title bar shows ${JSON.stringify(title)}`);
+  const buttons = await s.exec("return [...document.querySelectorAll('header .scrim-titlebar-button')].map((b) => b.getAttribute('aria-label'))");
+  if (buttons.join() !== "Menu,Minimize,Maximize,Close") throw new Error(`buttons: ${buttons}`);
+  if (!(await s.exec("return document.querySelector('header').hasAttribute('data-tauri-drag-region')"))) throw new Error("header is not a drag region");
+  // Clicking the file name starts File → Rename (07).
+  await s.exec("window.__scrim.sidebar.toggle(true); return true");
+  await waitFor(() => s.exec("return !!document.querySelector('#file-library .file-tree-node.active')"), "current file row");
+  // The header spans the window above the sidebar.
+  const [hb, sb, detail] = await s.exec("const h = document.querySelector('body > header').getBoundingClientRect(); const sb = document.getElementById('scrim-sidebar').getBoundingClientRect(); return [h.left, sb.top >= h.bottom - 1, JSON.stringify([h, sb])]");
+  if (hb !== 0 || !sb) throw new Error(`header does not span the window above the sidebar: ${detail}`);
+  await s.exec("document.querySelector('header .scrim-titlebar-title').click(); return true");
+  await waitFor(() => s.exec("return document.activeElement?.classList.contains('scrim-inline-rename')"), "rename field");
+}, () => {
+  writeFileSync(join(process.env.SCRIM_CONFIG_DIR, "settings.json"), JSON.stringify({ windowStyle: "custom" }) + "\n");
+  return fixture("titled.md", "# Titled\n");
+});

@@ -2,6 +2,7 @@
 
 import "./editor/cmlayer"; // first: CodeMirror styles in @layer scrim-cm (10.3)
 import { setSmartPunctuation } from "./editor/smart";
+import { frameless, setupTitleBar } from "./app/titlebar";
 import { setCodeIndent, setWritingStyle } from "./md/style";
 import { dialect } from "./md/mdast";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -1087,6 +1088,16 @@ const appMenu = new AppMenu(
     }),
   dispatcher,
 );
+// Custom title bar (11): the menu opens from its button; every key goes through the
+// dispatcher.
+if (frameless) {
+  appMenu.popupOnly = true;
+  setupTitleBar(document.querySelector("body > header") as HTMLElement, {
+    openMenu: (x, y) => void appMenu.popup(x, y),
+    rename: () => sidebar.renameCurrent(),
+    canRename: () => state.path !== null,
+  });
+}
 async function refreshRecent() {
   recentCache = await ipc.recent().catch(() => recentCache);
   void appMenu.rebuild();
