@@ -29,9 +29,18 @@ test("PF-1 open a 1 MB file (< 2 s)", async (s) => {
 
 test("PF-1 toggle source mode on 10,000 lines (< 300 ms)", async (s) => {
   await waitFor(() => js(s, "return window.__scrim?.openMs?.() != null"), "document open", 60000);
-  await sleep(1500);
+  // The after-load work (presentation marks in chunks, spell check) must be done: two idle
+  // frames take only a few milliseconds then.
+  await waitFor(() => js(s, "const st = window.__scrim.inlineKey.getState(window.__scrim.editor.view.state); return st.pending === null && !st.touched.length"), "inline structure done", 120000);
+  await waitFor(() => js(s, "const t = performance.now(); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(performance.now() - t < 200))))"), "idle frames", 120000);
   const timeToggle = () =>
     js(s, "const t = performance.now(); window.__scrim.sourceMode.toggle(); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(performance.now() - t))))");
+  // The first switch after opening also pays one-time work (code loading, first
+  // serialization); later ones are what the budget is about. Both are reported.
+  budget("first enter source mode (10,000 lines)", await timeToggle(), 300);
+  await sleep(500);
+  budget("first leave source mode (10,000 lines)", await timeToggle(), 300);
+  await sleep(500);
   budget("enter source mode (10,000 lines)", await timeToggle(), 300);
   await sleep(500);
   budget("leave source mode (10,000 lines)", await timeToggle(), 300);

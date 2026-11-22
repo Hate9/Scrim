@@ -25,6 +25,7 @@
 
 /* ---- layout: sidebar spans the window height; everything else sits to its right ---- */
 body.scrim {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto auto minmax(0, 1fr) auto;
@@ -616,13 +617,28 @@ footer .footer-left .footer-item {
 }
 
 /* ---- view modes (15) ------------------------------------------------------------------ */
+/* Source mode: a layer over the document area (same grid cell), scrolling on its own;
+   the live document stays laid out underneath. */
+body.scrim > #scrim-source {
+  /* Absolutely positioned in the document's grid area: showing it does not lay out the
+     grid (and with it the whole document) again. */
+  position: absolute;
+  inset: 0;
+  grid-column: 2;
+  grid-row: 3;
+  z-index: 1;
+  overflow-y: auto;
+  background: var(--bg-color);
+}
 #scrim-source {
-  max-width: 860px;
-  margin: 0 auto;
   padding: 40px 30px 40vh;
   box-sizing: border-box;
   font-family: var(--monospace);
   font-size: 14px;
+}
+#scrim-source > .cm-editor {
+  max-width: 800px;
+  margin: 0 auto;
 }
 @layer scrim-cm {
 #scrim-source .cm-editor {

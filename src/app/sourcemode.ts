@@ -24,7 +24,10 @@ export class SourceMode implements SourceSearch {
     this.host = document.createElement("div");
     this.host.id = "scrim-source";
     this.host.hidden = true;
-    document.querySelector("content")!.appendChild(this.host);
+    // A layer over the document area, scrolling on its own: the live document stays laid
+    // out underneath, so returning from source mode needs no layout of the whole document
+    // (PF-1: < 300 ms on 10,000 lines).
+    document.querySelector("content")!.after(this.host);
   }
 
   active() {
@@ -43,6 +46,7 @@ export class SourceMode implements SourceSearch {
 
   enter() {
     const view = this.editor.view;
+    performance.mark("scrim-src-enter");
     flushEscapes(view, this.editor.options);
     const { text, map } = serializeWithMap(view.state.doc, { prettyTables: this.editor.options.prettyTables });
     this.initial = text;
@@ -56,6 +60,8 @@ export class SourceMode implements SourceSearch {
     const size = view.state.doc.content.size;
     const topPos = top ? (view.state.doc.resolve(top.pos).depth === 0 ? Math.min(top.pos + 1, size) : top.pos) : 0;
     const topOffset = posToSource(map, topPos);
+    performance.measure("scrim-src-enter-prep", "scrim-src-enter");
+    performance.mark("scrim-src-cm");
     this.cm = new EditorView({
       parent: this.host,
       state: EditorState.create({
@@ -75,7 +81,7 @@ export class SourceMode implements SourceSearch {
         ],
       }),
     });
-    view.dom.hidden = true;
+    performance.measure("scrim-src-cm-create", "scrim-src-cm");
     this.host.hidden = false;
     document.body.classList.add("md-source-mode");
     this.cm.focus();
@@ -97,7 +103,8 @@ export class SourceMode implements SourceSearch {
   leave() {
     const cm = this.cm;
     if (!cm) return;
-    const scroller = this.host.closest("content") as HTMLElement;
+    performance.mark("scrim-src-leave");
+    const scroller = document.querySelector("content") as HTMLElement;
     const topLine = cm.lineBlockAtHeight(scroller.getBoundingClientRect().top + 8 - cm.documentTop);
     const { anchor, head } = cm.state.selection.main;
     const text = cm.state.doc.toString();
@@ -107,8 +114,9 @@ export class SourceMode implements SourceSearch {
     this.cm = null;
     this.host.hidden = true;
     const view = this.editor.view;
-    view.dom.hidden = false;
     document.body.classList.remove("md-source-mode");
+    performance.measure("scrim-src-leave-apply", "scrim-src-leave");
+    performance.mark("scrim-src-leave2");
     const { map } = serializeWithMap(view.state.doc, { prettyTables: this.editor.options.prettyTables });
     const a = sourceToPos(map, anchor);
     const h = sourceToPos(map, head);
@@ -119,12 +127,15 @@ export class SourceMode implements SourceSearch {
         /* keep the selection */
       }
     }
+    performance.measure("scrim-src-leave-select", "scrim-src-leave2");
+    performance.mark("scrim-src-leave3");
     view.focus();
     const topPos = sourceToPos(map, topLine.from);
     if (topPos !== null) {
       const c = view.coordsAtPos(topPos);
       scroller.scrollTop += c.top - scroller.getBoundingClientRect().top - 8;
     }
+    performance.measure("scrim-src-leave-scroll", "scrim-src-leave3");
   }
 
   /** The selected source text (menu Copy). */
