@@ -176,7 +176,7 @@ test("X-5 PDF header and footer: {{title}} 日本語 ✓ and {{page}} / {{pages}
   if (pages.length !== 3) throw new Error(`${pages.length} pages`);
   pages.forEach((p, i) => {
     if (!p.includes(`${i + 1}/3`)) throw new Error(`page ${i + 1} has no "${i + 1} / 3"`);
-    if (!p.includes("日本語✓")) throw new Error(`page ${i + 1} has no title header`);
+    if (!p.includes("日本語✓")) throw new Error(`page ${i + 1} has no title header (page text starts ${JSON.stringify(p.slice(0, 40))}; fonts: ${spawnSync("pdffonts", [pdf], { encoding: "utf8" }).stdout.split("\n").slice(2).map((l) => l.split(/\s+/)[0]).join(" ")})`);
   });
 }, () => {
   // About three A4 pages of text.
