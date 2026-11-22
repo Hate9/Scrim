@@ -369,6 +369,7 @@ test("7.1 window size and position are remembered per screen configuration", asy
   await waitFor(() => saved().some((g) => g.width === 700 && g.height === 520), "geometry saved", 5000).catch((e) => {
     throw new Error(`${e.message}: ${existsSync(stateFile) ? readFileSync(stateFile, "utf8") : "no file"}`);
   });
+  const first = await s.cmd("GET", "/window/rect");
   const before = await s.cmd("GET", "/window/handles");
   await js(s, "window.__scrim.command('file.newWindow'); return true");
   await waitFor(async () => (await s.cmd("GET", "/window/handles")).length > before.length, "a new window", 30000);
@@ -376,8 +377,7 @@ test("7.1 window size and position are remembered per screen configuration", asy
   await s.switchTo(handle);
   await waitFor(() => js(s, "return !!window.__scrim"), "new window ready");
   const rect = await s.cmd("GET", "/window/rect");
-  const g = saved()[0];
   if (rect.width !== 700 || rect.height !== 520) throw new Error(`new window is ${rect.width}x${rect.height}`);
   // Another window already sits at the remembered spot: the new one cascades.
-  if (rect.x === g.x && rect.y === g.y) throw new Error("new window covers the first one exactly");
+  if (Math.abs(rect.x - first.x) < 15 && Math.abs(rect.y - first.y) < 15) throw new Error(`new window covers the first one: ${JSON.stringify([first, rect, saved()])}`);
 }, () => fixture("w71.md", "text\n"));

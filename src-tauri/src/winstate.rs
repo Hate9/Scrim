@@ -82,7 +82,8 @@ pub fn initial(app: &AppHandle) -> Option<Geometry> {
         .filter(|w| w.label().starts_with("doc-"))
         .filter_map(|w| w.outer_position().ok().map(|p| (p.x, p.y)))
         .collect();
-    while taken.contains(&(g.x, g.y)) {
+    // Within half a step counts as the same spot (window managers adjust by a few pixels).
+    while taken.iter().any(|&(x, y)| (x - g.x).abs() < CASCADE / 2 && (y - g.y).abs() < CASCADE / 2) {
         g.x += CASCADE;
         g.y += CASCADE;
     }
