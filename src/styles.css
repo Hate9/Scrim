@@ -119,8 +119,7 @@ pre {
   font-family: var(--monospace);
 }
 /* Horizontal rules: no base styling; div.md-hr and its hr keep the engine defaults
-   (Q-022). SPEC-QUESTION Q-023: WebKitGTK shades the default inset border much darker
-   than the reference engine. */
+   (Q-022). WebKitGTK shades the inset border darker than Chromium; accepted (Q-023). */
 .md-fences {
   font-size: 0.9rem;
   display: block;
