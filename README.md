@@ -26,8 +26,8 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   1 MB / 2 s budget; planned for P8 (DESIGN.md, "Performance status").
 - **Settings stored but not yet in effect.** Strict mode, the subscript, superscript,
   highlight, diagram, and smart punctuation switches, writing style, code indent, cursor
-  blink, window style (custom title bar), language, spell check (P6), export (P5), and
-  `global:` shortcuts. They are saved and shown; the features behind them are pending.
+  blink, window style (custom title bar), language, spell check (P6), and `global:`
+  shortcuts. They are saved and shown; the features behind them are pending.
 - **Window size and position per screen configuration (7.1)** are not remembered yet.
 - **T-1 fixture themes.** T-1 runs `scripts/fetch-fixture-themes.mjs` first (the pinned,
   hash-checked list in `spec/fixtures/themes.lock.json`, into the git-ignored
@@ -37,6 +37,10 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   the CI Linux image: elsewhere, themes that use system fonts (notion, orangeheart,
   blackout) differ by a few percent of pixels and T-1 fails; check T-1 in the goldens
   workflow.
+- **Export on Windows.** PDF export uses WebView2 `PrintToPdf` and custom commands use
+  `cmd` quoting; both compile in CI but have not been run on Windows (see Q-006).
+- **Pandoc** is optional: Word, OpenDocument, EPUB, and the other pandoc formats, and
+  importing them, need it installed (Help: Installing Pandoc).
 - **Manual tests.** E-9 (IME with Japanese input) needs a person.
 
 ## Documents

@@ -838,6 +838,7 @@ const preferences = new Preferences({
       customizeAvailable: () => false, // the Customize pane arrives in P7 (18)
       pickFolder: () => {},
       testUpload: () => showNotice("The upload command runs when an image is inserted with the Upload policy."),
+      pandocVersion: () => pandocVersion,
     }),
 });
 
@@ -901,8 +902,14 @@ const exporter = new Exporter({
   error: async (title, text) => void (await message(text, { title, kind: "error" })),
 });
 let pandocAvailable = false;
+let pandocVersion = "";
+let pandocPathChecked: string | null = null;
+/** Pandoc on PATH or at the set path (9.4); the menu lists its formats either way. */
 async function detectPandoc() {
-  const info = await invoke<{ available: boolean }>("pandoc_info", { pandocPath: setting("pandocPath", "") || null }).catch(() => ({ available: false }));
+  pandocPathChecked = setting("pandocPath", "");
+  const info = await invoke<{ available: boolean; version: string | null }>("pandoc_info", { pandocPath: pandocPathChecked || null }).catch(() => ({ available: false, version: null }));
+  pandocVersion = info.version ?? "";
+  if (preferences.isOpen) preferences.refresh();
   if (info.available !== pandocAvailable) {
     pandocAvailable = info.available;
     void appMenu.rebuild();
@@ -1084,6 +1091,8 @@ void appWindow.listen("scrim://doc-reload", () => void init());
 // on them; "Allow iframes" takes effect immediately in both directions (Q-015).
 void listen("scrim://settings-changed", async () => {
   applySettings((await ipc.settings()) as Record<string, unknown>);
+  if (setting("pandocPath", "") !== pandocPathChecked) void detectPandoc();
+  void appMenu.rebuild(); // custom export commands
   rerenderHtmlBlocks();
   preferences.refresh();
   void appMenu.refreshChecks();

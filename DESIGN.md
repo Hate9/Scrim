@@ -13,6 +13,8 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `src/md/` | Markdown layer, DOM-free: schema, parser, serializer, inline analyzer, HTML for the clipboard. |
 | `src/editor/` | The live-preview editor: decorations, reveal, commands, escapes, clipboard, links, emoji, key dispatcher. |
 | `src/app/` | Command table (ids and default keys) and the window chrome: sidebar, find bar, quick open, source mode, status bar, workspace behavior (external changes, autosave, recovery, view modes). |
+| `src/export/` | Export (09): the static export page from the editor's DOM, settings and front matter overrides, the export/print/import controller, pandoc pre-processing. |
+| `src/content.css` | Document content CSS shared by the editor and exports (the 10.3 base stylesheet and static rendering rules); `styles.css` has the editing mechanics. |
 | `src/main.ts` | Window glue: load/save, dialogs, link opening, settings, wiring of the chrome. |
 | `src/chrome.css` | Layout and look of the chrome, from the theme custom properties (10, 22.1). |
 | `src-tauri/themes/`, `src-tauri/help/` | Built-in themes and help documents (written for Scrim). |
@@ -20,6 +22,89 @@ Implementation decisions and deviations from the spec's "recommended" designs
 | `tests/e2e/` | WebDriver acceptance tests (tauri-driver + WebKitWebDriver). |
 | `scripts/` | Test wrappers (`e2e.sh`, `n1-network.sh`, `check-no-http.sh`) and generators. |
 | `spec/` | The specification (read-only for the implementation team). |
+
+## P5: output
+
+### Export page (`src/export/render.ts`, `src/export/document.ts`)
+
+The export body is a copy of the editor's own DOM (9.1: "the same renderer as the
+editor"), so every construct carries exactly the 10.3 structure themes target. The copy
+is cleaned: markers and hidden source (`.md-meta`, `.md-hide`), the non-widget children
+of replaced elements, source editors, language boxes, toolbars, comment placeholders,
+link definitions, and front matter are removed; editing classes (`md-expand`,
+`md-focus`, `ProseMirror-*`, search marks) and attributes (`contenteditable`, `data-el`,
+…) are stripped. Links get their real `href` (the editor keeps it in `data-href`,
+Q-012), TOC entries link to heading ids, footnote references become numbered links and
+the definitions move into `section.footnotes` at the end. Soft breaks follow "Preserve
+single line breaks". Code blocks are rebuilt (CodeMirror only draws visible lines) with
+the editor's element structure and classes, including CodeMirror's generated theme
+classes, and tokens from the same highlighter.
+
+The page inlines, in the editor's order: `content.css`, CodeMirror's layer (the
+`@layer scrim-cm` rules of the window, captured from its style sheets), KaTeX's CSS with
+its woff2 fonts embedded (only when the document has math), then the theme,
+`base.user.css`, `<theme>.user.css` from Rust (`export_theme_css`): compatibility
+rewrite (10.3) and every `url()`/`@import` resolved against the sheet's folder
+(`scrim_core::theme_css::map_urls`) as `file://` URLs (HTML), `scrim-file` URLs (PDF,
+print), or data URLs ("embed assets"). Imported sheets are always inlined as data URLs,
+so they get the rewrite too. `body.scrim.scrim-export > #write`. Title: front matter
+`title`, else the first h1, else the file name.
+
+Images: HTML keeps the path as written (default) or embeds data URLs
+(`export_embed_image`, image files only); PDF and print keep the editor's `scrim-file`
+URLs.
+
+### Settings and per-document overrides
+
+Flat keys in `settings.json` (`exportPdfPageSize`, `exportPdfMarginTop`,
+`exportPdfHeaderCenter`, `exportHtmlEmbedImages`, `exportCustomCommands`, …; Preferences
+→ Export). Front matter `export: { pdf: {…}, html: {…} }` overrides page size, custom
+size, orientation, margins, page break before h1, theme, header and footer (a string is
+the center slot, or `{left, center, right}`), and `embedImages`; nothing else is read
+from a document (9.6, X-8). Custom commands run only if their template is in
+`settings.json` (checked again in Rust).
+
+### PDF and print (`src-tauri/src/pdf.rs`, `pdf_windows.rs`)
+
+The page is written to `<config>/tmp-export/` and loaded in a hidden window (navigation
+locked to that URL) through `scrim-file`. Only HTML files in that folder are served as
+`text/html`; every other `.html` stays `application/octet-stream`, so local HTML is never
+run as a page. 700 ms after the load event (fonts, late layout) the platform prints:
+WebKitGTK `PrintOperation` to a file with a GTK page setup (paper size and margins in
+mm) on Linux, WebView2 `PrintToPdf` with print settings (inches, backgrounds on,
+headers/footers off) on Windows.
+
+Header and footer: the page count is read from the printed PDF with `lopdf`, a second
+page is laid out with one sheet per page (header and footer slots inside the margins,
+9 pt, the bundled Noto Sans embedded as a data URL, system fonts as fallback, Q-024),
+printed with no base background so everything else stays transparent, and each of its
+pages is drawn over the matching export page as a form XObject (the page's own content
+is wrapped in `q`/`Q` first). The PDF writer subsets and embeds the fonts; the text stays
+selectable. Print (File → Print) opens the native print dialog on the same hidden page.
+
+### Pandoc and custom commands (`src-tauri/src/pandoc.rs`, `src/export/pandoc.ts`)
+
+Pandoc is found at the set path or on `PATH` when a window opens and when the path
+setting changes; without it the formats are listed, disabled, followed by "Requires
+pandoc" and "How to install pandoc…" (a help document). Export writes the Markdown to a
+temporary file (with `[toc]` paragraphs replaced by a nested list of heading links) and
+runs pandoc with an argument vector (`-f gfm+tex_math_dollars+footnotes+yaml_metadata_block…`,
+`-t`, `-o`, `--resource-path`, optional `--reference-doc`), 120 s timeout, stderr shown on
+failure. Import: `-t gfm-tex_math_gfm+…` when the installed pandoc knows `tex_math_gfm`
+(pandoc 3.1.4 and later; older ones reject the name), media extracted to
+`<config>/tmp-images/import-<time>/`, where untitled documents keep images until their
+first save (6.4); the result opens as a new untitled, unsaved window. HTML imports
+without pandoc go through the clipboard's HTML→Markdown converter. Custom commands:
+`sh -c` with POSIX single-quoted values on Linux; `cmd /C` through `raw_arg` with
+caret-escaped double-quoted values on Windows.
+
+### Tests
+
+X-1 compares the export page in an iframe of the document window with the editor at the
+same size (front matter, link definitions, and comment placeholders hidden in the editor;
+Q-025 asks whether that is the intent). CI installs pandoc, poppler-utils, LibreOffice
+Writer (X-3 converts the docx with `soffice --headless`), and `fonts-noto-cjk` (X-5).
+`tests/fixtures/feature.md` is the feature document (20).
 
 ## P4: look and settings
 
@@ -550,17 +635,9 @@ folder, P4 the theme CSS selector rewrite.
 
 ## PDF prototype (spec 21, risk 5)
 
-`src-tauri/src/pdf_proto.rs`: with `SCRIM_PROTO_PRINT_PDF=/abs/out.pdf`, the first window
-prints itself to that file through `webkit2gtk::PrintOperation` with GTK print settings
-(printer "Print to File", output format pdf, output URI) and no dialog. Verified under
-Xvfb: the PDF is written in about 25 ms and contains the document text (checked with
-`pdftotext`). Remaining work for P5: waiting for rendering to settle, page setup and
-margins from settings, headers/footers (post-processing, 09), and the WebView2 path
-(`PrintToPdf`).
-
-```bash
-SCRIM_PROTO_PRINT_PDF=/tmp/out.pdf xvfb-run -a dbus-run-session -- target/debug/scrim README.md
-```
+`src-tauri/src/pdf_proto.rs` (P0): with `SCRIM_PROTO_PRINT_PDF=/abs/out.pdf`, the first
+window prints itself to that file without a dialog. The P5 pipeline ("P5: output") grew
+out of it.
 
 ## Testing
 

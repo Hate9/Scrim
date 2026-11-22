@@ -176,11 +176,24 @@ fn reader_for(path: &Path) -> Option<&'static str> {
     })
 }
 
-/// The pandoc import argument vector (9.4).
-pub fn import_args(input: &Path, from: &str, media: &Path) -> Vec<std::ffi::OsString> {
+/// The pandoc import argument vector (9.4). `math_gfm` says whether this pandoc knows
+/// the `tex_math_gfm` extension (added in pandoc 3.1.4); older ones reject its name, and
+/// do not use that syntax anyway.
+pub fn import_args(input: &Path, from: &str, media: &Path, math_gfm: bool) -> Vec<std::ffi::OsString> {
     let mut m = std::ffi::OsString::from("--extract-media=");
     m.push(media);
-    vec![input.into(), "-f".into(), from.into(), "-t".into(), "gfm-tex_math_gfm+tex_math_dollars+footnotes".into(), "--wrap=none".into(), m]
+    let to = if math_gfm { "gfm-tex_math_gfm+tex_math_dollars+footnotes" } else { "gfm+tex_math_dollars+footnotes" };
+    vec![input.into(), "-f".into(), from.into(), "-t".into(), to.into(), "--wrap=none".into(), m]
+}
+
+/// Whether this pandoc's gfm writer knows the `tex_math_gfm` extension.
+fn knows_tex_math_gfm(pandoc: &Path) -> bool {
+    Command::new(pandoc)
+        .arg("--list-extensions=gfm")
+        .stdin(Stdio::null())
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).lines().any(|l| l.trim_start_matches(['+', '-']) == "tex_math_gfm"))
+        .unwrap_or(false)
 }
 
 #[derive(Debug, Serialize)]
@@ -230,8 +243,12 @@ pub async fn import_file(window: tauri::WebviewWindow, state: State<'_, AppState
     let media = state.config_dir.join("tmp-images").join(format!("import-{stamp}"));
     std::fs::create_dir_all(&media).map_err(|e| e.to_string())?;
     let media = std::fs::canonicalize(&media).unwrap_or(media);
+    let math_gfm = {
+        let p = pandoc.clone();
+        tauri::async_runtime::spawn_blocking(move || knows_tex_math_gfm(&p)).await.unwrap_or(false)
+    };
     let mut cmd = Command::new(&pandoc);
-    cmd.args(import_args(&path, from, &media));
+    cmd.args(import_args(&path, from, &media, math_gfm));
     state.logger.info(&format!("pandoc import {}", path.display()));
     let out = tauri::async_runtime::spawn_blocking(move || run(cmd)).await.map_err(|e| e.to_string())?.map_err(|e| format!("pandoc: {e}"))?;
     if std::fs::read_dir(&media).map(|mut d| d.next().is_none()).unwrap_or(false) {

@@ -108,6 +108,11 @@ export class AppMenu {
 
   constructor(private tree: () => MenuNode[], private dispatcher: Dispatcher) {}
 
+  /** The menu as it would be built now (tests read labels and enabled states). */
+  nodes(): MenuNode[] {
+    return this.tree();
+  }
+
   /** (Re)build the whole menu: after shortcut, theme list, or recent file changes. */
   rebuild(): Promise<void> {
     if (this.building) {

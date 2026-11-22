@@ -15,6 +15,8 @@ export interface SectionHooks {
   customizeAvailable(): boolean;
   pickFolder(key: string): void;
   testUpload(): void;
+  /** detected pandoc version line, or "" */
+  pandocVersion(): string;
   isWindows: boolean;
 }
 
@@ -310,9 +312,75 @@ export function preferenceSections(h: SectionHooks): Section[] {
       title: "Export",
       groups: [
         {
-          title: "Export",
-          hint: "export arrives in a later version",
-          controls: [{ kind: "text", key: "pandocPath", label: "Pandoc path", def: "", placeholder: "auto-detect" }],
+          title: "PDF",
+          controls: [
+            {
+              kind: "select",
+              key: "exportPdfPageSize",
+              label: "Page size",
+              def: "A4",
+              options: [
+                ["A4", "A4"],
+                ["Letter", "Letter"],
+                ["Legal", "Legal"],
+                ["A3", "A3"],
+                ["A5", "A5"],
+                ["custom", "Custom"],
+              ],
+            },
+            { kind: "number", key: "exportPdfCustomWidth", label: "Custom width", def: 210, min: 20, max: 2000, unit: "mm" },
+            { kind: "number", key: "exportPdfCustomHeight", label: "Custom height", def: 297, min: 20, max: 2000, unit: "mm" },
+            {
+              kind: "select",
+              key: "exportPdfOrientation",
+              label: "Orientation",
+              def: "portrait",
+              options: [
+                ["portrait", "Portrait"],
+                ["landscape", "Landscape"],
+              ],
+            },
+            { kind: "number", key: "exportPdfMarginTop", label: "Top margin", def: 18, min: 0, max: 200, unit: "mm" },
+            { kind: "number", key: "exportPdfMarginBottom", label: "Bottom margin", def: 18, min: 0, max: 200, unit: "mm" },
+            { kind: "number", key: "exportPdfMarginLeft", label: "Left margin", def: 16, min: 0, max: 200, unit: "mm" },
+            { kind: "number", key: "exportPdfMarginRight", label: "Right margin", def: 16, min: 0, max: 200, unit: "mm" },
+            { kind: "toggle", key: "exportPdfPageBreakBeforeH1", label: "Page break before each h1", def: false },
+            { kind: "select", key: "exportPdfTheme", label: "Theme for PDF", def: "current", options: () => [["current", "Current theme"], ["none", "No theme"], ...themeOptions()] },
+          ],
+        },
+        {
+          title: "PDF header and footer",
+          hint: "{{title}}, {{page}}, {{pages}}, {{date}}",
+          controls: [
+            { kind: "text", key: "exportPdfHeaderLeft", label: "Header left", def: "" },
+            { kind: "text", key: "exportPdfHeaderCenter", label: "Header center", def: "" },
+            { kind: "text", key: "exportPdfHeaderRight", label: "Header right", def: "" },
+            { kind: "text", key: "exportPdfFooterLeft", label: "Footer left", def: "" },
+            { kind: "text", key: "exportPdfFooterCenter", label: "Footer center", def: "{{page}}" },
+            { kind: "text", key: "exportPdfFooterRight", label: "Footer right", def: "" },
+          ],
+        },
+        {
+          title: "HTML",
+          controls: [
+            { kind: "select", key: "exportHtmlTheme", label: "Theme", def: "current", options: () => [["current", "Current theme"], ["none", "No theme"], ...themeOptions()] },
+            { kind: "toggle", key: "exportHtmlEmbedImages", label: "Embed images and theme assets", def: false },
+            { kind: "textarea", key: "exportHtmlHead", label: "Extra <head> content", def: "", placeholder: "<meta …>" },
+            { kind: "textarea", key: "exportHtmlBodyEnd", label: "Content appended to <body>", def: "" },
+          ],
+        },
+        {
+          title: "Pandoc",
+          controls: [
+            { kind: "text", key: "pandocPath", label: "Pandoc path", def: "", placeholder: "auto-detect" },
+            { kind: "info", label: "Detected", text: () => h.pandocVersion() || "not found" },
+            { kind: "text", key: "exportPandocReferenceDocx", label: "Reference .docx for Word", def: "", placeholder: "none" },
+          ],
+        },
+        {
+          title: "Custom export commands",
+          hint: "{{input}}, {{output}}, {{dir}}, {{name}}; the document is saved first",
+          controls: [{ kind: "commands", key: "exportCustomCommands", label: "Commands" }],
         },
       ],
     },

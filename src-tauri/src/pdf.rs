@@ -17,6 +17,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 
+use base64::Engine;
 use lopdf::{dictionary, Document, Object, ObjectId, Stream};
 use serde::Deserialize;
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -133,7 +134,7 @@ fn stamp_html(page: &PageSpec, pages: usize, title: &str, date: &str, font_url: 
     }
     format!(
         r#"<!doctype html><html><head><meta charset="utf-8"><style>
-@font-face {{ font-family: "Scrim Noto Sans"; src: url("{font_url}"); }}
+@font-face {{ font-family: "Scrim Noto Sans"; src: url("{font_url}"); font-display: block; }}
 @page {{ size: {w}mm {h}mm; margin: 0; }}
 html, body {{ margin: 0; padding: 0; background: transparent; }}
 .p {{ position: relative; width: {w}mm; height: {ph}mm; overflow: hidden; break-after: page; }}
@@ -233,13 +234,12 @@ async fn make_pdf(app: &AppHandle, html: &str, out: &Path, page: &PageSpec, titl
         let bytes = if page.has_stamp() {
             let mut main = Document::load(&pdf_path).map_err(|e| format!("cannot read the printed PDF: {e}"))?;
             let pages = main.get_pages().len();
-            let font = dir.join("NotoSans-Regular.ttf");
-            if !font.exists() {
-                std::fs::write(&font, NOTO_SANS).map_err(|e| e.to_string())?;
-            }
+            // Embedded, so the face is there before the page prints (a font file loaded on
+            // first use could arrive after printing started).
+            let font = format!("data:font/ttf;base64,{}", base64::engine::general_purpose::STANDARD.encode(NOTO_SANS));
             let stamp_html_path = dir.join(format!("stamp-{n}.html"));
             let stamp_pdf_path = dir.join(format!("stamp-{n}.pdf"));
-            std::fs::write(&stamp_html_path, stamp_html(page, pages, title, date, &scrim_file_url(&font))).map_err(|e| e.to_string())?;
+            std::fs::write(&stamp_html_path, stamp_html(page, pages, title, date, &font)).map_err(|e| e.to_string())?;
             print_file(app, &stamp_html_path, &stamp_pdf_path, &page.without_margins()).await?;
             let stamp = Document::load(&stamp_pdf_path).map_err(|e| format!("cannot read the header/footer PDF: {e}"))?;
             overlay(&mut main, stamp)?;

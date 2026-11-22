@@ -746,6 +746,40 @@ body.dark .scrim-preferences {
 .scrim-preferences-button {
   font: 13px system-ui, sans-serif;
 }
+.scrim-preferences-control input.scrim-preferences-number {
+  width: 6em;
+  font: 13px system-ui, sans-serif;
+  margin-left: 6px;
+}
+.scrim-preferences-block {
+  display: block;
+}
+.scrim-preferences-textarea {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  margin-top: 4px;
+  font: 12px/1.4 var(--monospace, monospace);
+}
+.scrim-preferences-command {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0;
+}
+.scrim-preferences-command input[type="text"] {
+  margin-left: 0;
+}
+.scrim-preferences-control .scrim-preferences-command input.scrim-cmd-name {
+  width: 9em;
+}
+.scrim-preferences-control .scrim-preferences-command input.scrim-cmd-ext {
+  width: 4em;
+}
+.scrim-preferences-control .scrim-preferences-command input.scrim-cmd-command {
+  width: 22em;
+  font-family: var(--monospace, monospace);
+}
 .scrim-preferences-empty {
   color: #888888;
 }
