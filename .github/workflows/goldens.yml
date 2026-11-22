@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch for the candidates (default goldens/<date>)"
+        description: "Branch for the candidates, goldens/<date>-<tag> (default tag: the commit)"
         required: false
         default: ""
   push:
@@ -69,7 +69,8 @@ jobs:
             exit 0
           fi
           branch="${{ inputs.branch }}"
-          [ -n "$branch" ] || branch="goldens/$(date -u +%Y-%m-%d)"
+          # goldens/<date>-<tag>: a manual run names its tag; a push run uses the commit.
+          [ -n "$branch" ] || branch="goldens/$(date -u +%Y-%m-%d)-$(git rev-parse --short HEAD)"
           case "$branch" in goldens/*) ;; *) echo "candidates go to goldens/ branches only"; exit 1 ;; esac
           src="$(git rev-parse --short HEAD)"
           mkdir -p "$RUNNER_TEMP/candidates" && cp "${files[@]}" "$RUNNER_TEMP/candidates/"
