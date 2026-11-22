@@ -76,6 +76,8 @@ test("Q-003 a missing path opens an empty document bound to it", async (s) => {
 
 test("CSP blocks network fetches from the frontend", async (s) => {
   await waitFor(async () => (await s.title()).endsWith("Scrim"), "loaded");
+  // The frontend (and its violation listener) is running.
+  await waitFor(() => s.exec("return !!window.__scrim"), "frontend");
   const result = await s.cmd("POST", "/execute/async", {
     script: "const done = arguments[0]; fetch('http://127.0.0.1:9/x').then(() => done('allowed'), () => done('blocked'));",
     args: [],

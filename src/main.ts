@@ -60,6 +60,11 @@ import { ipc, type LineEndingName, type SaveRequest } from "./ipc";
 
 const EOLS: Record<LineEndingName, string> = { lf: "\n", crlf: "\r\n", cr: "\r" };
 
+// Every CSP violation is logged (spec 19, "Enforcement" item 5); registered first, so
+// violations during startup are caught too.
+document.addEventListener("securitypolicyviolation", (e) => {
+  void ipc.logCsp({ blockedUri: e.blockedURI, violatedDirective: e.violatedDirective, sourceFile: e.sourceFile || undefined });
+});
 const write = document.getElementById("write") as HTMLDivElement;
 const notice = document.getElementById("notice") as HTMLDivElement;
 const noticeText = document.getElementById("notice-text") as HTMLSpanElement;
@@ -1055,9 +1060,6 @@ void appWindow.onCloseRequested(async (event) => {
 });
 
 // Every CSP violation is logged (spec 19, "Enforcement" item 5).
-document.addEventListener("securitypolicyviolation", (e) => {
-  void ipc.logCsp({ blockedUri: e.blockedURI, violatedDirective: e.violatedDirective, sourceFile: e.sourceFile || undefined });
-});
 window.addEventListener("error", (e) => void ipc.log("error", `${e.message} at ${e.filename}:${e.lineno}`));
 window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unhandled rejection: ${String(e.reason)}`));
 
