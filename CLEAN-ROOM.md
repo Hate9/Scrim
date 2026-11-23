@@ -33,9 +33,11 @@ roles exist and must stay separate:
    clean-room reimplementation of Typora's editing behavior, it contains no Typora code
    or assets, and it is not affiliated with or endorsed by Typora's developers. Use
    "modeled on" or "inspired by", never "based on", which would suggest derived code.
-   The same note may say that themes written for Typora work in Scrim. Everywhere else
-   (UI, other docs, package metadata, the app name, commit messages) this rule applies
-   unchanged.
+   The same note may say that themes written for Typora work in Scrim. The spec itself
+   (everything under `spec/`, which is the spec team's material, including this file,
+   `QA-LOG.md` and `fixtures/`) may also name it. Everywhere else (UI, other docs, package
+   metadata, the app name, commit messages, code outside the theme rewrite table) this
+   rule applies unchanged.
 6. **Third-party open-source libraries are fine** (they are not the original program),
    subject to their licenses. Record every dependency's license in `THIRD_PARTY.md`.
 7. **Themes**: the editor's built-in themes are written from scratch from the values in
