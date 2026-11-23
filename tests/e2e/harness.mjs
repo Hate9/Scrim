@@ -83,6 +83,7 @@ export async function main(filter) {
   if (!existsSync(APP)) throw new Error(`app not built: ${APP}`);
   const driver = spawn("tauri-driver", ["--port", String(PORT)], { stdio: ["ignore", "inherit", "inherit"] });
   let failed = 0;
+  const failures = [];
   let selected = [];
   try {
     await waitFor(() => fetch(`${BASE}/status`).then((r) => r.ok), "tauri-driver");
@@ -102,6 +103,7 @@ export async function main(filter) {
         console.log(`ok   ${t.name}`);
       } catch (e) {
         failed++;
+        failures.push(`${t.name}: ${e.message}`);
         console.log(`FAIL ${t.name}\n     ${e.message}`);
       } finally {
         if (s) await s.delete();
@@ -114,6 +116,8 @@ export async function main(filter) {
     spawnSync("pkill", ["-x", "xclip"]);
   }
   console.log(`\n${selected.length - failed}/${selected.length} passed (logs in ${process.env.SCRIM_CONFIG_DIR})`);
+  // Repeated at the end: CI logs are long.
+  for (const f of failures) console.log(`FAIL ${f}`);
   process.exit(failed ? 1 : 0);
 }
 
