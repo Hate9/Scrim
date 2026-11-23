@@ -559,81 +559,6 @@ fn tree_of(src: &str, cuts: &[usize]) -> Value {
     tree
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Parts give exactly the tree of the whole, for documents with every kind of block.
-    #[test]
-    fn parts_equal_whole() {
-        let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus");
-        let mut docs: Vec<String> = Vec::new();
-        fn walk(d: &std::path::Path, out: &mut Vec<String>) {
-            for e in std::fs::read_dir(d).into_iter().flatten().flatten() {
-                let p = e.path();
-                if p.is_dir() {
-                    walk(&p, out);
-                } else if p.extension().is_some_and(|x| x == "md") {
-                    if let Ok(t) = std::fs::read_to_string(&p) {
-                        out.push(t.trim_start_matches('\u{feff}').to_string());
-                    }
-                }
-            }
-        }
-        walk(&corpus, &mut docs);
-        if let Ok(spec) = std::fs::read_to_string(corpus.join("spec-examples.json")) {
-            let v: Value = serde_json::from_str(&spec).unwrap();
-            for e in v["examples"].as_array().unwrap() {
-                docs.push(e["markdown"].as_str().unwrap().to_string());
-            }
-        }
-        assert!(docs.len() > 600);
-        // Everything in one document, separated by headings that may be cut points; and
-        // each document followed by a heading, so cuts land right after any construct.
-        let mut big = String::new();
-        for (i, d) in docs.iter().enumerate() {
-            big.push_str(d);
-            big.push_str(&format!("\n\n# part {i}\n\n"));
-        }
-        let cuts = split_points(&big, 1);
-        assert!(cuts.len() > 50, "only {} cut points", cuts.len());
-        let whole = tree_of(&big, &[]);
-        let parts = tree_of(&big, &cuts);
-        assert!(whole == parts, "parts differ from the whole for the concatenated corpus");
-        // Each document on its own, between headings that are cut points when the
-        // document leaves nothing open, so no earlier document can hide a mistake.
-        let mut checked = 0;
-        for d in &docs {
-            let one = format!("# a\n\n{d}\n\n# b\n\ntext\n\n# c\n");
-            let cuts = split_points(&one, 1);
-            checked += cuts.len();
-            assert!(tree_of(&one, &[]) == tree_of(&one, &cuts), "parts differ for {d:?}");
-        }
-        assert!(checked > 1000, "only {checked} cut points over the single documents");
-        // And the public entry point, which cuts large documents.
-        assert_eq!(block_tree(&big), whole);
-    }
-
-    #[test]
-    fn utf16_offsets() {
-        let t = block_tree("é 😀\n\n# Hi\n");
-        let kids = t["children"].as_array().unwrap();
-        assert_eq!(kids[0]["type"], "paragraph");
-        assert_eq!(kids[0]["position"]["end"]["offset"], 4); // é, space, 😀 (2 units)
-        assert_eq!(kids[1]["type"], "heading");
-        assert_eq!(kids[1]["position"]["start"]["offset"], 6);
-        assert_eq!(kids[1]["children"][0]["value"], "Hi");
-    }
-
-    #[test]
-    fn extensions() {
-        let t = block_tree("---\na: 1\n---\n\n$$\nx\n$$\n\n- [x] done\n\n| a |\n|---|\n| b |\n\n[^1]: note\n\n[d]: /u\n");
-        let types: Vec<&str> = t["children"].as_array().unwrap().iter().map(|n| n["type"].as_str().unwrap()).collect();
-        assert_eq!(types, ["yaml", "math", "list", "table", "footnoteDefinition", "definition"]);
-        assert_eq!(t["children"][2]["children"][0]["checked"], true);
-    }
-}
-
 // ---- compact encoding (Q-027) ---------------------------------------------------------
 //
 // The JSON block tree of a 1 MB document is about 9 MB; sending it and parsing it in the
@@ -779,4 +704,79 @@ pub fn reply_with_tree(header: &Value, tree: &Value) -> Vec<u8> {
     out.extend_from_slice(&head);
     out.extend_from_slice(&body);
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Parts give exactly the tree of the whole, for documents with every kind of block.
+    #[test]
+    fn parts_equal_whole() {
+        let corpus = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus");
+        let mut docs: Vec<String> = Vec::new();
+        fn walk(d: &std::path::Path, out: &mut Vec<String>) {
+            for e in std::fs::read_dir(d).into_iter().flatten().flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    walk(&p, out);
+                } else if p.extension().is_some_and(|x| x == "md") {
+                    if let Ok(t) = std::fs::read_to_string(&p) {
+                        out.push(t.trim_start_matches('\u{feff}').to_string());
+                    }
+                }
+            }
+        }
+        walk(&corpus, &mut docs);
+        if let Ok(spec) = std::fs::read_to_string(corpus.join("spec-examples.json")) {
+            let v: Value = serde_json::from_str(&spec).unwrap();
+            for e in v["examples"].as_array().unwrap() {
+                docs.push(e["markdown"].as_str().unwrap().to_string());
+            }
+        }
+        assert!(docs.len() > 600);
+        // Everything in one document, separated by headings that may be cut points; and
+        // each document followed by a heading, so cuts land right after any construct.
+        let mut big = String::new();
+        for (i, d) in docs.iter().enumerate() {
+            big.push_str(d);
+            big.push_str(&format!("\n\n# part {i}\n\n"));
+        }
+        let cuts = split_points(&big, 1);
+        assert!(cuts.len() > 50, "only {} cut points", cuts.len());
+        let whole = tree_of(&big, &[]);
+        let parts = tree_of(&big, &cuts);
+        assert!(whole == parts, "parts differ from the whole for the concatenated corpus");
+        // Each document on its own, between headings that are cut points when the
+        // document leaves nothing open, so no earlier document can hide a mistake.
+        let mut checked = 0;
+        for d in &docs {
+            let one = format!("# a\n\n{d}\n\n# b\n\ntext\n\n# c\n");
+            let cuts = split_points(&one, 1);
+            checked += cuts.len();
+            assert!(tree_of(&one, &[]) == tree_of(&one, &cuts), "parts differ for {d:?}");
+        }
+        assert!(checked > 1000, "only {checked} cut points over the single documents");
+        // And the public entry point, which cuts large documents.
+        assert_eq!(block_tree(&big), whole);
+    }
+
+    #[test]
+    fn utf16_offsets() {
+        let t = block_tree("é 😀\n\n# Hi\n");
+        let kids = t["children"].as_array().unwrap();
+        assert_eq!(kids[0]["type"], "paragraph");
+        assert_eq!(kids[0]["position"]["end"]["offset"], 4); // é, space, 😀 (2 units)
+        assert_eq!(kids[1]["type"], "heading");
+        assert_eq!(kids[1]["position"]["start"]["offset"], 6);
+        assert_eq!(kids[1]["children"][0]["value"], "Hi");
+    }
+
+    #[test]
+    fn extensions() {
+        let t = block_tree("---\na: 1\n---\n\n$$\nx\n$$\n\n- [x] done\n\n| a |\n|---|\n| b |\n\n[^1]: note\n\n[d]: /u\n");
+        let types: Vec<&str> = t["children"].as_array().unwrap().iter().map(|n| n["type"].as_str().unwrap()).collect();
+        assert_eq!(types, ["yaml", "math", "list", "table", "footnoteDefinition", "definition"]);
+        assert_eq!(t["children"][2]["children"][0]["checked"], true);
+    }
 }
