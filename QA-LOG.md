@@ -485,3 +485,57 @@ Do both of the following, measure each separately, and record the numbers in DES
 Fallback: if E-14 p95 still exceeds 16 ms on the owner's machine after both changes,
 report the numbers and the profile before starting viewport-only rendering. That is a
 separate decision.
+
+## Q-027: Real-hardware results after Q-026, and the next performance step
+**Asked by:** implementation (open decisions after Q-026), with the owner's real-hardware
+run, 2026-11-22
+**Question:** Containment and Rust block parsing are in, and E-14 is still over budget.
+Should viewport-only rendering start? Should the source editor be preloaded to fix the
+first switch to source mode?
+**Answer (spec team, approved by the project owner, 2026-11-22):**
+
+Owner's machine (Ryzen 5 3600, RTX 3070, KDE on Wayland via XWayland), release build of
+eb9d5cd, `SCRIM_PERF_STRICT=1`:
+
+| Measure | Before Q-026 (release) | eb9d5cd | Budget |
+|---|---|---|---|
+| Open 1 MB | 4,961 ms | 5,941 ms | 2,000 ms |
+| E-14 p95 (median) | 35.0 (19.0) ms | 36.0 (19.0) ms | 16 ms |
+| E-14 p95 (median), `SCRIM_E14_CONTAIN=1` | n/a | 216.0 (90.0) ms; measuring took 163 ms | 16 ms |
+| First switch to source mode, 10,000 lines | 777 ms | 1,042 ms | 300 ms |
+| Sidebar, 5,000 files | 48 ms | 45 ms | 1,000 ms |
+
+Containment is confirmed slower on real hardware as well. Remove the
+`experimentalContainment` option and its code. The open got about 1 s slower even
+though parsing is faster. Find out why (the load-unfocused-then-focus change is the
+first suspect), and report the breakdown of the open (read, parse, IPC, view build,
+first layout).
+
+1. **Viewport-only rendering: approved.** Only top-level blocks near the viewport are in
+   the DOM, with a margin of at least one screen above and below. The other blocks are
+   represented by spacers whose heights come from measurement, or an estimate until a
+   block has been measured. The document model stays complete, and the editor's
+   behavior must not change. Constraints:
+   - Find and replace, spell check, word count, outline, select all, copy and cut, and
+     export all work from the document model, never from the DOM. Selections and finds
+     whose ends are outside the rendered range work: rendering moves to the match or
+     selection end, and a selection spanning unrendered blocks copies its full content.
+   - Theme compatibility (10.3) holds. A theme's CSS counters (heading or list
+     numbering) and sibling selectors (`h2 + p`, `:first-child`) MUST render the same as
+     with the whole document in the DOM. For example, carry the counter values into the
+     first rendered block, and keep real neighbors on both edges of the rendered range.
+     T-1's goldens MUST stay identical. Add a T-1-style test on a long document that
+     scrolls to the middle with a theme that numbers headings.
+   - The scrollbar, scroll restore (7.x), jump to heading, and outline clicks land
+     exactly on the target. When a spacer's estimate is replaced by a measured height,
+     the content at the top of the viewport MUST NOT move (scroll anchoring).
+   - IME composition, typewriter mode and focus mode keep working at the edges of the
+     rendered range.
+   - Accessibility: screen readers see only the rendered range. That is accepted. The
+     margin keeps reading by line working.
+   - Documents below a threshold (start at 2,000 top-level blocks, and record the
+     tuning in DESIGN.md) render whole, so small documents behave exactly as before.
+   - Measure E-14 and PF-1 before and after. The owner repeats them on real hardware.
+2. **Source editor preloading: approved.** Create the source-mode editor in the
+   background (idle time after opening) so the first switch costs the same as later
+   ones. It must not delay the first frame of the open.

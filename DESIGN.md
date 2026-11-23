@@ -69,9 +69,9 @@ layout (about 2 ms each, 9 times). The 55 view updates took 526 ms (about 10 ms 
 21 ms at most), so the time is the DOM update and the one layout each keystroke needs,
 not repeated forced layouts. Nothing to remove on Scrim's side; containment is next.
 
-#### Containment with measured heights (Q-026 item 2): measured, then made opt-in
+#### Containment with measured heights (Q-026 item 2): measured, then removed (Q-027)
 
-`src/editor/containment.ts` does what Q-011 described: one full layout, each top-level
+The removed `src/editor/containment.ts` did what Q-011 described: one full layout, each top-level
 block's real content height stored as a node decoration
 (`contain-intrinsic-size: auto <h>px`), `content-visibility: auto` plus
 `contain: layout style` on `#write.md-contained > *`, remeasured after loads, theme,
@@ -91,11 +91,9 @@ about 300 ms. E-14 on 10,000 lines (Xvfb, debug build, 200 keystrokes, extra CSS
 So the heights were not the problem: in WebKitGTK 2.52, layout or paint containment on
 each of 10,000 sibling blocks makes every update about 7 times slower by itself
 (presumably one rendering layer per contained block; not profiled further). Containment
-is therefore off by default; `"experimentalContainment": true` in config.jsonc turns it
-on so the owner can repeat the comparison on real hardware (`SCRIM_E14_CONTAIN=1` runs
-E-14 with it). Q-026's new test (select a 10,000-line document top to bottom and copy,
-`tests/e2e/p8.mjs`) passes with it on and off. Per Q-026's fallback, viewport-only
-rendering is a separate decision.
+was an opt-in option for one real-hardware run, where it was also slower (E-14 p95
+216 ms against 36 ms, QA-LOG Q-027), and is removed with its code. Q-026's test (select a
+10,000-line document top to bottom and copy, `tests/e2e/p8.mjs`) stays.
 
 #### Block parsing in Rust (Q-026 item 1)
 

@@ -65,19 +65,12 @@ test("PF-1 sidebar with 5,000 files (< 1 s)", async (s) => {
 });
 
 // Q-026: a selection from the top of a 10,000-line document to the bottom copies all of it,
-// with containment on (off-screen blocks are skipped by layout then).
-test("Q-026 select a 10,000-line document top to bottom and copy (containment on)", async (s) => {
+// (with viewport-only rendering, Q-027, most of it is not in the DOM).
+test("Q-026 select a 10,000-line document top to bottom and copy", async (s) => {
   const { CTRL, SHIFT, HOME, END } = await import("./webdriver.mjs");
-  const { readFileSync } = await import("node:fs");
   await waitFor(() => js(s, "return window.__scrim?.openMs?.() != null"), "document open", 60000);
   await waitFor(() => js(s, "const st = window.__scrim.inlineKey.getState(window.__scrim.editor.view.state); return st.pending === null && !st.touched.length"), "inline structure done", 120000);
-  const cfg = join(process.env.SCRIM_CONFIG_DIR, "config.jsonc");
-  const original = readFileSync(cfg, "utf8");
-  try {
-    if (!process.env.SCRIM_NO_CONTAIN) {
-      writeFileSync(cfg, original.replace(/\{/, '{\n  "experimentalContainment": true,'));
-      await waitFor(() => js(s, "return window.__scrim.containment.active()"), "containment on", 30000);
-    }
+  {
     await js(s, "window.__scrim.editor.view.focus(); return true");
     await s.chord(CTRL, HOME);
     await s.chord(CTRL, SHIFT, END);
@@ -93,7 +86,5 @@ test("Q-026 select a 10,000-line document top to bottom and copy (containment on
       return got.length > want.length / 2;
     }, "clipboard filled", 15000);
     if (got.replace(/\n+$/, "") !== want.replace(/\n+$/, "")) throw new Error(`copied ${got.length} characters, document has ${want.length}`);
-  } finally {
-    writeFileSync(cfg, original);
   }
 }, () => bigDoc("q026-copy.md", 10000));

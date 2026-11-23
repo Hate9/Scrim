@@ -36,7 +36,6 @@ import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
 import { createSpellPlugin, type SpellHooks } from "./spell";
 import { createSmartPlugin } from "./smart";
-import { createContainmentPlugin } from "./containment";
 import { codeNodeViews, createCodeSelectionPlugin, type CodeViewHooks } from "./codeview";
 import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
@@ -174,7 +173,6 @@ export function createEditor(
     createFindPlugin(),
     createSpellPlugin(hooks.spell),
     createSmartPlugin(() => options.smartPunctuation),
-    createContainmentPlugin(),
   ];
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {

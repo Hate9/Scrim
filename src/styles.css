@@ -480,12 +480,3 @@ body.scrim-loading > * {
   visibility: hidden;
 }
 
-/* Containment of top-level blocks in large documents (Q-026, src/editor/containment.ts):
-   off-screen blocks skip layout and painting. Each block's measured height comes as an
-   inline contain-intrinsic-size; the fallback here is for blocks created since the last
-   measurement (they are on screen, so WebKit remembers their real size). */
-#write.md-contained > * {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 1.5em;
-  contain: layout style;
-}

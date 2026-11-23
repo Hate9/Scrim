@@ -345,17 +345,6 @@ const E14_LINES = Number(process.env.SCRIM_E14_LINES ?? 10000);
 test(`E-14 typing latency on a ${E14_LINES}-line document (p95 < 16 ms)`, async (s) => {
   await waitFor(() => s.exec(`return !!window.__scrim && window.__scrim.editor.view.state.doc.childCount > ${E14_LINES / 10}`), "big doc loaded", 20000);
   await waitFor(() => s.exec("return window.__scrim.inlineKey.getState(window.__scrim.editor.view.state).pending === null"), "all decorations computed", 60000);
-  // Containment with measured heights (Q-026) is opt-in (`experimentalContainment` in
-  // config.jsonc); SCRIM_E14_CONTAIN=1 measures with it, once the first measurement ran.
-  let restoreConfig = () => {};
-  if (process.env.SCRIM_E14_CONTAIN) {
-    const cfg = join(process.env.SCRIM_CONFIG_DIR, "config.jsonc");
-    const original = readFileSync(cfg, "utf8");
-    writeFileSync(cfg, original.replace(/\{/, '{\n  "experimentalContainment": true,'));
-    await waitFor(() => s.exec("return window.__scrim.containment.active()"), "containment measured", 30000);
-    restoreConfig = () => writeFileSync(cfg, original);
-    console.log(`     containment: measuring ${E14_LINES} lines took ${Math.round(await s.exec("return window.__scrim.containment.lastMs"))} ms`);
-  }
   // Experiments: extra CSS for the run (SCRIM_E14_CSS).
   if (process.env.SCRIM_E14_CSS) await s.exec("const st = document.createElement('style'); st.textContent = " + JSON.stringify(process.env.SCRIM_E14_CSS) + "; document.head.appendChild(st); return true");
   // Cursor into the middle of a paragraph halfway down.
@@ -377,7 +366,6 @@ test(`E-14 typing latency on a ${E14_LINES}-line document (p95 < 16 ms)`, async 
     if (process.env.SCRIM_PERF_STRICT === "1") throw new Error(`p95 ${p95.toFixed(1)} ms`);
     console.log("     E-14: over budget; reported only (set SCRIM_PERF_STRICT=1 to enforce)");
   }
-  restoreConfig();
 }, () => {
   spawnSync("node", [join(ROOT_DIR, "scripts/make-big-doc.mjs"), join(docs, "big.md"), String(E14_LINES)]);
   return join(docs, "big.md");
