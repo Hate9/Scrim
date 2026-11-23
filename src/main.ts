@@ -84,6 +84,9 @@ const write = document.getElementById("write") as HTMLDivElement;
 const notice = document.getElementById("notice") as HTMLDivElement;
 const noticeText = document.getElementById("notice-text") as HTMLSpanElement;
 const appWindow = getCurrentWebviewWindow();
+// PF-1 report: when the theme fonts finished loading (Q-027), from the page's start.
+const noteFonts = () => void document.fonts?.ready.then(() => { if (document.fonts.size && !performance.getEntriesByName("scrim-fonts-loaded").length && [...document.fonts].some((f) => f.status === "loaded")) performance.measure("scrim-fonts-loaded", { start: 0, end: performance.now() }); });
+document.fonts?.addEventListener?.("loadingdone", noteFonts);
 const isWindows = navigator.userAgent.includes("Windows");
 document.body.classList.add(isWindows ? "os-windows" : "os-linux");
 
@@ -359,7 +362,20 @@ async function init() {
   // The block tree is large (about 10 MB of objects for a 1 MB file): nothing may hold it
   // past the parse, or building the view takes 20 times longer (Q-026).
   editor.load(d.text, !d.path || d.missing, eol, takeTree(d));
-  requestAnimationFrame(() => requestAnimationFrame(() => (openMs = performance.now() - t0)));
+  // PF-1 report: the stages of the open (Q-027), as performance measures.
+  const rust = d.rustMs;
+  const ipcMs = (performance.getEntriesByName("scrim-doc-init").pop()?.duration ?? 0) - rust.read - rust.blocks;
+  for (const [name, ms] of [["rust-read", rust.read], ["rust-blocks", rust.blocks], ["ipc", ipcMs]] as const) performance.measure(`scrim-${name}`, { start: 0, duration: Math.max(0, ms) });
+  performance.mark("scrim-loaded");
+  noteFonts();
+  requestAnimationFrame(() => {
+    performance.measure("scrim-until-frame", "scrim-loaded");
+    performance.mark("scrim-frame");
+    requestAnimationFrame(() => {
+      performance.measure("scrim-first-frame", "scrim-frame");
+      openMs = performance.now() - t0;
+    });
+  });
   document.title = d.title;
   editor.view.focus();
   if (pendingAnchor) {

@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Root } from "mdast";
 import { parseMarkdown } from "./parse";
 import { dialect, parseMdast } from "./mdast";
-import { rustTreeApplies } from "./rustblocks";
+import { decodeTree, rustTreeApplies } from "./rustblocks";
 
 const BIN = process.env.SCRIM_BLOCK_TREE ?? "target/release/examples/block_tree";
 
@@ -48,6 +48,18 @@ describe.skipIf(!existsSync(BIN))("Rust block trees give the frontend's document
   const docs = corpus();
   const trees = JSON.parse(execFileSync(BIN, { input: JSON.stringify(docs), maxBuffer: 512 << 20, encoding: "utf8" })) as ((Root & { unsure?: boolean }) | null)[];
   afterEach(() => (dialect.strict = true));
+
+  it("the compact encoding decodes to the same trees (Q-027)", () => {
+    const encoded = JSON.parse(execFileSync(BIN, ["--encoded"], { input: JSON.stringify(docs), maxBuffer: 512 << 20, encoding: "utf8" })) as string[];
+    const canon = (v: unknown): unknown => (Array.isArray(v) ? v.map(canon) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)).map(([k, x]) => [k, canon(x)])) : v);
+    const bad: number[] = [];
+    encoded.forEach((b64, i) => {
+      const bytes = Uint8Array.from(Buffer.from(b64, "base64"));
+      const got = decodeTree(bytes.buffer);
+      if (JSON.stringify(canon(got)) !== JSON.stringify(canon(trees[i]))) bad.push(i);
+    });
+    expect(bad.slice(0, 5)).toEqual([]);
+  });
 
   it("the block trees are equal node by node (strict mode on)", () => {
     const diffs: string[] = [];

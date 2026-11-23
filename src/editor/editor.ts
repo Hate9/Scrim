@@ -202,7 +202,9 @@ export function createEditor(
     const focused = view.hasFocus();
     if (focused) dom.blur();
     update();
+    performance.mark("scrim-refocus");
     if (focused) view.focus();
+    performance.measure("scrim-refocus", "scrim-refocus");
   }
   const initial = parseMarkdown("").doc;
 

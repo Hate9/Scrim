@@ -548,10 +548,9 @@ fn tree_of(src: &str, cuts: &[usize]) -> Value {
         children.extend(kids);
         unsure |= u;
     }
-    let end_line = line_breaks(src.as_bytes()) + 1;
     let mut tree = json!({
         "type": "root",
-        "position": { "start": { "line": 1, "offset": 0 }, "end": { "line": end_line, "offset": map.at(src.len()) } },
+        "position": { "start": { "line": 1, "offset": 0 }, "end": { "offset": map.at(src.len()) } },
         "children": children,
     });
     if unsure {
@@ -633,4 +632,151 @@ mod tests {
         assert_eq!(types, ["yaml", "math", "list", "table", "footnoteDefinition", "definition"]);
         assert_eq!(t["children"][2]["children"][0]["checked"], true);
     }
+}
+
+// ---- compact encoding (Q-027) ---------------------------------------------------------
+//
+// The JSON block tree of a 1 MB document is about 9 MB; sending it and parsing it in the
+// frontend cost more than parsing in Rust saved on fast machines. The tree goes as
+// little-endian `u32` words instead, decoded by `src/md/rustblocks.ts` (`decodeTree`):
+//
+//   magic "SBT1", flags (1 = unsure), node count, string table length (UTF-16 units),
+//   then each node in document order (pre-order):
+//     type, start, end, line, child count, then per type:
+//       heading: depth; list: ordered, start (u32::MAX = none), spread;
+//       listItem: checked (0, 1, 2 = none); code: value, lang, meta; math: value, meta;
+//       yaml, toml, html, text: value; table: align count, aligns (0 none, 1 left,
+//       2 right, 3 center); footnoteDefinition: identifier, label;
+//       definition: identifier, label, url, title; link: url
+//     strings as (start, length) in UTF-16 units of the string table, u32::MAX = none
+//   then the string table as UTF-16 code units, 2 bytes each.
+
+const TYPES: [&str; 21] = [
+    "root", "paragraph", "heading", "thematicBreak", "blockquote", "list", "listItem", "code", "math", "yaml", "toml", "html", "table", "tableRow",
+    "tableCell", "footnoteDefinition", "definition", "text", "break", "link", "unknown",
+];
+const NONE: u32 = u32::MAX;
+
+struct Enc {
+    words: Vec<u32>,
+    strings: Vec<u16>,
+    nodes: u32,
+}
+
+impl Enc {
+    fn string(&mut self, v: &Value) {
+        match v.as_str() {
+            Some(s) => {
+                let start = self.strings.len() as u32;
+                self.strings.extend(s.encode_utf16());
+                self.words.push(start);
+                self.words.push(self.strings.len() as u32 - start);
+            }
+            None => {
+                self.words.push(NONE);
+                self.words.push(0);
+            }
+        }
+    }
+
+    fn node(&mut self, n: &Value) {
+        self.nodes += 1;
+        let ty = n["type"].as_str().unwrap_or("unknown");
+        let id = TYPES.iter().position(|t| *t == ty).unwrap_or(TYPES.len() - 1);
+        let pos = &n["position"];
+        let num = |v: &Value| v.as_u64().map_or(0, |x| x as u32);
+        let kids = n["children"].as_array();
+        self.words.extend([
+            id as u32,
+            num(&pos["start"]["offset"]),
+            num(&pos["end"]["offset"]),
+            num(&pos["start"]["line"]),
+            kids.map_or(0, |k| k.len() as u32),
+        ]);
+        match ty {
+            "heading" => self.words.push(num(&n["depth"])),
+            "list" => {
+                self.words.push(u32::from(n["ordered"].as_bool() == Some(true)));
+                self.words.push(n["start"].as_u64().map_or(NONE, |x| x as u32));
+                self.words.push(u32::from(n["spread"].as_bool() == Some(true)));
+            }
+            "listItem" => self.words.push(match n["checked"].as_bool() {
+                Some(false) => 0,
+                Some(true) => 1,
+                None => 2,
+            }),
+            "code" => {
+                self.string(&n["value"]);
+                self.string(&n["lang"]);
+                self.string(&n["meta"]);
+            }
+            "math" => {
+                self.string(&n["value"]);
+                self.string(&n["meta"]);
+            }
+            "yaml" | "toml" | "html" | "text" => self.string(&n["value"]),
+            "table" => {
+                let align = n["align"].as_array().cloned().unwrap_or_default();
+                self.words.push(align.len() as u32);
+                for a in align {
+                    self.words.push(match a.as_str() {
+                        Some("left") => 1,
+                        Some("right") => 2,
+                        Some("center") => 3,
+                        _ => 0,
+                    });
+                }
+            }
+            "footnoteDefinition" => {
+                self.string(&n["identifier"]);
+                self.string(&n["label"]);
+            }
+            "definition" => {
+                self.string(&n["identifier"]);
+                self.string(&n["label"]);
+                self.string(&n["url"]);
+                self.string(&n["title"]);
+            }
+            "link" => self.string(&n["url"]),
+            _ => {}
+        }
+        if let Some(kids) = kids {
+            for k in kids {
+                self.node(k);
+            }
+        }
+    }
+}
+
+/// The compact encoding of a block tree (see above); empty for no tree.
+pub fn encode_tree(tree: &Value) -> Vec<u8> {
+    if tree.is_null() {
+        return Vec::new();
+    }
+    let mut e = Enc { words: Vec::with_capacity(1 << 16), strings: Vec::new(), nodes: 0 };
+    e.node(tree);
+    let mut out = Vec::with_capacity(16 + e.words.len() * 4 + e.strings.len() * 2);
+    out.extend_from_slice(b"SBT1");
+    out.extend_from_slice(&(tree.get("unsure").is_some() as u32).to_le_bytes());
+    out.extend_from_slice(&e.nodes.to_le_bytes());
+    out.extend_from_slice(&(e.strings.len() as u32).to_le_bytes());
+    for w in &e.words {
+        out.extend_from_slice(&w.to_le_bytes());
+    }
+    for u in &e.strings {
+        out.extend_from_slice(&u.to_le_bytes());
+    }
+    out
+}
+
+/// A reply of a JSON header followed by a block tree (one IPC message, Q-026/Q-027):
+/// the header's length as `u32`, the header (UTF-8 JSON), then the encoded tree.
+pub fn reply_with_tree(header: &Value, tree: &Value) -> Vec<u8> {
+    let head = serde_json::to_vec(header).unwrap_or_default();
+    let body = encode_tree(tree);
+    let mut out = Vec::with_capacity(4 + head.len() + body.len());
+    out.extend_from_slice(&(head.len() as u32).to_le_bytes());
+    out.extend_from_slice(&head);
+    out.extend_from_slice(&body);
+    out
 }

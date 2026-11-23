@@ -1,4 +1,5 @@
 // Typed wrappers for the Rust commands in src-tauri/src/commands.rs.
+import { decodeReply, decodeTree } from "./md/rustblocks";
 import { invoke } from "@tauri-apps/api/core";
 
 export type LineEndingName = "lf" | "crlf" | "cr";
@@ -31,6 +32,8 @@ export interface DocInit {
   testNoRemote: boolean;
   /** Rust's block tree of `text` (Q-026). */
   blocks: unknown;
+  /** Time spent in Rust, ms (PF-1 report). */
+  rustMs: { read: number; blocks: number };
 }
 
 export type SaveResult =
@@ -122,8 +125,11 @@ export const ipc = {
   themesOpenFolder: (theme: string | null) => invoke<void>("themes_open_folder", { theme }),
   folderWatchImplicit: (path: string) => invoke<void>("folder_watch_implicit", { path }),
   folderDialog: () => invoke<string | null>("folder_dialog"),
-  reload: () => invoke<{ text: string; blocks: unknown }>("doc_reload"),
-  parseBlocks: (text: string) => invoke<unknown>("parse_blocks", { text }),
+  reload: async () => {
+    const r = decodeReply<{ text: string }>(await invoke<ArrayBuffer>("doc_reload"));
+    return { text: r.header.text, blocks: r.tree as unknown };
+  },
+  parseBlocks: async (text: string): Promise<unknown> => decodeTree(await invoke<ArrayBuffer>("parse_blocks", { text })),
   readText: (path: string) => invoke<string>("fs_read_text", { path }),
   copyFile: (from: string, to: string) => invoke<void>("fs_copy", { from, to }),
   recoveryOpen: (id: string) => invoke<void>("recovery_open", { id }),
@@ -135,7 +141,11 @@ export const ipc = {
   recoveryRead: (id: string) => invoke<string>("recovery_read", { id }),
   recoveryDiscard: (id: string) => invoke<void>("recovery_discard", { id }),
   recoveryAdopt: (id: string) => invoke<void>("recovery_adopt", { id }),
-  docInit: () => invoke<DocInit>("doc_init"),
+  docInit: async (): Promise<DocInit> => {
+    const r = decodeReply<DocInit>(await invoke<ArrayBuffer>("doc_init"));
+    r.header.blocks = r.tree;
+    return r.header;
+  },
   setDirty: (dirty: boolean) => inOrder(() => invoke<string>("doc_set_dirty", { dirty })),
   setTitleOverride: (title: string | null) => inOrder(() => invoke<string>("doc_set_title_override", { title })),
   save: (request: SaveRequest) => invoke<SaveResult>("doc_save", { request }),

@@ -596,16 +596,10 @@ pub fn unwatch(app: &AppHandle, label: &str) {
     app.state::<Watchers>().map.lock().unwrap().remove(label);
 }
 
-/// A re-read file and its block tree (Q-026).
-#[derive(serde::Serialize)]
-pub struct ReloadedText {
-    pub text: String,
-    pub blocks: serde_json::Value,
-}
 
 /// Re-read the open file after an external change (7.3).
 #[tauri::command]
-pub async fn doc_reload(window: WebviewWindow, state: State<'_, AppState>) -> Result<ReloadedText, String> {
+pub async fn doc_reload(window: WebviewWindow, state: State<'_, AppState>) -> Result<tauri::ipc::Response, String> {
     let label = window.label().to_string();
     let path = state.docs().get(&label).and_then(|d| d.path.clone()).ok_or("untitled")?;
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
@@ -618,7 +612,9 @@ pub async fn doc_reload(window: WebviewWindow, state: State<'_, AppState>) -> Re
     }
     state.logger.info("reloaded the open file from disk");
     let blocks = crate::commands::timed_blocks(&state, &decoded.text);
-    Ok(ReloadedText { text: decoded.text, blocks })
+    // The text as a JSON header, then the block tree encoded (Q-027).
+    let header = serde_json::json!({ "text": decoded.text });
+    Ok(tauri::ipc::Response::new(scrim_core::blocks::reply_with_tree(&header, &blocks)))
 }
 
 // ---- search in files (7.7) ---------------------------------------------------------------------

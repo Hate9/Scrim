@@ -48,11 +48,22 @@ pub struct DocInit {
     /// screenshots must not depend on the network).
     pub test_no_remote: bool,
     /// The text's block tree, parsed in Rust (QA-LOG Q-026, `scrim_core::blocks`).
+    /// Sent after the header in the same reply, encoded (Q-027).
+    #[serde(skip)]
     pub blocks: serde_json::Value,
+    /// Time spent in Rust (ms): reading and decoding the file, the block tree (PF-1 report).
+    pub rust_ms: RustTimes,
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RustTimes {
+    pub read: f64,
+    pub blocks: f64,
 }
 
 #[tauri::command]
-pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Result<DocInit, String> {
+pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Result<tauri::ipc::Response, String> {
     let label = window.label().to_string();
     let (mut path, folder, recover, initial) = state
         .docs()
@@ -85,10 +96,12 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         recovered: false,
         test_no_remote: cfg!(debug_assertions) && std::env::var_os("SCRIM_TEST_NO_REMOTE").is_some(),
         blocks: serde_json::Value::Null,
+        rust_ms: RustTimes::default(),
     };
     let mut doc = DocState { initialized: true, folder: folder.clone(), ..Default::default() };
     init.folder = folder.map(|f| f.to_string_lossy().into_owned());
     if let Some(path) = path {
+        let read_start = std::time::Instant::now();
         let read = {
             let p = path.clone();
             tauri::async_runtime::spawn_blocking(move || std::fs::read(&p))
@@ -98,6 +111,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         match read {
             Ok(bytes) => {
                 let decoded = encoding::decode(&bytes);
+                init.rust_ms.read = read_start.elapsed().as_secs_f64() * 1000.0;
                 state.logger.info(&format!(
                     "opened {} ({} bytes, {}{})",
                     path.display(),
@@ -154,9 +168,13 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
     // Debug builds: `SCRIM_NO_BLOCKS=1` leaves parsing to the frontend, to measure the two
     // parsers separately (Q-026).
     if !(cfg!(debug_assertions) && std::env::var_os("SCRIM_NO_BLOCKS").is_some()) {
+        let t = std::time::Instant::now();
         init.blocks = timed_blocks(&state, &init.text);
+        init.rust_ms.blocks = t.elapsed().as_secs_f64() * 1000.0;
     }
-    Ok(init)
+    // One reply: the header as JSON, then the block tree encoded (Q-026, Q-027).
+    let header = serde_json::to_value(&init).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(scrim_core::blocks::reply_with_tree(&header, &init.blocks)))
 }
 
 #[tauri::command]
@@ -617,6 +635,6 @@ pub fn timed_blocks(state: &AppState, text: &str) -> serde_json::Value {
 
 /// The block tree of text the frontend has (leaving source mode, Q-026).
 #[tauri::command]
-pub async fn parse_blocks(state: State<'_, AppState>, text: String) -> Result<serde_json::Value, String> {
-    Ok(timed_blocks(&state, &text))
+pub async fn parse_blocks(state: State<'_, AppState>, text: String) -> Result<tauri::ipc::Response, String> {
+    Ok(tauri::ipc::Response::new(scrim_core::blocks::encode_tree(&timed_blocks(&state, &text))))
 }
