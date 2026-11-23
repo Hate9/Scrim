@@ -3,13 +3,18 @@
 A desktop Markdown editor for Linux and Windows that edits the document in its rendered
 form, showing Markdown syntax only where the cursor is. Built with Tauri 2.
 
-Status: **P4 (look and settings)**. Live-preview editing with byte-exact round trips,
-rich blocks, the workspace (sidebar, quick open, find/replace, source mode, status bar,
-focus and typewriter modes, autosave, draft recovery), themes (four built-in themes,
-user themes and user CSS with live reload, support for themes written for other popular
-live-preview Markdown editors, a separate dark-mode theme), the preferences panel,
-`config.jsonc` with rebindable shortcuts, the native menu bar, the document context
-menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
+Status: **P8 (performance, coverage, packaging)**, the last phase. All features of the
+specification are in: live-preview editing with byte-exact round trips, rich blocks, the
+workspace, themes, preferences, export (HTML, PDF, pandoc formats), spell check, snippets
+and custom tags. What remains is listed under "Open items" below. See
+`spec/spec/00-overview.md` for the phases.
+
+## Background
+
+Scrim is an independent clean-room reimplementation of Typora's editing behavior. It
+contains no Typora code or assets, and it is not affiliated with or endorsed by Typora's
+developers. Its behavior is modeled on Typora's, from a written specification
+(`spec/CLEAN-ROOM.md` describes the process). Themes written for Typora work in Scrim.
 
 ## Open items
 
@@ -92,7 +97,7 @@ recorded in `QA-LOG.md`. The project's owners relay between the two, approve the
 specification's decisions, and test the app on real machines. Commits made by the
 coding agent carry a `Co-Authored-By: Claude` trailer.
 
-The implementation follows clean-room rules (`CLEAN-ROOM.md`): the specification is the
+The implementation follows clean-room rules (`spec/CLEAN-ROOM.md`): the specification is the
 only description of the behavior it reproduces, and no other program's code,
 documentation, or themes were used to write it. Outside sources that were consulted are
 listed in `PROVENANCE.md`. Like any code, it may contain mistakes; please report what you
