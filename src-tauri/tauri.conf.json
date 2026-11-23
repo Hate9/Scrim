@@ -79,6 +79,8 @@
         "installMode": "currentUser"
       }
     },
-    "publisher": "Scrim developers"
+    "publisher": "Scrim developers",
+    "license": "GPL-3.0-or-later",
+    "licenseFile": "../LICENSE"
   }
 }

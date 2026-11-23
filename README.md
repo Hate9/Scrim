@@ -81,3 +81,30 @@ scripts/e2e.sh
 ```bash
 scripts/n1-network.sh
 ```
+
+## AI use
+
+Scrim is written by an AI. Its code, tests, and documentation are produced by Anthropic's
+Claude, working as a coding agent from a written specification (`spec/`) that a separate
+team maintains, with questions and answers recorded in `QA-LOG.md`. People write the
+specification, review results, test on real machines, and decide; the agent writes the
+implementation. Commits made by the agent carry a `Co-Authored-By: Claude` trailer.
+
+The implementation follows clean-room rules (`CLEAN-ROOM.md`): the specification is the
+only description of the behavior it reproduces, and no other program's code,
+documentation, or themes were used to write it. Outside sources that were consulted are
+listed in `PROVENANCE.md`. Like any code, it may contain mistakes; please report what you
+find.
+
+## License
+
+Scrim is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version. See `LICENSE`.
+
+It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+Third-party components keep their own licenses, all compatible with the GPL; they are
+listed in `THIRD_PARTY.md`. The bundled fonts (Noto Sans, PT Serif, Open Sans) are under
+the SIL Open Font License 1.1.
