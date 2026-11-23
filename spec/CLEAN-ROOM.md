@@ -27,6 +27,15 @@ roles exist and must stay separate:
    test T-6, QA-LOG Q-000).
    Describe theme compatibility only as "supports themes written for other popular
    live-preview Markdown editors".
+   **Exception (owner decision, 2026-11-23):** `README.md` may name the original
+   program, Typora, in one short "Background" note, as plain text with no logo, link
+   styling, or trademark symbols. The note says three things: Scrim is an independent
+   clean-room reimplementation of Typora's editing behavior, it contains no Typora code
+   or assets, and it is not affiliated with or endorsed by Typora's developers. Use
+   "modeled on" or "inspired by", never "based on", which would suggest derived code.
+   The same note may say that themes written for Typora work in Scrim. Everywhere else
+   (UI, other docs, package metadata, the app name, commit messages) this rule applies
+   unchanged.
 6. **Third-party open-source libraries are fine** (they are not the original program),
    subject to their licenses. Record every dependency's license in `THIRD_PARTY.md`.
 7. **Themes**: the editor's built-in themes are written from scratch from the values in
