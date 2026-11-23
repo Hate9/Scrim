@@ -3,21 +3,34 @@
 ## Non-goals (v1)
 
 - macOS builds.
-- Tabs within a window; split views.
+- Split views.
 - Collaborative editing, sync, cloud storage integrations.
 - Built-in image uploader services (the generic upload command in 6.4 covers it).
-- Plugins/extension API.
 - Mobile.
 - Replace across files.
 - WYSIWYG editing of HTML blocks (they are edited as source).
-- Auto-update.
-
-## Deferred (after v1)
-
-- Diagram rendering (mermaid) for `mermaid` code blocks, as a live preview under the code.
-- Image export (render document to PNG).
-- Document versions / history browser.
 - Typewriter-style sounds, character-level animations. (Never.)
+
+## Planned for a later version (owner decision, 2026-11-23)
+
+These are out of scope for v1. Don't build them or design around them yet; each gets
+its own spec section before work starts. The implementation only needs to avoid choices
+that would rule them out.
+
+- Diagram rendering as a live preview under the code block: mermaid, flowchart
+  (```` ```flow ````) and sequence diagrams (```` ```sequence ````).
+- "Indent first line of paragraphs" preference.
+- Save All (File menu).
+- Switching between open document windows (Ctrl+Tab style).
+- Refresh All Math Expressions and Prettify Source Code commands.
+- UI translations beyond English (the Language setting already exists).
+- Image export (render the document to PNG).
+- Document versions / history browser.
+- Tabs within a window.
+- Auto-update on Windows.
+- Maybe: remapping quotes and dashes to smart punctuation in existing text when a
+  document is parsed, not only while typing.
+- Maybe: a plugin/extension API.
 
 ## Known hard parts (plan time for these)
 
