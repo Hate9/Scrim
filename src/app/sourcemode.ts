@@ -71,19 +71,7 @@ export class SourceMode implements SourceSearch {
       state: EditorState.create({
         doc: text,
         selection: { anchor, head },
-        extensions: [
-          history(),
-          keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
-          indentUnit.of(codeIndent.unit),
-          markdown(),
-          syntaxHighlighting(scrimHighlighter),
-          EditorView.lineWrapping,
-          cmAliases("cm-s-scrim-default", true),
-          this.gutter.of(this.lineNumbersOn() ? lineNumbers() : []),
-          EditorView.updateListener.of((u) => {
-            if (u.docChanged) this.onDirty();
-          }),
-        ],
+        extensions: this.extensions(this.lineNumbersOn()),
       }),
     });
     performance.measure("scrim-src-cm-create", "scrim-src-cm");
@@ -93,6 +81,47 @@ export class SourceMode implements SourceSearch {
     const line = this.cm.lineBlockAt(Math.min(topOffset, text.length));
     // CodeMirror measures the lines it scrolls to (estimates would drift on wrapped lines).
     this.cm.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 8 }) });
+  }
+
+  private extensions(numbers: boolean) {
+    return [
+      history(),
+      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      indentUnit.of(codeIndent.unit),
+      markdown(),
+      syntaxHighlighting(scrimHighlighter),
+      EditorView.lineWrapping,
+      cmAliases("cm-s-scrim-default", true),
+      this.gutter.of(numbers ? lineNumbers() : []),
+      EditorView.updateListener.of((u) => {
+        if (u.docChanged) this.onDirty();
+      }),
+    ];
+  }
+
+  private preloaded = false;
+
+  /**
+   * Prepare the first switch to source mode in idle time after an open (QA-LOG Q-027):
+   * the first CodeMirror editor mounts its stylesheets, which makes the browser restyle
+   * the whole document, and runs its code for the first time. A small editor with the
+   * same extensions, created and destroyed out of sight, does both, so the first real
+   * switch costs what later ones cost.
+   */
+  preload() {
+    if (this.preloaded || this.cm) return;
+    this.preloaded = true;
+    performance.mark("scrim-src-preload");
+    const box = document.createElement("div");
+    box.style.cssText = "position: absolute; left: -10000px; top: 0; width: 600px; height: 200px; overflow: hidden; visibility: hidden;";
+    this.host.after(box);
+    const sample = "# Heading\n\nSome *emphasis*, **strong**, `code` and a [link](x).\n\n- item\n\n```js\nconst x = 1;\n```\n";
+    const cm = new EditorView({ parent: box, state: EditorState.create({ doc: sample, extensions: this.extensions(true) }) });
+    cm.dispatch({ selection: { anchor: sample.length } });
+    void box.offsetHeight; // style and lay it out now, in this idle moment
+    cm.destroy();
+    box.remove();
+    performance.measure("scrim-src-preload", "scrim-src-preload");
   }
 
   /** Apply the source editor's text to the document (save while in source mode). */

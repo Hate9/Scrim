@@ -331,6 +331,13 @@ function applySettings(next: Record<string, unknown>) {
   settingsApplied = true;
 }
 
+/** Run `fn` when the browser is idle (or soon, where idle callbacks do not exist). */
+function whenIdle(fn: () => void) {
+  const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+  if (w.requestIdleCallback) w.requestIdleCallback(fn, { timeout: 2000 });
+  else window.setTimeout(fn, 500);
+}
+
 /** The reply's block tree, removed from the reply. */
 function takeTree(d: { text: string; blocks: unknown }) {
   const t = usableTree(d.text, d.blocks);
@@ -374,6 +381,8 @@ async function init() {
     requestAnimationFrame(() => {
       performance.measure("scrim-first-frame", "scrim-frame");
       openMs = performance.now() - t0;
+      // Source mode's first switch, prepared once the document is on screen (Q-027).
+      whenIdle(() => sourceMode.preload());
     });
   });
   document.title = d.title;
