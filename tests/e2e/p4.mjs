@@ -365,7 +365,8 @@ test("12 global: shortcuts are registered system-wide and run in the last focuse
     writeFileSync(cfg, original.replace('"shortcuts": {}', '"shortcuts": { "Quick Open": "global:Ctrl+Alt+K" }'));
     await waitFor(() => log().includes("global shortcut Ctrl+Alt+K → file.quickOpen"), "registered", 8000);
     // An X key event that the webview does not see first: the grab takes it.
-    spawnSync("xdotool", ["key", "ctrl+alt+k"], { env: process.env });
+    const key = spawnSync("xdotool", ["key", "ctrl+alt+k"], { env: process.env });
+    if (key.error || key.status !== 0) throw new Error(`xdotool failed (is it installed?): ${key.error?.message ?? key.stderr}`);
     await waitFor(() => s.exec("const q = document.querySelector('.scrim-quick-open'); return !!q && !q.hidden"), "quick open shown");
   } finally {
     writeFileSync(cfg, original);

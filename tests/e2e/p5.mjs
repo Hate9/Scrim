@@ -177,7 +177,9 @@ test("X-5 PDF header and footer: {{title}} 日本語 ✓ and {{page}} / {{pages}
   await exportTo(s, "file.exportPdf", pdf, 120000);
   // pdftotext guesses word spaces from glyph positions (it reads "1 / 3" as "1/3"):
   // compare without whitespace.
-  const pages = spawnSync("pdftotext", [pdf, "-"], { encoding: "utf8" }).stdout.split("\f").filter((p) => p.trim()).map((p) => p.replace(/\s+/g, ""));
+  const pages = spawnSync("pdftotext", [pdf, "-"], { encoding: "utf8" }).stdout.split("\f").filter((p) => p.trim()).map((p) => p.replace(/\s+/g, "").normalize("NFKC"));
+  // NFKC: with Noto Sans CJK JP installed, pdftotext maps the glyph of 日 to the Kangxi
+  // radical ⽇ (U+2F47), which NFKC turns back into 日.
   if (pages.length !== 3) throw new Error(`${pages.length} pages`);
   pages.forEach((p, i) => {
     if (!p.includes(`${i + 1}/3`)) throw new Error(`page ${i + 1} has no "${i + 1} / 3"`);
