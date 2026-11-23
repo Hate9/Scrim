@@ -345,6 +345,17 @@ const E14_LINES = Number(process.env.SCRIM_E14_LINES ?? 10000);
 test(`E-14 typing latency on a ${E14_LINES}-line document (p95 < 16 ms)`, async (s) => {
   await waitFor(() => s.exec(`return !!window.__scrim && window.__scrim.editor.view.state.doc.childCount > ${E14_LINES / 10}`), "big doc loaded", 20000);
   await waitFor(() => s.exec("return window.__scrim.inlineKey.getState(window.__scrim.editor.view.state).pending === null"), "all decorations computed", 60000);
+  // Comparison (Q-027): SCRIM_E14_WHOLE=1 renders the whole document, as before
+  // viewport-only rendering.
+  if (process.env.SCRIM_E14_WHOLE) {
+    await s.exec("window.__scrim.viewport.config.forceOff = true; window.__scrim.viewport.setMode(false); return true");
+    await sleep(3000);
+  }
+  // Threshold tuning: SCRIM_E14_VIEWPORT=1 renders viewport-only below the threshold too.
+  if (process.env.SCRIM_E14_VIEWPORT) {
+    await s.exec("window.__scrim.viewport.config.min = 0; window.__scrim.viewport.config.off = 0; window.__scrim.viewport.setMode(true); return true");
+    await sleep(3000);
+  }
   // Experiments: extra CSS for the run (SCRIM_E14_CSS).
   if (process.env.SCRIM_E14_CSS) await s.exec("const st = document.createElement('style'); st.textContent = " + JSON.stringify(process.env.SCRIM_E14_CSS) + "; document.head.appendChild(st); return true");
   // Cursor into the middle of a paragraph halfway down.

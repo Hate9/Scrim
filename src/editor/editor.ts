@@ -36,8 +36,9 @@ import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
 import { createSpellPlugin, type SpellHooks } from "./spell";
 import { createSmartPlugin } from "./smart";
+import { createViewportPlugin, viewportNodeViews } from "./viewport";
 import { codeNodeViews, createCodeSelectionPlugin, type CodeViewHooks } from "./codeview";
-import { createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
+import { blockNodeViews, createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
 import { renderHtmlBlock } from "./htmlblock";
 import type { ImageHooks } from "./images";
@@ -173,6 +174,7 @@ export function createEditor(
     createFindPlugin(),
     createSpellPlugin(hooks.spell),
     createSmartPlugin(() => options.smartPunctuation),
+    createViewportPlugin(),
   ];
 
   function writeClipboard(v: EditorView, event: ClipboardEvent, cut: boolean): boolean {
@@ -226,7 +228,8 @@ export function createEditor(
     { mount },
     {
       state: makeState(initial),
-      nodeViews: codeNodeViews(options, codeHooks),
+      // Viewport-only rendering of large documents wraps every node view (Q-027).
+      nodeViews: viewportNodeViews({ ...codeNodeViews(options, codeHooks), ...blockNodeViews }, schema),
       attributes: { spellcheck: "false", class: "scrim-doc" },
       dispatchTransaction(tr: Transaction) {
         const state = view.state.apply(tr);

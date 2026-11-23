@@ -336,8 +336,10 @@ test("11 cursor blink preference reaches GTK (Linux)", async (s) => {
 
 test("11 custom title bar: frameless window, title, menu button, rename by click", async (s) => {
   await waitFor(() => s.exec("return !!window.__scrim && document.body.classList.contains('scrim-frameless')"), "frameless page");
-  const title = await s.exec("return document.querySelector('header .scrim-titlebar-title').textContent");
-  if (!title.includes("titled.md")) throw new Error(`title bar shows ${JSON.stringify(title)}`);
+  // The bar exists before the document's title is known.
+  await waitFor(() => s.exec("return document.querySelector('header .scrim-titlebar-title').textContent.includes('titled.md')"), "file name in the title bar").catch(async (e) => {
+    throw new Error(`${e.message}: ${JSON.stringify(await s.exec("return document.querySelector('header .scrim-titlebar-title').textContent"))}`);
+  });
   const buttons = await s.exec("return [...document.querySelectorAll('header .scrim-titlebar-button')].map((b) => b.getAttribute('aria-label'))");
   if (buttons.join() !== "Menu,Minimize,Maximize,Close") throw new Error(`buttons: ${buttons}`);
   if (!(await s.exec("return document.querySelector('header').hasAttribute('data-tauri-drag-region')"))) throw new Error("header is not a drag region");

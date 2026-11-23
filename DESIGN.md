@@ -147,6 +147,111 @@ in one part); the rest of `doc_init` is the 9 MB JSON reply. What remains of the
 WebKit's layout and painting of the first frame (about 4.5 s here), the same with either
 parser. Typing is unchanged, as expected (parsing while typing stays in the frontend).
 
+#### The open by stage, and the +1 s on real hardware (Q-027)
+
+PF-1 now prints the open's stages: `rust-read` (read and decode), `rust-blocks` (block
+tree), `ipc` (the reply, minus the Rust time), `parse` (frontend model), `make-state`,
+`update-view` (view build), `refocus`, `first-marks` (first presentation marks),
+`serialize`, `until-frame` (JavaScript until the first frame) and `first-frame` (its
+style, layout and paint). With the JS parser, the commit before Q-026 and the current
+one gave the same open here (11.3 s against 11.2 s): nothing besides parsing got slower.
+What replaced the parse on fast machines was the reply: the tree as JSON was 9 MB for
+1 MB of Markdown (IPC 0.7–1.0 s here, about as much as the JS parse it replaced takes on
+a fast CPU). The tree now goes encoded (`u32` words and one string table, decoded by
+`decodeTree`; IPC 0.3 s here, the encoding is checked against the JSON trees for the
+corpus). Two more costs that grew with the document were found while adding
+viewport-only rendering:
+
+- Heading ids were node decorations, at the root: ProseMirror scans every root-level
+  decoration for each top-level block on every update that changes the document, and a
+  1 MB document has about 4,000 headings (15,668 blocks × 4,000 per keystroke). Ids are
+  now the heading's `id` attribute, set by the parser in document order and by an
+  appended non-history transaction (attribute steps) only when an edit changes a
+  heading. Whole-document E-14 went from 35/63 to 25/47 ms by this alone.
+- A view update that sets the DOM selection in a focused editor right after a large DOM
+  change is slow in WebKitGTK (83ba50a): loads update unfocused, then focus.
+
+#### Viewport-only rendering (Q-027 item 1)
+
+`src/editor/viewport.ts`. Documents with at least 1,000 top-level blocks (whole again
+below 750) render only the top-level blocks within 1.5 screens above and below the
+visible area, plus the blocks holding the selection's ends; the window moves when the
+visible area comes within half a screen of its edge (in an animation frame after scroll,
+resize or an update). Every other top-level block is a placeholder: its own outer element
+from `toDOM` (same tag, classes, attributes and id), empty, with `height` set to the
+block's last measured border-box height, or an estimate (text length over learned
+characters per line × line height; containers add up their children) that stays fixed
+until the block is first rendered. Theme counters count placeholders, and placeholders of
+containers hold empty heading elements so headings inside quotes and lists count too;
+sibling selectors see the same elements as with the whole document.
+
+Which blocks are rendered is a node decoration on each rendered top-level block
+(about 100): the node view wrapper (`viewportNodeViews`) returns a placeholder for a
+top-level block without one, and the type's own view (or the default rendering)
+otherwise; a block whose decoration appears or disappears gets a new view. Marking the
+placeholders instead would put 15,000 decorations at the root (see heading ids above).
+Switching the mode (export, threshold) recreates every view.
+
+Scroll anchoring: before the window moves, the first rendered block in view is noted,
+and after the update the scroll position is corrected by how far it moved. Typing, IME
+composition (the window does not move while composing), typewriter and focus mode work
+in rendered blocks, and the cursor's block is always rendered. Find, spell check, word
+count, outline, select all, copy and cut work from the model; selecting a match or
+jumping to a heading renders its block first. Exports render the whole document for the
+copy they take of the editor's DOM (`withWholeDocument`). Screen readers see the
+rendered range only (accepted by Q-027).
+
+What did not work, in WebKitGTK 2.52 with 15,000 placeholders:
+
+- `overflow: hidden` on placeholders: each clipped box gets its own layer; the view
+  build took 6.3 s.
+- `visibility: hidden` on placeholders: frames took about 200 ms while typing (E-14 p95
+  220 ms). Placeholders are therefore plain empty boxes: what can show of one, briefly,
+  is its own box (a quote's bar, a code block's background, a heading's counter).
+- ProseMirror's own `contenteditable="false"` on views without content made no
+  measurable difference; placeholders carry `contenteditable="inherit"` (ProseMirror
+  leaves an existing attribute alone) so the editor has no thousands of islands.
+
+Threshold tuning (E-14, Xvfb, debug build; whole document / viewport-only, ms):
+
+| Document | Top-level blocks | Whole: median / p95 | Viewport-only: median / p95 |
+|---|---|---|---|
+| 2,000 lines | about 670 | 7 / 12 | 5 / 12 |
+| 3,000 lines | about 1,000 | 14–15 / 22–26 | 10 / 17–18 |
+| 4,000 lines | about 1,330 | 12 / 22 | 8 / 15 |
+
+Below about 700 blocks it makes no difference; from about 1,000 it does, so the threshold
+is 1,000 rather than Q-027's starting point of 2,000.
+
+Before and after (this container, debug builds, two runs each; before = 231d9ca, after =
+viewport-only rendering with the heading-id change):
+
+| Measure | Before | After | Budget |
+|---|---|---|---|
+| E-14, 10,000 lines (median / p95) | 37–38 / 67–69 ms | 14–16 / 28–30 ms | p95 16 ms |
+| Open 1 MB | 8.3–8.4 s | 3.9 s | 2 s |
+| of which view build / first frame | 1.3–1.5 / 3.8–3.9 s | 0.44 / 1.2–1.4 s | |
+| First / later switch to source mode, 10,000 lines | 554–566 / 215–268 ms | 441–534 / 152–163 ms | 300 ms |
+| Sidebar, 5,000 files | 241–249 ms | 213–222 ms | 1,000 ms |
+
+Tests (`tests/e2e/p9.mjs`): VR-1 (large documents render near the viewport, the model is
+complete), VR-2 (a theme numbering headings with counters and using sibling selectors,
+scrolled to section 300 of 600: the same pixels with viewport-only and whole rendering,
+apart from list-bullet antialiasing), VR-3 (jump to a far heading lands at the top;
+scrolling up over unmeasured blocks does not move what is in view), VR-4 (find reaches a
+match at the end; select all, cut, undo), VR-5 (HTML export has every block), VR-6
+(typewriter mode and typing at the edge of the rendered range); Q-026's select-all-copy
+test covers copying across unrendered blocks. `SCRIM_E14_WHOLE=1` and
+`SCRIM_E14_VIEWPORT=1` run E-14 with the whole document or viewport-only for comparison.
+
+#### Source editor preloading (Q-027 item 2)
+
+After an open's first frame, in idle time, `SourceMode.preload` creates and destroys a
+small CodeMirror editor with the source mode's extensions out of sight: that mounts
+CodeMirror's stylesheets (the first mount restyles the whole page) and runs its code once.
+The first switch on 10,000 lines went from 1,189 to about 350–530 ms (later ones
+150–230 ms).
+
 The WebKit inspector is available in every build: Preferences → General → "Enable
 debugging tools", then View → Toggle DevTools (Shift+F12); its Timelines tab records
 layout and script time on the owner's machine.

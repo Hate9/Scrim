@@ -40,6 +40,7 @@ import { Exporter, PANDOC_FORMATS, customCommands } from "./export/exporter";
 import { invoke } from "@tauri-apps/api/core";
 import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
+import { setViewportMode, viewportConfig, viewportKey } from "./editor/viewport";
 import { createEditor, recordUpdates } from "./editor/editor";
 import { Dispatcher, normalizeAccelerator } from "./editor/keys";
 import { AppMenu, shortcutOverrides } from "./app/menu";
@@ -1298,6 +1299,13 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   save,
   recordUpdates,
   inlineKey,
+  /** Viewport-only rendering (Q-027): its state, settings, and rendered block count. */
+  viewport: {
+    config: viewportConfig,
+    state: () => viewportKey.getState(editor.view.state),
+    rendered: () => editor.view.dom.querySelectorAll(":scope > :not(.md-virtual)").length,
+    setMode: (on: boolean) => setViewportMode(editor.view, on),
+  },
   /** Run a command by id, as a menu click does. */
   command: (id: string) => dispatcher.runId(id, "native"),
   dispatcher,

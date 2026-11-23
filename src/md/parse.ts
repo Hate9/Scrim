@@ -14,6 +14,7 @@ import type { Node } from "prosemirror-model";
 import { fingerprint, parseMdast, type ParseOptions } from "./mdast";
 import { buildTable, bumpUid, freshUid, schema, type MarkerSpan } from "./schema";
 import { serialize, signature } from "./serialize";
+import { GithubSlugger, headingText } from "./headingtext";
 
 interface Line {
   start: number;
@@ -86,6 +87,7 @@ export interface ParseResult {
 }
 
 export class Parser {
+  private slugger = new GithubSlugger();
   private lines: Line[];
   private lineStarts: number[];
   private eol: string;
@@ -481,7 +483,9 @@ export class Parser {
     }
     this.verifyInline(node, content, chain);
     this.endLeaf(last, attrs.uid, chain);
-    return schema.nodes.heading.create({ ...attrs, ...extra, level }, content);
+    // The heading id (02), in document order, so a loaded document needs no fix-up.
+    const draft = schema.nodes.heading.create({ ...attrs, ...extra, level }, content);
+    return schema.nodes.heading.create({ ...attrs, ...extra, level, id: this.slugger.slug(headingText(draft)) }, content);
   }
 
   private hr(node: Extract<RootContent, { type: "thematicBreak" }>, chain: Ctx[]): Node {

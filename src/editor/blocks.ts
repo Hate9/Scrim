@@ -3,7 +3,7 @@
 
 import type { Node } from "prosemirror-model";
 import { NodeSelection, Plugin, PluginKey, TextSelection, type Command, type EditorState, type Transaction } from "prosemirror-state";
-import { Decoration, DecorationSet, type EditorView, type NodeView } from "prosemirror-view";
+import { Decoration, DecorationSet, type EditorView, type NodeView, type NodeViewConstructor } from "prosemirror-view";
 import { markdownToHtml } from "../md/html";
 import { freshUid, schema } from "../md/schema";
 import { blockSource } from "./context";
@@ -413,6 +413,12 @@ export interface BlockHooks {
   numberFootnotes(): boolean;
 }
 
+/** The node views of this plugin (the editor wraps them for viewport-only rendering). */
+export const blockNodeViews: Record<string, NodeViewConstructor> = {
+  toc: (node, view, getPos) => new TocView(node, view, getPos as () => number | undefined),
+  footnote_def: (node, view) => new FootnoteDefView(node, view),
+};
+
 export function createBlocksPlugin(hooks: BlockHooks): Plugin {
   const popover = new FootnotePopover();
   let lastTitle = "{}"; // the front matter last reported (JSON)
@@ -485,10 +491,7 @@ export function createBlocksPlugin(hooks: BlockHooks): Plugin {
     },
     props: {
       decorations: (state) => blocksKey.getState(state),
-      nodeViews: {
-        toc: (node, view, getPos) => new TocView(node, view, getPos),
-        footnote_def: (node, view) => new FootnoteDefView(node, view),
-      },
+      nodeViews: blockNodeViews,
       handleClick(view, _pos, event) {
         const sup = (event.target as HTMLElement).closest?.("sup.md-footnote") as HTMLElement | null;
         if (sup && (event.ctrlKey || event.metaKey) && (sup.dataset.ref ?? sup.dataset.label)) return jumpToDefinition(view, (sup.dataset.ref ?? sup.dataset.label)!);

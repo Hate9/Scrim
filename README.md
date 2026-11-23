@@ -19,13 +19,11 @@ menu, and local help documents. See `spec/spec/00-overview.md` for the phases.
   and N-1 (per-process firewall or ETW trace of `scrim.exe` and its WebView2 children)
   on Windows 11 and confirm the WebView2 settings in `src-tauri/src/hardening.rs` take
   effect.
-- **Typing latency on large documents (QA-LOG Q-011).** E-14 is reported, not
-  enforced, in CI. The owner runs it on a real laptop before P8 with
-  `SCRIM_PERF_STRICT=1 scripts/e2e.sh`; large-document layout is P8 work (DESIGN.md,
-  "Performance status").
-- **Open time for large files.** About 10 s for 1 MB under Xvfb after the P8 work
-  (DESIGN.md, "P8: performance and coverage"); a faster block parser or viewport-only
-  rendering is the next step, after measuring on real hardware.
+- **Performance budgets on real hardware (QA-LOG Q-011, Q-026, Q-027).** E-14 and PF-1
+  are reported, not enforced, in CI; the owner runs them on real hardware with
+  `SCRIM_PERF_STRICT=1 scripts/e2e.sh` (`SCRIM_APP=target/release/scrim` for a release
+  build). Latest numbers, the open's stages, and the viewport-only rendering they
+  measure: DESIGN.md, "P8: performance and coverage".
 - **Settings with platform limits.** Cursor blink on Windows (WebView2 has no switch;
   the system setting applies). `global:` shortcuts need X11 or Windows (Wayland has no
   global key grabs; the failure is shown and logged). The UI exists only in English, so

@@ -7,6 +7,7 @@
 // spell marks. Code blocks are rebuilt as static markup with the editor's element
 // structure and token classes, because CodeMirror only draws the lines in view.
 
+import { withWholeDocument } from "../editor/viewport";
 import { LanguageSupport } from "@codemirror/language";
 import { highlightTree } from "@lezer/highlight";
 import type { Node as PMNode } from "prosemirror-model";
@@ -129,7 +130,8 @@ function unwrap(el: Element) {
 export async function renderBody(view: EditorView, opts: RenderOptions & { codeWrap?: boolean; preserveLineBreaks?: boolean }): Promise<RenderedBody> {
   await settled(view);
   const live = view.dom as HTMLElement;
-  const root = live.cloneNode(true) as HTMLElement;
+  // Large documents render only near the viewport (Q-027): copy the whole document.
+  const root = withWholeDocument(view, () => live.cloneNode(true)) as HTMLElement;
 
   // Checkbox state is a property, not an attribute: carry it over.
   const liveBoxes = live.querySelectorAll<HTMLInputElement>("input.md-task-checkbox");
