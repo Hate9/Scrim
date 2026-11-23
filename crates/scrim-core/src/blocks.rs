@@ -88,13 +88,6 @@ impl Utf16Map {
 /// Positions as micromark's: (start, end) byte offsets.
 type Span = (usize, usize);
 
-fn span_json(sp: Span, line: usize, map: &Utf16Map) -> Value {
-    json!({
-        "start": { "line": line, "offset": map.at(sp.0) },
-        "end": { "offset": map.at(sp.1) },
-    })
-}
-
 /// micromark starts a flow node after the line's indentation; markdown-rs at the
 /// indentation. Skip spaces and tabs on the node's first line.
 fn skip_indent(src: &[u8], mut at: usize, end: usize) -> usize {
@@ -102,27 +95,6 @@ fn skip_indent(src: &[u8], mut at: usize, end: usize) -> usize {
         at += 1;
     }
     at
-}
-
-/// Text values: micromark replaces NUL with U+FFFD.
-fn value(v: &str) -> Value {
-    if v.contains('\0') {
-        json!(v.replace('\0', "\u{FFFD}"))
-    } else {
-        json!(v)
-    }
-}
-
-struct Conv<'a> {
-    /// The chunk being converted (the whole document, or one part of it).
-    src: &'a [u8],
-    /// Byte offset and line number (0-based) of the chunk in the document.
-    base: usize,
-    line_base: usize,
-    map: &'a Utf16Map,
-    /// Set when the tree may differ from micromark's in a way not reproduced here: the
-    /// frontend then parses the document itself.
-    unsure: std::cell::Cell<bool>,
 }
 
 /// Remove the indentation after each line break of a text value.
@@ -139,16 +111,117 @@ fn strip_continuation(v: &str) -> String {
     out
 }
 
+// ---- the encoding (Q-027, Q-028) -------------------------------------------------------
+//
+// The tree goes to the frontend as little-endian `u32` words, decoded by
+// `src/md/rustblocks.ts` (`decodeTree`) and, for tests, by `decode` below:
+//
+//   magic "SBT1", flags (1 = unsure), node count, string table length (UTF-16 units),
+//   then each node in document order (pre-order):
+//     type, start, end, line, child count, then per type:
+//       heading: depth; list: ordered, start (u32::MAX = none), spread;
+//       listItem: checked (0, 1, 2 = none); code: value, lang, meta; math: value, meta;
+//       yaml, toml, html, text: value; table: align count, aligns (0 none, 1 left,
+//       2 right, 3 center); footnoteDefinition: identifier, label;
+//       definition: identifier, label, url, title; link: url
+//     strings as (start, length) in UTF-16 units of the string table, u32::MAX = none
+//   then the string table as UTF-16 code units, 2 bytes each.
+//
+// markdown-rs's tree is converted straight into this (no intermediate JSON: building and
+// copying JSON took longer than parsing, Q-028).
+
+const TYPES: [&str; 21] = [
+    "root",
+    "paragraph",
+    "heading",
+    "thematicBreak",
+    "blockquote",
+    "list",
+    "listItem",
+    "code",
+    "math",
+    "yaml",
+    "toml",
+    "html",
+    "table",
+    "tableRow",
+    "tableCell",
+    "footnoteDefinition",
+    "definition",
+    "text",
+    "break",
+    "link",
+    "unknown",
+];
+const NONE: u32 = u32::MAX;
+const T_HEADING: u32 = 2;
+const T_LIST: u32 = 5;
+const T_LIST_ITEM: u32 = 6;
+const T_DEFINITION: u32 = 16;
+
+/// Encoded nodes of one part: words, its string table, and where its string starts are
+/// (so parts can be joined).
+#[derive(Default)]
+struct Out {
+    words: Vec<u32>,
+    strings: Vec<u16>,
+    string_slots: Vec<usize>,
+    nodes: u32,
+}
+
+impl Out {
+    fn string(&mut self, v: Option<&str>) {
+        match v {
+            Some(s) => {
+                let start = self.strings.len();
+                if s.contains('\0') {
+                    self.strings
+                        .extend(s.replace('\0', "\u{FFFD}").encode_utf16());
+                } else {
+                    self.strings.extend(s.encode_utf16());
+                }
+                self.string_slots.push(self.words.len());
+                self.words.push(start as u32);
+                self.words.push((self.strings.len() - start) as u32);
+            }
+            None => {
+                self.words.push(NONE);
+                self.words.push(0);
+            }
+        }
+    }
+}
+
+/// What a parent needs to know about a converted child.
+struct Done {
+    ty: u32,
+    span: Span,
+    /// Index of the child's start word (patched by the setext rule).
+    start_word: usize,
+}
+
+struct Conv<'a> {
+    /// The part being converted (the whole document, or one part of it).
+    src: &'a [u8],
+    /// Byte offset and line number (0-based) of the part in the document.
+    base: usize,
+    line_base: usize,
+    map: &'a Utf16Map,
+    /// Set when the tree may differ from micromark's in a way not reproduced here: the
+    /// frontend then parses the document itself.
+    unsure: bool,
+}
+
 impl Conv<'_> {
     /// The raw label of a definition (`skip` = 1 for `[`, 2 for `[^`), as micromark keeps
     /// it (line breaks and indentation included).
-    fn raw_label(&self, raw: Span, skip: usize) -> Option<String> {
+    fn raw_label(&self, raw: Span, skip: usize) -> Option<&str> {
         let start = skip_indent(self.src, raw.0, raw.1) + skip;
         let mut i = start;
         while i < raw.1 {
             match self.src[i] {
                 b'\\' => i += 2,
-                b']' => return std::str::from_utf8(&self.src[start..i]).ok().map(str::to_string),
+                b']' => return std::str::from_utf8(&self.src[start..i]).ok(),
                 _ => i += 1,
             }
         }
@@ -156,226 +229,521 @@ impl Conv<'_> {
     }
 
     fn line_start(&self, at: usize) -> usize {
-        self.src[..at].iter().rposition(|&b| b == b'\n' || b == b'\r').map_or(0, |p| p + 1)
+        self.src[..at]
+            .iter()
+            .rposition(|&b| b == b'\n' || b == b'\r')
+            .map_or(0, |p| p + 1)
     }
 
     /// Whether a blank line lies between two offsets.
     fn blank_between(&self, a: usize, b: usize) -> bool {
-        let text = String::from_utf8_lossy(&self.src[a.min(b)..b]).replace("\r\n", "\n").replace('\r', "\n");
+        let text = String::from_utf8_lossy(&self.src[a.min(b)..b])
+            .replace("\r\n", "\n")
+            .replace('\r', "\n");
         let lines: Vec<&str> = text.split('\n').collect();
         // The first piece ends the earlier node's line, the last starts the later one.
-        lines.len() > 2 && lines[1..lines.len() - 1].iter().any(|l| l.trim().is_empty())
+        lines.len() > 2
+            && lines[1..lines.len() - 1]
+                .iter()
+                .any(|l| l.trim().is_empty())
     }
 
     /// Visual column (0-based, tabs to multiples of 4) of a byte offset in its line.
     fn visual_col(&self, at: usize) -> usize {
         let mut col = 0usize;
         for &b in &self.src[self.line_start(at)..at] {
-            col = if b == b'\t' { col + 4 - col % 4 } else { col + 1 };
+            col = if b == b'\t' {
+                col + 4 - col % 4
+            } else {
+                col + 1
+            };
         }
         col
     }
 
-    /// Convert a node; returns its JSON and its (micromark) span.
-    fn node(&self, node: &Node) -> (Value, Span) {
-        let mut o = Map::new();
+    fn at(&self, byte: usize) -> u32 {
+        self.map.at(self.base + byte)
+    }
+
+    /// Encode `node` (micromark's positions and values, see the module comment).
+    fn node(&mut self, node: &Node, out: &mut Out) -> Done {
         let pos = node.position();
-        let raw: Span = pos.map(|p| (p.start.offset, p.end.offset)).unwrap_or((0, 0));
+        let raw: Span = pos
+            .map(|p| (p.start.offset, p.end.offset))
+            .unwrap_or((0, 0));
         let line = pos.map(|p| p.start.line).unwrap_or(1);
-        let mut kids: Vec<(Value, Span)> = Vec::new();
-        let mut kind_children = |c: &Vec<Node>| kids = c.iter().map(|n| self.node(n)).collect();
-        let (kind, container, indent): (&str, bool, bool) = match node {
-            Node::Root(n) => {
-                kind_children(&n.children);
-                ("root", false, false)
-            }
-            Node::Paragraph(n) => {
-                kind_children(&n.children);
-                ("paragraph", false, true)
-            }
-            Node::Heading(n) => {
-                o.insert("depth".into(), json!(n.depth));
-                kind_children(&n.children);
-                ("heading", false, true)
-            }
-            Node::ThematicBreak(_) => ("thematicBreak", false, true),
-            Node::Blockquote(n) => {
-                kind_children(&n.children);
-                ("blockquote", true, true)
-            }
-            Node::List(n) => {
-                o.insert("ordered".into(), json!(n.ordered));
-                o.insert("start".into(), json!(n.start));
-                o.insert("spread".into(), json!(n.spread));
-                kind_children(&n.children);
-                ("list", true, true)
-            }
-            Node::ListItem(n) => {
-                // `spread` of items differs between the two and the frontend does not read it.
-                o.insert("checked".into(), json!(n.checked));
-                kind_children(&n.children);
-                ("listItem", true, true)
-            }
-            Node::Code(n) => {
-                o.insert("value".into(), value(&n.value));
-                o.insert("lang".into(), json!(n.lang));
-                o.insert("meta".into(), json!(n.meta));
-                // Fenced: after the indentation; indented: see below.
-                let fenced = {
-                    let at = skip_indent(self.src, raw.0, raw.1);
-                    at < raw.1 && (self.src[at] == b'`' || self.src[at] == b'~') && self.visual_col(at) < self.visual_col(raw.0) + 4
-                };
-                if !fenced {
-                    o.insert("indented".into(), json!(true));
+        let column = pos.map_or(0, |p| p.start.column);
+        let children: &[Node] = node.children().map(|c| c.as_slice()).unwrap_or(&[]);
+        let (ty, indent): (u32, bool) = match node {
+            Node::Root(_) => (0, false),
+            Node::Paragraph(_) => (1, true),
+            Node::Heading(_) => (T_HEADING, true),
+            Node::ThematicBreak(_) => (3, true),
+            Node::Blockquote(_) => (4, true),
+            Node::List(_) => (T_LIST, true),
+            Node::ListItem(_) => (T_LIST_ITEM, true),
+            Node::Code(_) => {
+                // Fenced: after the indentation; indented: from markdown-rs's start.
+                let at = skip_indent(self.src, raw.0, raw.1);
+                let fenced = at < raw.1
+                    && (self.src[at] == b'`' || self.src[at] == b'~')
+                    && self.visual_col(at) < self.visual_col(raw.0) + 4;
+                // Indented code starting inside a tab a container partly used: micromark
+                // keeps the tab's remaining columns as spaces in the value. Not
+                // reproduced: unsure.
+                if !fenced && self.visual_col(raw.0) + 1 < column {
+                    self.unsure = true;
                 }
-                ("code", false, fenced)
+                (7, fenced)
             }
-            Node::Math(n) => {
-                o.insert("value".into(), value(&n.value));
-                o.insert("meta".into(), json!(n.meta));
-                ("math", false, true)
-            }
-            Node::Yaml(n) => {
-                o.insert("value".into(), value(&n.value));
-                ("yaml", false, false)
-            }
-            Node::Toml(n) => {
-                o.insert("value".into(), value(&n.value));
-                ("toml", false, false)
-            }
-            Node::Html(n) => {
-                o.insert("value".into(), value(&n.value));
-                ("html", false, false)
-            }
-            Node::Table(n) => {
-                let align: Vec<Value> = n
-                    .align
-                    .iter()
-                    .map(|a| match a {
-                        AlignKind::Left => json!("left"),
-                        AlignKind::Right => json!("right"),
-                        AlignKind::Center => json!("center"),
-                        AlignKind::None => Value::Null,
-                    })
-                    .collect();
-                o.insert("align".into(), Value::Array(align));
-                kind_children(&n.children);
-                ("table", false, true)
-            }
-            Node::TableRow(n) => {
-                kind_children(&n.children);
-                ("tableRow", false, false)
-            }
-            Node::TableCell(n) => {
-                kind_children(&n.children);
-                ("tableCell", false, false)
-            }
-            Node::FootnoteDefinition(n) => {
-                o.insert("identifier".into(), json!(n.identifier));
-                o.insert("label".into(), json!(self.raw_label(raw, 2).or(n.label.clone())));
-                kind_children(&n.children);
-                ("footnoteDefinition", true, true)
-            }
-            Node::Definition(n) => {
-                o.insert("identifier".into(), json!(n.identifier));
-                o.insert("label".into(), json!(self.raw_label(raw, 1).or(n.label.clone())));
-                o.insert("url".into(), json!(n.url));
-                o.insert("title".into(), json!(n.title));
-                ("definition", false, true)
-            }
-            Node::Text(n) => {
-                // micromark drops the indentation of continuation lines from the text.
-                let v = if n.value.contains('\n') { strip_continuation(&n.value) } else { n.value.clone() };
-                o.insert("value".into(), value(&v));
-                ("text", false, false)
-            }
-            Node::Break(_) => ("break", false, false),
-            Node::Link(n) => {
-                o.insert("url".into(), json!(n.url));
-                kind_children(&n.children);
-                ("link", false, false)
-            }
-            other => {
-                if let Some(c) = other.children() {
-                    kind_children(c);
-                }
-                ("unknown", false, false)
-            }
+            Node::Math(_) => (8, true),
+            Node::Yaml(_) => (9, false),
+            Node::Toml(_) => (10, false),
+            Node::Html(_) => (11, false),
+            Node::Table(_) => (12, true),
+            Node::TableRow(_) => (13, false),
+            Node::TableCell(_) => (14, false),
+            Node::FootnoteDefinition(_) => (15, true),
+            Node::Definition(_) => (T_DEFINITION, true),
+            Node::Text(_) => (17, false),
+            Node::Break(_) => (18, false),
+            Node::Link(_) => (19, false),
+            _ => (20, false),
         };
-        let _ = container;
         let mut sp = raw;
+        let mut text_value: Option<String> = None;
         if indent {
             sp.0 = skip_indent(self.src, sp.0, sp.1);
-        } else if kind == "text" && sp.0 < sp.1 && self.src[sp.0] == b'\t' && self.visual_col(sp.0) + 1 < pos.map_or(0, |p| p.start.column) {
-            // Text starting inside a tab a container partly used: micromark starts after it.
-            sp.0 += 1;
-            if let Some(v) = o.get("value").and_then(|v| v.as_str()).and_then(|v| v.strip_prefix('\t')) {
-                let v = v.to_string();
-                o.insert("value".into(), json!(v));
-            }
         }
-        match kind {
-            // Items end where their last child ends.
-            "listItem" => {
-                if let Some((_, last)) = kids.last() {
-                    sp.1 = last.1;
+        if let Node::Text(n) = node {
+            // micromark drops the indentation of continuation lines from the text.
+            let mut v = if n.value.contains('\n') {
+                strip_continuation(&n.value)
+            } else {
+                n.value.clone()
+            };
+            // Text starting inside a tab a container partly used: micromark starts after it.
+            if sp.0 < sp.1 && self.src[sp.0] == b'\t' && self.visual_col(sp.0) + 1 < column {
+                sp.0 += 1;
+                if let Some(rest) = v.strip_prefix('\t') {
+                    v = rest.to_string();
                 }
             }
-            // Lists end before trailing whitespace, but not before their last item.
-            "list" => {
-                let floor = kids.last().map(|k| k.1 .1).unwrap_or(sp.0);
-                while sp.1 > floor && matches!(self.src[sp.1 - 1], b' ' | b'\t' | b'\n' | b'\r') {
-                    sp.1 -= 1;
+            text_value = Some(v);
+        }
+        out.nodes += 1;
+        out.words.push(ty);
+        let start_word = out.words.len();
+        out.words.push(self.at(sp.0));
+        let end_word = out.words.len();
+        out.words.push(self.at(sp.1));
+        out.words.push((line + self.line_base) as u32);
+        out.words.push(children.len() as u32);
+        match node {
+            Node::Heading(n) => out.words.push(u32::from(n.depth)),
+            Node::List(n) => {
+                out.words.push(u32::from(n.ordered));
+                out.words.push(n.start.unwrap_or(NONE));
+                out.words.push(u32::from(n.spread));
+            }
+            Node::ListItem(n) => out.words.push(match n.checked {
+                Some(false) => 0,
+                Some(true) => 1,
+                None => 2,
+            }),
+            Node::Code(n) => {
+                out.string(Some(&n.value));
+                out.string(n.lang.as_deref());
+                out.string(n.meta.as_deref());
+            }
+            Node::Math(n) => {
+                out.string(Some(&n.value));
+                out.string(n.meta.as_deref());
+            }
+            Node::Yaml(n) => out.string(Some(&n.value)),
+            Node::Toml(n) => out.string(Some(&n.value)),
+            Node::Html(n) => out.string(Some(&n.value)),
+            Node::Text(_) => out.string(text_value.as_deref()),
+            Node::Table(n) => {
+                out.words.push(n.align.len() as u32);
+                for a in &n.align {
+                    out.words.push(match a {
+                        AlignKind::None => 0,
+                        AlignKind::Left => 1,
+                        AlignKind::Right => 2,
+                        AlignKind::Center => 3,
+                    });
                 }
             }
-            "code" if o.contains_key("indented") => {
-                o.remove("indented");
-                // Starting inside a tab a container partly used: micromark keeps the tab's
-                // remaining columns as spaces in the value. Not reproduced: unsure.
-                if self.visual_col(raw.0) + 1 < pos.map_or(0, |p| p.start.column) {
-                    self.unsure.set(true);
-                }
+            Node::FootnoteDefinition(n) => {
+                out.string(Some(&n.identifier));
+                out.string(self.raw_label(raw, 2).or(n.label.as_deref()));
             }
+            Node::Definition(n) => {
+                out.string(Some(&n.identifier));
+                out.string(self.raw_label(raw, 1).or(n.label.as_deref()));
+                out.string(Some(&n.url));
+                out.string(n.title.as_deref());
+            }
+            Node::Link(n) => out.string(Some(&n.url)),
             _ => {}
         }
-        // A setext heading right after definitions starts where they start (micromark).
-        if !kids.is_empty() {
-            for i in 1..kids.len() {
-                let is_setext = kids[i].0["type"] == "heading" && self.src.get(kids[i].1 .0) != Some(&b'#');
-                if !is_setext {
-                    continue;
-                }
-                let mut j = i;
-                while j > 0 && kids[j - 1].0["type"] == "definition" && !self.blank_between(kids[j - 1].1 .1, kids[j].1 .0) {
-                    j -= 1;
-                }
-                if j < i {
-                    let start = kids[j].1 .0;
-                    kids[i].1 .0 = start;
-                    kids[i].0["position"]["start"]["offset"] = json!(self.map.at(self.base + start));
-                }
+        let mut kids: Vec<Done> = Vec::with_capacity(children.len());
+        for c in children {
+            kids.push(self.node(c, out));
+        }
+        // Items end where their last child ends; lists before trailing whitespace, but not
+        // before their last item.
+        if ty == T_LIST_ITEM {
+            if let Some(last) = kids.last() {
+                sp.1 = last.span.1;
+            }
+        } else if ty == T_LIST {
+            let floor = kids.last().map(|k| k.span.1).unwrap_or(sp.0);
+            while sp.1 > floor && matches!(self.src[sp.1 - 1], b' ' | b'\t' | b'\n' | b'\r') {
+                sp.1 -= 1;
             }
         }
-        o.insert("type".into(), json!(kind));
-        o.insert("position".into(), span_json((sp.0 + self.base, sp.1 + self.base), line + self.line_base, self.map));
-        if !kids.is_empty() || node.children().is_some() {
-            o.insert("children".into(), Value::Array(kids.into_iter().map(|(v, _)| v).collect()));
+        if sp.1 != raw.1 {
+            out.words[end_word] = self.at(sp.1);
         }
-        (Value::Object(o), sp)
+        // A setext heading right after definitions starts where they start (micromark).
+        for i in 1..kids.len() {
+            if kids[i].ty != T_HEADING || self.src.get(kids[i].span.0) == Some(&b'#') {
+                continue;
+            }
+            let mut j = i;
+            while j > 0
+                && kids[j - 1].ty == T_DEFINITION
+                && !self.blank_between(kids[j - 1].span.1, kids[j].span.0)
+            {
+                j -= 1;
+            }
+            if j < i {
+                let start = kids[j].span.0;
+                kids[i].span.0 = start;
+                out.words[kids[i].start_word] = self.at(start);
+            }
+        }
+        Done {
+            ty,
+            span: sp,
+            start_word,
+        }
     }
 }
 
-/// Documents larger than this are parsed in parallel parts (markdown-rs parses about
-/// 1 MB per second).
+/// Documents larger than this are parsed in parallel parts.
 const PARALLEL_MIN: usize = 128 * 1024;
 
-/// The block tree of a whole document, as mdast-shaped JSON (see the module comment).
+/// The encoded block tree of a whole document (see the encoding above). Large documents
+/// are parsed in parallel parts (`split_points`).
+pub fn encoded_tree(src: &str) -> Vec<u8> {
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |n| n.get())
+        .clamp(1, 16);
+    let cuts = if src.len() < PARALLEL_MIN || threads == 1 {
+        Vec::new()
+    } else {
+        split_points(src, src.len() / threads)
+    };
+    encode_parts(src, &cuts)
+}
+
+/// The block tree as mdast-shaped JSON (tests and the parity helper): the decoded
+/// encoding, so both come from one conversion.
 pub fn block_tree(src: &str) -> Value {
-    let parts = (std::thread::available_parallelism().map_or(1, |n| n.get())).clamp(1, 8);
-    if src.len() < PARALLEL_MIN || parts == 1 {
-        return tree_of(src, &split_points(src, usize::MAX));
+    decode(&encoded_tree(src))
+}
+
+/// Parse the parts between the cut points (in parallel) and join their top-level blocks.
+fn encode_parts(src: &str, cuts: &[usize]) -> Vec<u8> {
+    let map = Utf16Map::new(src);
+    let mut bounds = vec![0usize];
+    bounds.extend_from_slice(cuts);
+    bounds.push(src.len());
+    let lines_before: Vec<usize> = bounds
+        .iter()
+        .map(|&b| line_breaks(&src.as_bytes()[..b]))
+        .collect();
+    let parse = |i: usize| -> Option<(Out, u32, bool)> {
+        let (a, b) = (bounds[i], bounds[i + 1]);
+        let chunk = &src[a..b];
+        let root = markdown::to_mdast(chunk, &options(i == 0)).ok()?;
+        let mut conv = Conv {
+            src: chunk.as_bytes(),
+            base: a,
+            line_base: lines_before[i],
+            map: &map,
+            unsure: false,
+        };
+        let mut out = Out::default();
+        let kids = match &root {
+            Node::Root(r) => &r.children,
+            _ => return None,
+        };
+        let mut done: Vec<Done> = Vec::with_capacity(kids.len());
+        for k in kids {
+            done.push(conv.node(k, &mut out));
+        }
+        // The setext rule across this part's top level (parts start at headings).
+        for i in 1..done.len() {
+            if done[i].ty != T_HEADING || conv.src.get(done[i].span.0) == Some(&b'#') {
+                continue;
+            }
+            let mut j = i;
+            while j > 0
+                && done[j - 1].ty == T_DEFINITION
+                && !conv.blank_between(done[j - 1].span.1, done[j].span.0)
+            {
+                j -= 1;
+            }
+            if j < i {
+                out.words[done[i].start_word] = conv.at(done[j].span.0);
+            }
+        }
+        // Dropping a large tree takes a while; nothing waits for it.
+        std::thread::spawn(move || drop(root));
+        Some((out, kids_len(&done), conv.unsure))
+    };
+    fn kids_len(d: &[Done]) -> u32 {
+        d.len() as u32
     }
-    tree_of(src, &split_points(src, src.len() / parts))
+    let results: Vec<Option<(Out, u32, bool)>> = if bounds.len() == 2 {
+        vec![parse(0)]
+    } else {
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..bounds.len() - 1)
+                .map(|i| scope.spawn(move || parse(i)))
+                .collect();
+            handles
+                .into_iter()
+                .map(|h| h.join().ok().flatten())
+                .collect()
+        })
+    };
+    let mut parts = Vec::with_capacity(results.len());
+    for r in results {
+        match r {
+            Some(p) => parts.push(p),
+            None => return Vec::new(),
+        }
+    }
+    let nodes: u32 = 1 + parts.iter().map(|p| p.0.nodes).sum::<u32>();
+    let top: u32 = parts.iter().map(|p| p.1).sum();
+    let unsure = parts.iter().any(|p| p.2);
+    let strings_len: usize = parts.iter().map(|p| p.0.strings.len()).sum();
+    let words_len: usize = 5 + parts.iter().map(|p| p.0.words.len()).sum::<usize>();
+    let mut bytes = Vec::with_capacity(16 + words_len * 4 + strings_len * 2);
+    bytes.extend_from_slice(b"SBT1");
+    bytes.extend_from_slice(&u32::from(unsure).to_le_bytes());
+    bytes.extend_from_slice(&nodes.to_le_bytes());
+    bytes.extend_from_slice(&(strings_len as u32).to_le_bytes());
+    // The root: the whole document, line 1, every part's top-level blocks.
+    for w in [0u32, 0, map.at(src.len()), 1, top] {
+        bytes.extend_from_slice(&w.to_le_bytes());
+    }
+    let mut string_base = 0u32;
+    for (out, _, _) in &mut parts {
+        if string_base > 0 {
+            for &slot in &out.string_slots {
+                out.words[slot] += string_base;
+            }
+        }
+        for w in &out.words {
+            bytes.extend_from_slice(&w.to_le_bytes());
+        }
+        string_base += out.strings.len() as u32;
+    }
+    for (out, _, _) in &parts {
+        for u in &out.strings {
+            bytes.extend_from_slice(&u.to_le_bytes());
+        }
+    }
+    bytes
+}
+
+/// Decode an encoded tree to mdast-shaped JSON (the same objects `decodeTree` builds in
+/// the frontend). `Value::Null` for empty or invalid input.
+pub fn decode(bytes: &[u8]) -> Value {
+    if bytes.len() < 16 || &bytes[..4] != b"SBT1" {
+        return Value::Null;
+    }
+    let word = |i: usize| {
+        u32::from_le_bytes([
+            bytes[i * 4],
+            bytes[i * 4 + 1],
+            bytes[i * 4 + 2],
+            bytes[i * 4 + 3],
+        ])
+    };
+    let flags = word(1);
+    let str_len = word(3) as usize;
+    let words_end = (bytes.len() - str_len * 2) / 4;
+    let table: Vec<u16> = bytes[words_end * 4..]
+        .chunks(2)
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .collect();
+    let mut i = 4usize;
+    fn node(i: &mut usize, word: &dyn Fn(usize) -> u32, table: &[u16]) -> Value {
+        let mut next = || {
+            let w = word(*i);
+            *i += 1;
+            w
+        };
+        let ty = TYPES.get(next() as usize).copied().unwrap_or("unknown");
+        let (start, end, line, count) = (next(), next(), next(), next());
+        let mut o = Map::new();
+        o.insert("type".into(), json!(ty));
+        o.insert(
+            "position".into(),
+            json!({ "start": { "line": line, "offset": start }, "end": { "offset": end } }),
+        );
+        let s = |o: &mut Map<String, Value>, key: &str, i: &mut usize| {
+            let (a, n) = (word(*i), word(*i + 1));
+            *i += 2;
+            let v = if a == NONE {
+                Value::Null
+            } else {
+                json!(String::from_utf16_lossy(
+                    &table[a as usize..(a + n) as usize]
+                ))
+            };
+            o.insert(key.into(), v);
+        };
+        match ty {
+            "heading" => {
+                o.insert("depth".into(), json!(word(*i)));
+                *i += 1;
+            }
+            "list" => {
+                o.insert("ordered".into(), json!(word(*i) == 1));
+                let st = word(*i + 1);
+                o.insert(
+                    "start".into(),
+                    if st == NONE { Value::Null } else { json!(st) },
+                );
+                o.insert("spread".into(), json!(word(*i + 2) == 1));
+                *i += 3;
+            }
+            "listItem" => {
+                let c = word(*i);
+                *i += 1;
+                o.insert(
+                    "checked".into(),
+                    if c == 2 { Value::Null } else { json!(c == 1) },
+                );
+            }
+            "code" => {
+                s(&mut o, "value", i);
+                s(&mut o, "lang", i);
+                s(&mut o, "meta", i);
+            }
+            "math" => {
+                s(&mut o, "value", i);
+                s(&mut o, "meta", i);
+            }
+            "yaml" | "toml" | "html" | "text" => s(&mut o, "value", i),
+            "table" => {
+                let k = word(*i) as usize;
+                *i += 1;
+                let align: Vec<Value> = (0..k)
+                    .map(|x| match word(*i + x) {
+                        1 => json!("left"),
+                        2 => json!("right"),
+                        3 => json!("center"),
+                        _ => Value::Null,
+                    })
+                    .collect();
+                *i += k;
+                o.insert("align".into(), Value::Array(align));
+            }
+            "footnoteDefinition" => {
+                s(&mut o, "identifier", i);
+                s(&mut o, "label", i);
+            }
+            "definition" => {
+                s(&mut o, "identifier", i);
+                s(&mut o, "label", i);
+                s(&mut o, "url", i);
+                s(&mut o, "title", i);
+            }
+            "link" => s(&mut o, "url", i),
+            _ => {}
+        }
+        const PARENTS: [&str; 11] = [
+            "root",
+            "paragraph",
+            "heading",
+            "blockquote",
+            "list",
+            "listItem",
+            "table",
+            "tableRow",
+            "tableCell",
+            "footnoteDefinition",
+            "link",
+        ];
+        if count > 0 || PARENTS.contains(&ty) {
+            let kids: Vec<Value> = (0..count).map(|_| node(i, word, table)).collect();
+            o.insert("children".into(), Value::Array(kids));
+        }
+        Value::Object(o)
+    }
+    let mut tree = node(&mut i, &word, &table);
+    if flags & 1 == 1 {
+        tree["unsure"] = json!(true);
+    }
+    tree
+}
+
+/// A reply of a JSON header followed by an encoded tree (one IPC message, Q-026/Q-027):
+/// the header's length as `u32`, the header (UTF-8 JSON), then the encoded tree.
+pub fn reply_with_tree(header: &Value, tree: &[u8]) -> Vec<u8> {
+    let head = serde_json::to_vec(header).unwrap_or_default();
+    let mut out = Vec::with_capacity(4 + head.len() + tree.len());
+    out.extend_from_slice(&(head.len() as u32).to_le_bytes());
+    out.extend_from_slice(&head);
+    out.extend_from_slice(tree);
+    out
+}
+
+/// Phase timings for the bench example: split scan, then markdown-rs and conversion of
+/// each part, single-threaded.
+pub fn profile(src: &str) -> String {
+    use std::time::Instant;
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |n| n.get())
+        .clamp(1, 16);
+    let t = Instant::now();
+    let cuts = split_points(src, src.len() / threads);
+    let split = t.elapsed();
+    let map = Utf16Map::new(src);
+    let mut bounds = vec![0usize];
+    bounds.extend_from_slice(&cuts);
+    bounds.push(src.len());
+    let (mut parse, mut conv) = (std::time::Duration::ZERO, std::time::Duration::ZERO);
+    for i in 0..bounds.len() - 1 {
+        let chunk = &src[bounds[i]..bounds[i + 1]];
+        let t = Instant::now();
+        let root = markdown::to_mdast(chunk, &options(i == 0)).unwrap();
+        parse += t.elapsed();
+        let t = Instant::now();
+        let mut c = Conv {
+            src: chunk.as_bytes(),
+            base: bounds[i],
+            line_base: 0,
+            map: &map,
+            unsure: false,
+        };
+        let mut out = Out::default();
+        c.node(&root, &mut out);
+        conv += t.elapsed();
+    }
+    format!(
+        "split {split:?}, markdown-rs {parse:?}, convert {conv:?} (single thread, {} parts)",
+        bounds.len() - 1
+    )
 }
 
 /// Byte offsets where the document can be cut into parts that parse to the same top-level
@@ -513,199 +881,6 @@ fn html_region(l: &str) -> Option<&'static [&'static str]> {
     }
 }
 
-/// Parse the parts between the cut points (in parallel) and join their top-level blocks.
-fn tree_of(src: &str, cuts: &[usize]) -> Value {
-    let map = Utf16Map::new(src);
-    let mut bounds = vec![0usize];
-    bounds.extend_from_slice(cuts);
-    bounds.push(src.len());
-    let lines_before: Vec<usize> = bounds.iter().map(|&b| line_breaks(&src.as_bytes()[..b])).collect();
-    let results: Vec<Option<(Vec<Value>, bool)>> = std::thread::scope(|scope| {
-        let handles: Vec<_> = (0..bounds.len() - 1)
-            .map(|i| {
-                let (a, b) = (bounds[i], bounds[i + 1]);
-                let chunk = &src[a..b];
-                let map = &map;
-                let line_base = lines_before[i];
-                scope.spawn(move || {
-                    let root = markdown::to_mdast(chunk, &options(i == 0)).ok()?;
-                    let conv = Conv { src: chunk.as_bytes(), base: a, line_base, map, unsure: std::cell::Cell::new(false) };
-                    let (tree, _) = conv.node(&root);
-                    let kids = match tree.get("children") {
-                        Some(Value::Array(k)) => k.clone(),
-                        _ => vec![],
-                    };
-                    Some((kids, conv.unsure.get()))
-                })
-            })
-            .collect();
-        handles.into_iter().map(|h| h.join().ok().flatten()).collect()
-    });
-    let mut children = Vec::new();
-    let mut unsure = false;
-    for r in results {
-        let Some((kids, u)) = r else { return Value::Null };
-        children.extend(kids);
-        unsure |= u;
-    }
-    let mut tree = json!({
-        "type": "root",
-        "position": { "start": { "line": 1, "offset": 0 }, "end": { "offset": map.at(src.len()) } },
-        "children": children,
-    });
-    if unsure {
-        tree["unsure"] = json!(true);
-    }
-    tree
-}
-
-// ---- compact encoding (Q-027) ---------------------------------------------------------
-//
-// The JSON block tree of a 1 MB document is about 9 MB; sending it and parsing it in the
-// frontend cost more than parsing in Rust saved on fast machines. The tree goes as
-// little-endian `u32` words instead, decoded by `src/md/rustblocks.ts` (`decodeTree`):
-//
-//   magic "SBT1", flags (1 = unsure), node count, string table length (UTF-16 units),
-//   then each node in document order (pre-order):
-//     type, start, end, line, child count, then per type:
-//       heading: depth; list: ordered, start (u32::MAX = none), spread;
-//       listItem: checked (0, 1, 2 = none); code: value, lang, meta; math: value, meta;
-//       yaml, toml, html, text: value; table: align count, aligns (0 none, 1 left,
-//       2 right, 3 center); footnoteDefinition: identifier, label;
-//       definition: identifier, label, url, title; link: url
-//     strings as (start, length) in UTF-16 units of the string table, u32::MAX = none
-//   then the string table as UTF-16 code units, 2 bytes each.
-
-const TYPES: [&str; 21] = [
-    "root", "paragraph", "heading", "thematicBreak", "blockquote", "list", "listItem", "code", "math", "yaml", "toml", "html", "table", "tableRow",
-    "tableCell", "footnoteDefinition", "definition", "text", "break", "link", "unknown",
-];
-const NONE: u32 = u32::MAX;
-
-struct Enc {
-    words: Vec<u32>,
-    strings: Vec<u16>,
-    nodes: u32,
-}
-
-impl Enc {
-    fn string(&mut self, v: &Value) {
-        match v.as_str() {
-            Some(s) => {
-                let start = self.strings.len() as u32;
-                self.strings.extend(s.encode_utf16());
-                self.words.push(start);
-                self.words.push(self.strings.len() as u32 - start);
-            }
-            None => {
-                self.words.push(NONE);
-                self.words.push(0);
-            }
-        }
-    }
-
-    fn node(&mut self, n: &Value) {
-        self.nodes += 1;
-        let ty = n["type"].as_str().unwrap_or("unknown");
-        let id = TYPES.iter().position(|t| *t == ty).unwrap_or(TYPES.len() - 1);
-        let pos = &n["position"];
-        let num = |v: &Value| v.as_u64().map_or(0, |x| x as u32);
-        let kids = n["children"].as_array();
-        self.words.extend([
-            id as u32,
-            num(&pos["start"]["offset"]),
-            num(&pos["end"]["offset"]),
-            num(&pos["start"]["line"]),
-            kids.map_or(0, |k| k.len() as u32),
-        ]);
-        match ty {
-            "heading" => self.words.push(num(&n["depth"])),
-            "list" => {
-                self.words.push(u32::from(n["ordered"].as_bool() == Some(true)));
-                self.words.push(n["start"].as_u64().map_or(NONE, |x| x as u32));
-                self.words.push(u32::from(n["spread"].as_bool() == Some(true)));
-            }
-            "listItem" => self.words.push(match n["checked"].as_bool() {
-                Some(false) => 0,
-                Some(true) => 1,
-                None => 2,
-            }),
-            "code" => {
-                self.string(&n["value"]);
-                self.string(&n["lang"]);
-                self.string(&n["meta"]);
-            }
-            "math" => {
-                self.string(&n["value"]);
-                self.string(&n["meta"]);
-            }
-            "yaml" | "toml" | "html" | "text" => self.string(&n["value"]),
-            "table" => {
-                let align = n["align"].as_array().cloned().unwrap_or_default();
-                self.words.push(align.len() as u32);
-                for a in align {
-                    self.words.push(match a.as_str() {
-                        Some("left") => 1,
-                        Some("right") => 2,
-                        Some("center") => 3,
-                        _ => 0,
-                    });
-                }
-            }
-            "footnoteDefinition" => {
-                self.string(&n["identifier"]);
-                self.string(&n["label"]);
-            }
-            "definition" => {
-                self.string(&n["identifier"]);
-                self.string(&n["label"]);
-                self.string(&n["url"]);
-                self.string(&n["title"]);
-            }
-            "link" => self.string(&n["url"]),
-            _ => {}
-        }
-        if let Some(kids) = kids {
-            for k in kids {
-                self.node(k);
-            }
-        }
-    }
-}
-
-/// The compact encoding of a block tree (see above); empty for no tree.
-pub fn encode_tree(tree: &Value) -> Vec<u8> {
-    if tree.is_null() {
-        return Vec::new();
-    }
-    let mut e = Enc { words: Vec::with_capacity(1 << 16), strings: Vec::new(), nodes: 0 };
-    e.node(tree);
-    let mut out = Vec::with_capacity(16 + e.words.len() * 4 + e.strings.len() * 2);
-    out.extend_from_slice(b"SBT1");
-    out.extend_from_slice(&(tree.get("unsure").is_some() as u32).to_le_bytes());
-    out.extend_from_slice(&e.nodes.to_le_bytes());
-    out.extend_from_slice(&(e.strings.len() as u32).to_le_bytes());
-    for w in &e.words {
-        out.extend_from_slice(&w.to_le_bytes());
-    }
-    for u in &e.strings {
-        out.extend_from_slice(&u.to_le_bytes());
-    }
-    out
-}
-
-/// A reply of a JSON header followed by a block tree (one IPC message, Q-026/Q-027):
-/// the header's length as `u32`, the header (UTF-8 JSON), then the encoded tree.
-pub fn reply_with_tree(header: &Value, tree: &Value) -> Vec<u8> {
-    let head = serde_json::to_vec(header).unwrap_or_default();
-    let body = encode_tree(tree);
-    let mut out = Vec::with_capacity(4 + head.len() + body.len());
-    out.extend_from_slice(&(head.len() as u32).to_le_bytes());
-    out.extend_from_slice(&head);
-    out.extend_from_slice(&body);
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -744,8 +919,8 @@ mod tests {
         }
         let cuts = split_points(&big, 1);
         assert!(cuts.len() > 50, "only {} cut points", cuts.len());
-        let whole = tree_of(&big, &[]);
-        let parts = tree_of(&big, &cuts);
+        let whole = encode_parts(&big, &[]);
+        let parts = encode_parts(&big, &cuts);
         assert!(whole == parts, "parts differ from the whole for the concatenated corpus");
         // Each document on its own, between headings that are cut points when the
         // document leaves nothing open, so no earlier document can hide a mistake.
@@ -754,11 +929,11 @@ mod tests {
             let one = format!("# a\n\n{d}\n\n# b\n\ntext\n\n# c\n");
             let cuts = split_points(&one, 1);
             checked += cuts.len();
-            assert!(tree_of(&one, &[]) == tree_of(&one, &cuts), "parts differ for {d:?}");
+            assert!(encode_parts(&one, &[]) == encode_parts(&one, &cuts), "parts differ for {d:?}");
         }
         assert!(checked > 1000, "only {checked} cut points over the single documents");
         // And the public entry point, which cuts large documents.
-        assert_eq!(block_tree(&big), whole);
+        assert!(encoded_tree(&big) == whole);
     }
 
     #[test]

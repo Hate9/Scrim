@@ -50,7 +50,7 @@ pub struct DocInit {
     /// The text's block tree, parsed in Rust (QA-LOG Q-026, `scrim_core::blocks`).
     /// Sent after the header in the same reply, encoded (Q-027).
     #[serde(skip)]
-    pub blocks: serde_json::Value,
+    pub blocks: Vec<u8>,
     /// Time spent in Rust (ms): reading and decoding the file, the block tree (PF-1 report).
     pub rust_ms: RustTimes,
 }
@@ -95,7 +95,7 @@ pub async fn doc_init(window: WebviewWindow, state: State<'_, AppState>) -> Resu
         folder: None,
         recovered: false,
         test_no_remote: cfg!(debug_assertions) && std::env::var_os("SCRIM_TEST_NO_REMOTE").is_some(),
-        blocks: serde_json::Value::Null,
+        blocks: Vec::new(),
         rust_ms: RustTimes::default(),
     };
     let mut doc = DocState { initialized: true, folder: folder.clone(), ..Default::default() };
@@ -624,9 +624,9 @@ pub async fn clipboard_read_html() -> Result<Option<String>, String> {
 }
 
 /// The block tree of a whole document, with its time in the log (Q-026 measurements).
-pub fn timed_blocks(state: &AppState, text: &str) -> serde_json::Value {
+pub fn timed_blocks(state: &AppState, text: &str) -> Vec<u8> {
     let t = std::time::Instant::now();
-    let tree = scrim_core::blocks::block_tree(text);
+    let tree = scrim_core::blocks::encoded_tree(text);
     if text.len() > 100_000 {
         state.logger.info(&format!("block tree of {} bytes in {} ms", text.len(), t.elapsed().as_millis()));
     }
@@ -636,5 +636,5 @@ pub fn timed_blocks(state: &AppState, text: &str) -> serde_json::Value {
 /// The block tree of text the frontend has (leaving source mode, Q-026).
 #[tauri::command]
 pub async fn parse_blocks(state: State<'_, AppState>, text: String) -> Result<tauri::ipc::Response, String> {
-    Ok(tauri::ipc::Response::new(scrim_core::blocks::encode_tree(&timed_blocks(&state, &text))))
+    Ok(tauri::ipc::Response::new(timed_blocks(&state, &text)))
 }

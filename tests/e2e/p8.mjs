@@ -21,7 +21,7 @@ const bigDoc = (name, lines) => {
 
 test("PF-1 open a 1 MB file (< 2 s)", async (s) => {
   await waitFor(() => js(s, "return window.__scrim?.openMs?.() != null"), "document open", 60000);
-  budget("open 1 MB", await js(s, "return window.__scrim.openMs()"), 2000);
+  const openMs = await js(s, "return window.__scrim.openMs()");
   // The open by stage (Q-027): Rust read and block tree, IPC (reply minus Rust), frontend
   // parse, state, view build, refocus, JS until the first frame, first frame (layout and
   // paint), and when the theme fonts finished loading (from the page's start).
@@ -29,6 +29,8 @@ test("PF-1 open a 1 MB file (< 2 s)", async (s) => {
   const stages = ["rust-read", "rust-blocks", "ipc", "parse", "make-state", "update-view", "refocus", "first-marks", "serialize", "until-frame", "first-frame", "fonts-loaded"];
   const m = await js(s, "return Object.fromEntries(performance.getEntriesByType('measure').filter((m) => m.name.startsWith('scrim-')).map((m) => [m.name.slice(6), Math.round(m.duration)]))");
   console.log("     stages: " + stages.map((k) => `${k} ${m[k] ?? "-"}`).join(", "));
+  // After the breakdown: with SCRIM_PERF_STRICT=1 the budget check throws.
+  budget("open 1 MB", openMs, 2000);
   const size = await js(s, "return window.__scrim.editor.markdown().length");
   if (size < 1_000_000) throw new Error(`document is ${size} bytes`);
 }, () => bigDoc("pf1-1mb.md", 47000));
