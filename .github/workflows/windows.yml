@@ -3,14 +3,10 @@ name: Windows
 # Windows build and unit tests (Windows minutes are billed double): weekly and on
 # demand instead of on every push.
 
-# Paused (Actions minutes used up for this billing cycle): manual runs only, so pushes
-# do not create failing runs. The triggers to restore are kept below, commented out.
 on:
   workflow_dispatch:
-#on:
-#  workflow_dispatch:
-#  schedule:
-#    - cron: "17 4 * * 1"
+  schedule:
+    - cron: "17 4 * * 1"
 concurrency:
   group: windows
   cancel-in-progress: true
