@@ -1,5 +1,6 @@
 // The live-preview editor: ProseMirror view over the Markdown document model.
 
+import { timed, tracePlugins } from "./trace";
 import type { Root } from "mdast";
 import { createFindPlugin } from "./find";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
@@ -91,16 +92,27 @@ export function recordUpdates(on: boolean): number[] | null {
   return perfLog;
 }
 
-/** Typing groups break after whitespace that follows a word (3.8). */
+/** Typing groups break after whitespace that follows a word (3.8). `input` is called for
+ * typed text; `mark` closes the history group on the transaction that inserts it (a
+ * separate transaction for that cost a second view update on each word, Q-027 follow-up). */
 function typingGroups() {
   let breakNext = false;
-  return (view: EditorView, text: string): void => {
-    if (breakNext && /\S/.test(text[0] ?? "")) {
-      view.dispatch(closeHistory(view.state.tr));
-      breakNext = false;
-    }
-    const prev = view.state.selection.$from.nodeBefore?.text?.slice(-1) ?? "";
-    if (/\s/.test(text) && /\S/.test(prev)) breakNext = true;
+  let closeNext = false;
+  return {
+    input(view: EditorView, text: string): void {
+      if (breakNext && /\S/.test(text[0] ?? "")) {
+        closeNext = true;
+        breakNext = false;
+      }
+      const prev = view.state.selection.$from.nodeBefore?.text?.slice(-1) ?? "";
+      if (/\s/.test(text) && /\S/.test(prev)) breakNext = true;
+    },
+    mark(tr: Transaction): void {
+      if (closeNext && tr.docChanged) {
+        closeHistory(tr);
+        closeNext = false;
+      }
+    },
   };
 }
 
@@ -190,6 +202,7 @@ export function createEditor(
     return true;
   }
 
+  tracePlugins(plugins);
   const makeState = (doc: Node) => EditorState.create({ doc, plugins });
 
   /**
@@ -232,9 +245,10 @@ export function createEditor(
       nodeViews: viewportNodeViews({ ...codeNodeViews(options, codeHooks), ...blockNodeViews }, schema),
       attributes: { spellcheck: "false", class: "scrim-doc" },
       dispatchTransaction(tr: Transaction) {
-        const state = view.state.apply(tr);
-        view.updateState(state);
-        for (const f of updateHooks) f(view);
+        groups.mark(tr);
+        const state = timed("state apply", () => view.state.apply(tr));
+        timed("view update", () => view.updateState(state));
+        updateHooks.forEach((f) => timed(`hook ${String(f).slice(0, 60)}`, () => f(view)));
         if (tr.docChanged && perfLog) perfLog.push(performance.now());
         if (tr.docChanged) {
           // Comparing whole documents is O(n): mark dirty at once, and check for a
@@ -280,7 +294,7 @@ export function createEditor(
         },
       },
       handleTextInput(v, from, to, text) {
-        groups(v, text);
+        groups.input(v, text);
         if (cellTextInput(v.state, from, to, text, v.dispatch)) return true;
         if (spaceInputRule(() => v.state, from, to, text, v.dispatch)) return true;
         if (laxHeadingInputRule(() => v.state, from, to, text, v.dispatch)) return true;

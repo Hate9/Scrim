@@ -1,4 +1,4 @@
-//! Time the block tree of a file (Q-026..Q-028 measurements):
+//! Time the block tree of a file (Q-026, Q-027 measurements):
 //! `cargo run --release -p scrim-core --example bench_blocks FILE`.
 use std::time::Instant;
 fn main() {

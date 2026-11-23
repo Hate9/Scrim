@@ -111,7 +111,7 @@ fn strip_continuation(v: &str) -> String {
     out
 }
 
-// ---- the encoding (Q-027, Q-028) -------------------------------------------------------
+// ---- the encoding (Q-027) -------------------------------------------------------
 //
 // The tree goes to the frontend as little-endian `u32` words, decoded by
 // `src/md/rustblocks.ts` (`decodeTree`) and, for tests, by `decode` below:
@@ -128,7 +128,7 @@ fn strip_continuation(v: &str) -> String {
 //   then the string table as UTF-16 code units, 2 bytes each.
 //
 // markdown-rs's tree is converted straight into this (no intermediate JSON: building and
-// copying JSON took longer than parsing, Q-028).
+// copying JSON took longer than parsing, Q-027 follow-up).
 
 const TYPES: [&str; 21] = [
     "root",

@@ -11,6 +11,7 @@ import type { Node } from "prosemirror-model";
 import { Plugin, type Transaction } from "prosemirror-state";
 import { ReplaceStep, AddMarkStep, RemoveMarkStep, AttrStep } from "prosemirror-transform";
 import { freshUid } from "../md/schema";
+import { SetMarksStep } from "./presstep";
 
 const NEW_LEAF = { sep: null, prev: null, lead: null, marks: null, sig: null };
 
@@ -18,7 +19,7 @@ const NEW_LEAF = { sep: null, prev: null, lead: null, marks: null, sig: null };
 export function isStructural(tr: Transaction): boolean {
   for (const step of tr.steps) {
     // Mark steps (presentation marks, automatic escapes' marks) never change structure.
-    if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) continue;
+    if (step instanceof AddMarkStep || step instanceof RemoveMarkStep || step instanceof SetMarksStep) continue;
     // Heading ids (headings.ts) are presentation, not structure.
     if (step instanceof AttrStep && step.attr === "id") continue;
     if (!(step instanceof ReplaceStep)) return true;

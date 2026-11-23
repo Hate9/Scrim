@@ -363,6 +363,8 @@ test(`E-14 typing latency on a ${E14_LINES}-line document (p95 < 16 ms)`, async 
     const { TextSelection } = view.state.selection.constructor === undefined ? {} : {}; view.focus();
     view.dispatch(view.state.tr.setSelection(view.state.selection.constructor.near(doc.resolve(target))).scrollIntoView());`);
   await s.exec("window.__keys = []; window.__upd = window.__scrim.recordUpdates(true); document.addEventListener('keydown', () => window.__keys.push(performance.now()), true);");
+  // SCRIM_E14_TRACE=1: what ran during the slowest 5% of keystrokes (Q-027 follow-up).
+  if (process.env.SCRIM_E14_TRACE) await s.exec("window.__trace = window.__scrim.traceOn(true); return true");
   const text = "the quick brown fox jumps over the lazy dog ".repeat(5).slice(0, 200);
   await typeText(s, text);
   await sleep(500);
@@ -370,6 +372,20 @@ test(`E-14 typing latency on a ${E14_LINES}-line document (p95 < 16 ms)`, async 
     for (const t of k) { while (j < u.length && u[j] < t) j++; if (j < u.length) out.push(u[j] - t); }
     return out;`);
   if (lat.length < 190) throw new Error(`only ${lat.length} measured keystrokes`);
+  if (process.env.SCRIM_E14_TRACE) {
+    const slow = await s.exec(`const k = window.__keys, u = window.__upd, tr = window.__trace; window.__scrim.traceOn(false);
+      const rows = []; let j = 0;
+      k.forEach((t, i) => { while (j < u.length && u[j] < t) j++; if (j < u.length) rows.push({ i, t, end: u[j], ms: u[j] - t, prevEnd: i ? k[i - 1] : 0 }); });
+      const ms = rows.map((r) => r.ms).sort((a, b) => a - b); const cut = ms[Math.floor(ms.length * 0.95)];
+      return rows.filter((r) => r.ms >= cut).map((r) => {
+        const inside = tr.filter((e) => e.t >= r.t && e.t < r.end && e.ms >= 0.5).map((e) => \`+\${(e.t - r.t).toFixed(1)} \${e.what} \${e.ms.toFixed(1)}\`);
+        const before = tr.filter((e) => e.t + e.ms > r.t - 50 && e.t < r.t && e.ms >= 2).map((e) => \`\${(e.t - r.t).toFixed(1)} \${e.what} \${e.ms.toFixed(1)}\`);
+        return { key: r.i, ms: +r.ms.toFixed(1), inside, before };
+      });`);
+    console.log("     E-14 slowest 5%: " + JSON.stringify(slow, null, 1));
+    const all = await s.exec(`const tr = window.__trace; const m = {}; for (const e of tr) { const k = e.what.replace(/ [^ ]*$/, (x) => x.length > 30 ? '' : x); (m[e.what] ??= [0, 0]); m[e.what][0] += e.ms; m[e.what][1]++; } return Object.entries(m).sort((a, b) => b[1][0] - a[1][0]).slice(0, 25).map(([k, [t, n]]) => \`\${t.toFixed(0)} ms / \${n}: \${k}\`);`);
+    console.log("     E-14 trace totals: " + JSON.stringify(all, null, 1));
+  }
   lat.sort((a, b) => a - b);
   const p95 = lat[Math.floor(lat.length * 0.95)];
   console.log(`     E-14: ${lat.length} keystrokes, median ${lat[lat.length >> 1].toFixed(1)} ms, p95 ${p95.toFixed(1)} ms`);

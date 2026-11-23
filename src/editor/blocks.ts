@@ -434,7 +434,9 @@ export function createBlocksPlugin(hooks: BlockHooks): Plugin {
       const head = state.selection.$head;
       const tr = state.tr;
       state.doc.forEach((node, pos) => {
-        if (node.type === S.paragraph && /^\[toc\]$/i.test(node.textContent) && !(head.pos >= pos && head.pos <= pos + node.nodeSize)) {
+        // Size first: building every paragraph's text on each keystroke cost 3 ms on a
+        // 10,000-line document (Q-027 follow-up).
+        if (node.type === S.paragraph && node.content.size === 5 && /^\[toc\]$/i.test(node.textContent) && !(head.pos >= pos && head.pos <= pos + node.nodeSize)) {
           const { uid, sep, prev, lead, marks, sig } = node.attrs;
           tr.replaceWith(tr.mapping.map(pos), tr.mapping.map(pos + node.nodeSize), S.toc.create({ uid, sep, prev, lead, marks, sig, text: node.textContent }));
         }

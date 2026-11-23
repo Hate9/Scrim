@@ -9,7 +9,9 @@
 // movement never changes the DOM structure (spec 01). Work is limited to touched
 // textblocks, done progressively for large documents, and frozen during IME composition.
 
-import type { Node } from "prosemirror-model";
+import { Fragment, type Node } from "prosemirror-model";
+import { Transform } from "prosemirror-transform";
+import { SetMarksStep } from "./presstep";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { flatten, type InlineElement, type Widget, type Definitions } from "../md/inline";
@@ -195,9 +197,12 @@ function syncMarks(tr: Transaction, node: Node, pos: number, defs: Definitions, 
   node.forEach((child, offset) => present.push([offset, offset + child.nodeSize, runSig(child.marks.filter((m) => m.type === presType))]));
   const size = node.content.size;
   if (JSON.stringify(normalizeRuns(wanted, size)) === JSON.stringify(normalizeRuns(present, size))) return false;
-  const start = pos + 1;
-  tr.removeMark(start, start + size, presType);
-  for (const sg of want) for (const p of sg.marks) tr.addMark(start + sg.from, start + sg.to, presMark(p));
+  // The marks are changed on a document holding only this block, then the block's
+  // content is swapped in one step (presstep.ts).
+  const t = new Transform(tr.doc.copy(Fragment.from(node)));
+  t.removeMark(1, 1 + size, presType);
+  for (const sg of want) for (const p of sg.marks) t.addMark(1 + sg.from, 1 + sg.to, presMark(p));
+  tr.step(new SetMarksStep(pos, t.doc.firstChild!.content));
   return true;
 }
 

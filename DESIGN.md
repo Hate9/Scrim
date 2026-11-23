@@ -278,6 +278,58 @@ E-14. Remaining options are a faster block parser (markdown-it, allowed by spec 
 viewport-only rendering (Q-011's last resort). Both need the measurements on real
 hardware first.
 
+#### After the second real-hardware run (Q-027 follow-up)
+
+Owner's run of 223c7ff (release build): open 1 MB 2,318–2,381 ms, rust-blocks 464 ms,
+until-frame 563 ms, E-14 p95 18 ms. Four items, each found by measuring first:
+
+Rust block tree. A profile of the 1 MB fixture (release, 4 cores) put 101 ms in
+converting markdown-rs's tree to JSON values and another 20–70 ms per thread copying
+children and dropping trees, on top of about 90 ms of parsing per part. Each part now
+converts straight into the binary encoding (words plus a UTF-16 string table) and the
+parts are joined by concatenation with their string offsets rebased; parsed trees are
+dropped on a detached thread. The JSON form, used only by the parity tests and the
+`block_tree` example, is decoded from the encoding, so there is one conversion. 400–500
+to about 140 ms here, conversion 101 to 5 ms; what remains is markdown-rs's tokenizer
+(callgrind: tokenizer, subtokenizer and edit map), which divides across threads (up to
+16). The owner's next run measured rust-blocks 105 ms.
+
+Until-frame. The JavaScript after the view update takes 3 ms; the rest was the first
+background chunk of inline decorations (a `setTimeout(0)` queued before the first frame),
+489 ms. Each 300-block chunk synced presentation marks with one `removeMark` and one
+`addMark` per mark, about 3,100 steps, each copying the path from the document to the
+block. Marks never move positions, so `SetMarksStep` (`src/editor/presstep.ts`) now
+swaps a changed textblock's content in one step with an empty position map, as
+ProseMirror's mark steps have (selections, decorations and the history see the same as
+before). First marks went from 312 to 109 ms and until-frame from 517 to 222 ms here; a
+background chunk from about 500 to about 150 ms.
+
+Typing (E-14). `SCRIM_E14_TRACE=1` traces every plugin's state apply,
+appendTransaction and view update, each update hook, layout reads, timers and idle
+callbacks (`src/editor/trace.ts`, `__scrim.traceOn`), and prints what ran during the
+slowest 5% of keystrokes and the totals. Every slow keystroke was the first letter of a
+word: closing the typing group (3.8) dispatched a transaction of its own, a second full
+view update with layout reads. The group is now closed on the input's own transaction.
+Every keystroke also built the text of each top-level paragraph to look for `[toc]`
+(3 ms on 10,000 lines); the size is checked first. The word count after a typing pause
+re-analyzed every block (1 s on 10,000 lines here, and a keystroke during it waits): counts
+are now cached per textblock node (nodes are immutable, so only changed blocks are
+analyzed), and a document's first count runs in 8 ms slices. Not found in the slow
+keystrokes: GC pauses, spell check, the "clean again" check, placeholder measuring or
+moving the rendered range.
+
+| Measure (this container, debug builds) | Before | After |
+|---|---|---|
+| E-14, 10,000 lines (median / p95) | 12 / 24 ms | 7–8 / 12–13 ms |
+| Transactions for 200 keystrokes | 240 | 200 |
+
+PF-1 prints its stage breakdown before the budget check, so a strict run still reports
+the stages.
+
+Placeholders of viewport-only rendering can show their own box (a quote's bar, a code
+block's background) for a frame during fast scrolls before the range catches up; accepted
+for now (Q-027 follow-up).
+
 ### Coverage tests
 
 C-1, C-2, C-5, KB-2 are unit tests (`clipboard.test.ts`, `keys.test.ts`); D-1, D-2, D-3

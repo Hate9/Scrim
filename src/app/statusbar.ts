@@ -2,7 +2,7 @@
 
 import { inlineKey } from "../editor/decorations";
 import type { Editor } from "../editor/editor";
-import { count, countableText, type Counts } from "../editor/counts";
+import { count, countableText, countDocument, warmCounts, type Counts } from "../editor/counts";
 
 type Which = keyof Counts;
 
@@ -140,8 +140,13 @@ export class StatusBar {
       this.total = count([{ text: src, code: false }], src.split(/\r\n?|\n/).length, codeInWords);
       this.selected = null;
     } else {
+      // A large document's first count runs in slices between other work.
+      if (!warmCounts(state.doc, defs, this.editor.options, 8)) {
+        this.timer = window.setTimeout(() => this.recount(), 0);
+        return;
+      }
       const lines = this.editor.markdownLines();
-      this.total = count(countableText(state.doc, defs, this.editor.options), lines, codeInWords);
+      this.total = countDocument(state.doc, defs, this.editor.options, lines, codeInWords);
       const sel = state.selection;
       this.selected = sel.empty ? null : count(countableText(state.doc, defs, this.editor.options, sel.from, sel.to), state.doc.textBetween(sel.from, sel.to, "\n", "\n").split("\n").length, codeInWords);
     }

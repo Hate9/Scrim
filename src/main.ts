@@ -42,6 +42,7 @@ import { suggestedFileName } from "./doc/naming";
 import { inlineKey } from "./editor/decorations";
 import { setViewportMode, viewportConfig, viewportKey } from "./editor/viewport";
 import { createEditor, recordUpdates } from "./editor/editor";
+import { traceOn } from "./editor/trace";
 import { Dispatcher, normalizeAccelerator } from "./editor/keys";
 import { AppMenu, shortcutOverrides } from "./app/menu";
 import { menuTree } from "./app/menutree";
@@ -1298,6 +1299,7 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   editor,
   save,
   recordUpdates,
+  traceOn,
   inlineKey,
   /** Viewport-only rendering (Q-027): its state, settings, and rendered block count. */
   viewport: {
