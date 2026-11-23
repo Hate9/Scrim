@@ -11,7 +11,8 @@ import { parseMarkdown } from "./parse";
 import { dialect, parseMdast } from "./mdast";
 import { decodeTree, rustTreeApplies } from "./rustblocks";
 
-const BIN = process.env.SCRIM_BLOCK_TREE ?? "target/release/examples/block_tree";
+const BIN = process.env.SCRIM_BLOCK_TREE ?? `target/release/examples/block_tree${process.platform === "win32" ? ".exe" : ""}`;
+const HAVE_BIN = existsSync(BIN);
 
 function files(d: string): string[] {
   return readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? files(p) : p.endsWith(".md") ? [p] : []; });
@@ -44,9 +45,10 @@ const norm = (n: Tree): unknown => ({
   c: n.checked, a: n.align, l: n.label, k: n.children?.map(norm),
 });
 
-describe.skipIf(!existsSync(BIN))("Rust block trees give the frontend's documents (Q-026)", () => {
+describe.skipIf(!HAVE_BIN)("Rust block trees give the frontend's documents (Q-026)", () => {
   const docs = corpus();
-  const trees = JSON.parse(execFileSync(BIN, { input: JSON.stringify(docs), maxBuffer: 512 << 20, encoding: "utf8" })) as ((Root & { unsure?: boolean }) | null)[];
+  // The body runs while tests are collected, even when skipped.
+  const trees = !HAVE_BIN ? [] : JSON.parse(execFileSync(BIN, { input: JSON.stringify(docs), maxBuffer: 512 << 20, encoding: "utf8" })) as ((Root & { unsure?: boolean }) | null)[];
   afterEach(() => (dialect.strict = true));
 
   it("the compact encoding decodes to the same trees (Q-027)", () => {
