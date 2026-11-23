@@ -84,11 +84,13 @@ scripts/n1-network.sh
 
 ## AI use
 
-Scrim is written by an AI. Its code, tests, and documentation are produced by Anthropic's
-Claude, working as a coding agent from a written specification (`spec/`) that a separate
-team maintains, with questions and answers recorded in `QA-LOG.md`. People write the
-specification, review results, test on real machines, and decide; the agent writes the
-implementation. Commits made by the agent carry a `Co-Authored-By: Claude` trailer.
+Scrim is written by AI. Two instances of Anthropic's Claude work on it: one writes and
+maintains the specification (`spec/`) on a local machine, and one, working as a coding
+agent, writes the implementation, its tests, and this documentation from that
+specification. Questions from the implementation and the specification's answers are
+recorded in `QA-LOG.md`. The project's owners relay between the two, approve the
+specification's decisions, and test the app on real machines. Commits made by the
+coding agent carry a `Co-Authored-By: Claude` trailer.
 
 The implementation follows clean-room rules (`CLEAN-ROOM.md`): the specification is the
 only description of the behavior it reproduces, and no other program's code,
