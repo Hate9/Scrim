@@ -2,6 +2,7 @@
 
 import { timed, tracePlugins } from "./trace";
 import { composingKey } from "./composition";
+import { createImeGuardPlugin } from "./imeguard";
 import type { Root } from "mdast";
 import { createFindPlugin } from "./find";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
@@ -172,6 +173,7 @@ export function createEditor(
     history({ newGroupDelay: 1000 }),
     keys,
     keymap(baseKeymap),
+    createImeGuardPlugin(),
     createInlinePlugin(options, hooks),
     createHeadingPlugin(),
     createRevealPlugin(options),

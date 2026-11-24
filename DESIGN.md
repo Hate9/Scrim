@@ -41,8 +41,8 @@ hardware.
 | Sidebar, 5,000 files | about 2.5 s | about 235 ms | 1 s |
 | E-14 typing p95, 10,000 lines | 37–62 ms | about 60 ms (layout-bound) | 16 ms |
 
-Real-hardware baseline (QA-LOG Q-026; the owner's machine: Ryzen 5 3600, RTX 3070, KDE
-on Wayland via XWayland; `SCRIM_PERF_STRICT=1`, commit 326442d). Every Q-026 change is
+Real-hardware baseline (QA-LOG Q-026; the owner's machine: Ryzen 5 3600, RTX 3070, niri
+(Wayland), the app on X11 through xwayland-satellite; `SCRIM_PERF_STRICT=1`, commit 326442d). Every Q-026 change is
 measured against these columns.
 
 | Measure | Debug build | Release build | Budget |
@@ -485,6 +485,14 @@ are end-to-end tests in `tests/e2e/p1.mjs`.
   out of the ink with a mask, so whatever is behind shows through; strokes `#26231f`,
   bars `#34302b`. `node scripts/render-icon.mjs` renders `assets/icon-source.png` and
   `npx tauri icon` makes the sizes in `src-tauri/icons`.
+
+### Notice bar (22.5, QA-LOG Q-029)
+
+The message is left-aligned and takes the free space; the action buttons sit together at
+the right edge in their order, 8 px apart, the close button last; nothing is centered
+(before, the button group took half the free space too, so "Show" sat mid-bar). The
+Customize pane's "Changed on disk" banner follows the same layout. Test: "Q-029 notice
+bar" (p3) measures the positions.
 
 ### Subscript, superscript, highlight (spec 02)
 
@@ -1187,6 +1195,30 @@ its literal Markdown inline source. Deviations and details:
   heading, list item and quote, and check the blocks as well as the Markdown (an empty
   paragraph left after the block does not show in the Markdown); without the guard all
   six fail with an extra empty block.
+- That was not the whole of E-9 (owner's run of cc0dbcb with fcitx5 and Mozc, with an
+  event log from the page): the commit key arrives as keydown `Unidentified`/229, then
+  WebKitGTK deletes the composition text (`deleteCompositionText`), its own editing
+  replaces the now empty heading element with `<p><br></p>`, and the committed text is
+  inserted there (`insertFromComposition`) before compositionend. ProseMirror reads a
+  paragraph. `src/editor/imeguard.ts` records the document and selection at
+  compositionstart; after compositionend, when the document has exactly the recorded
+  text with the committed text in place of the selection but other blocks, it replaces
+  the changed range with the expected content (the blocks as they were, the text in
+  them). If the text differs (the input method did something else) it changes nothing.
+  The log also showed the heading element replaced on every compositionupdate: each
+  update changed the heading's text, so its id, and a changed attribute makes
+  ProseMirror redraw the element under the input method. Heading ids are no longer
+  written during a composition (spec 21, hard part 3), only after it ends.
+- The E-9 tests now replay that log (p1, "E-9 (replayed)"): compositionstart, the
+  composition text, compositionupdates (the block element must stay the same element),
+  then keydown 229 with isComposing, deleteCompositionText, the composition text deleted
+  and the block's top-level element replaced by `<p><br></p>`, the committed text inserted,
+  compositionend, and keyup Enter; in an empty heading, list item and quote, converted
+  (かんじ → 感じ) and committed as typed. All six fail on cc0dbcb (the heading element is
+  replaced during the composition; the list item and the quote become a paragraph). A
+  seventh test does the same in an empty table cell, replacing only the cell's element:
+  it passes on cc0dbcb as well (ProseMirror's own DOM reading puts the paragraph back in
+  the cell), and checks the guard keeps the table.
 
 ### Performance status
 

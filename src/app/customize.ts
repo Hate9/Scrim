@@ -145,14 +145,14 @@ class FileTab {
       this.setText(f.text, true);
       return;
     }
-    this.banner.textContent = "Changed on disk: ";
+    this.banner.replaceChildren(el("span", "", "Changed on disk."));
     const reload = el("button", "scrim-preferences-button", "Reload");
     reload.type = "button";
     reload.addEventListener("click", () => this.setText(f.text, true));
     const keep = el("button", "scrim-preferences-button", "Keep mine");
     keep.type = "button";
     keep.addEventListener("click", () => (this.banner.hidden = true));
-    this.banner.append(reload, " ", keep);
+    this.banner.append(reload, keep);
     this.banner.hidden = false;
   }
 

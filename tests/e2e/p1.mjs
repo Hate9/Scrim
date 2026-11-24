@@ -120,44 +120,91 @@ test("E-8 undo an input rule restores the typed trigger", async (s) => {
   await waitFor(() => s.exec("return document.querySelector('#write p').textContent === ''"), "empty paragraph");
 });
 
-// E-9 is manual (a real IME). This replays what the editor sees when an input method
-// commits in an empty heading, list item or quote: compositionstart, the composed text in
-// the DOM, the commit Enter (keyCode 229 before compositionend, or a plain Enter 30 ms
-// after it, once ProseMirror has ended the composition), compositionend. The Enter must not run Enter's
-// command (which turned the empty heading back into a paragraph).
-const compose = (s, text, enterAfterEnd) =>
-  s.exec(`const v = window.__scrim.editor.view, dom = v.dom, text = ${JSON.stringify(text)};
-    const key = (code) => { const e = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }); Object.defineProperty(e, 'keyCode', { get: () => code }); dom.dispatchEvent(e); };
-    dom.dispatchEvent(new CompositionEvent('compositionstart', { data: '', bubbles: true }));
-    const sel = document.getSelection(), r = sel.getRangeAt(0), t = document.createTextNode(text);
-    r.insertNode(t); sel.collapse(t, text.length);
-    dom.dispatchEvent(new CompositionEvent('compositionupdate', { data: text, bubbles: true }));
-    if (!${enterAfterEnd}) key(229);
-    dom.dispatchEvent(new CompositionEvent('compositionend', { data: text, bubbles: true }));
-    // After: once ProseMirror has ended the composition (it does 20 ms after the event).
-    return new Promise((r) => (${enterAfterEnd} ? setTimeout(() => { key(13); r(true); }, 30) : r(true)));`);
-for (const [what, trigger, selector, want] of [
-  ["heading", "# ", "#write h1", "# 漢字"],
-  ["list item", "- ", "#write li", "- 漢字"],
-  ["quote", "> ", "#write blockquote p", "> 漢字"],
+// E-9 is manual (a real IME). These tests replay the event log from the owner's run with
+// fcitx5 and Mozc in WebKitGTK (cc0dbcb): compositionstart, the composition text in the
+// DOM, compositionupdates (the block element must stay the same element: replacing it
+// under the input method loses characters), then the commit: keydown 229 with
+// isComposing, beforeinput deleteCompositionText, the composition text deleted and the
+// now empty block replaced by <p><br></p> (what WebKit's editing does), input, the
+// committed text inserted into that paragraph, compositionend, and only then keyup
+// Enter. The block must keep its type and hold the committed text.
+const replay = (s, updates, commit, target = "top") =>
+  s.exec(`return (async () => { const view = window.__scrim.editor.view, dom = view.dom, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const fire = (e) => dom.dispatchEvent(e);
+    const key = (type, key, code, composing) => { const e = new KeyboardEvent(type, { key, bubbles: true, cancelable: true, isComposing: composing }); Object.defineProperty(e, 'keyCode', { get: () => code }); fire(e); };
+    const input = (type, inputType, data) => fire(new InputEvent(type, { inputType, data, bubbles: true, cancelable: type === 'beforeinput' }));
+    const sel = document.getSelection();
+    const top = () => { let n = sel.anchorNode; while (n && n.parentNode !== dom) n = n.parentNode; return n; };
+    const block = () => { let n = sel.anchorNode; while (n && !(n.nodeType === 1 && /^(H[1-6]|P|LI|TD|TH)$/.test(n.nodeName))) n = n.parentNode; return n; };
+    key('keydown', 'Unidentified', 229, false);
+    fire(new CompositionEvent('compositionstart', { data: '', bubbles: true }));
+    const el = block();
+    const t = document.createTextNode('');
+    sel.getRangeAt(0).insertNode(t);
+    const replaced = [];
+    for (const u of ${JSON.stringify(updates)}) {
+      t.data = u; sel.collapse(t, u.length);
+      fire(new CompositionEvent('compositionupdate', { data: u, bubbles: true }));
+      input('input', 'insertCompositionText', u);
+      await sleep(40);
+      if (block() !== el || !el.isConnected) replaced.push(u);
+    }
+    // Commit.
+    key('keydown', 'Unidentified', 229, true);
+    input('beforeinput', 'deleteCompositionText', null);
+    t.remove();
+    const p = document.createElement('p'); p.appendChild(document.createElement('br'));
+    const old = ${JSON.stringify(target)} === "top" ? top() : el; old.replaceWith(p);
+    sel.collapse(p, 0);
+    input('input', 'deleteCompositionText', null);
+    input('beforeinput', 'insertFromComposition', ${JSON.stringify(commit)});
+    p.replaceChildren(document.createTextNode(${JSON.stringify(commit)}));
+    sel.collapse(p.firstChild, ${commit.length});
+    input('input', 'insertFromComposition', ${JSON.stringify(commit)});
+    fire(new CompositionEvent('compositionend', { data: ${JSON.stringify(commit)}, bubbles: true }));
+    await sleep(5);
+    key('keyup', 'Enter', 13, false);
+    return replaced; })();`);
+for (const [what, trigger, selector, prefix, type] of [
+  ["heading", "# ", "#write h1", "# ", "heading"],
+  ["list item", "- ", "#write li", "- ", "bullet_list"],
+  ["quote", "> ", "#write blockquote p", "> ", "blockquote"],
 ]) {
-  for (const after of [false, true]) {
-    test(`E-9 (simulated) committing a composition in an empty ${what}, Enter ${after ? "after" : "before"} compositionend`, async (s) => {
+  for (const [how, updates, commit] of [
+    ["converted (かんじ → 感じ)", ["ｋ", "か", "かｎ", "かんｊ", "かんじ", "感じ"], "感じ"],
+    ["committed as typed (かな)", ["ｋ", "か", "かｎ", "かな"], "かな"],
+  ]) {
+    test(`E-9 (replayed) composition in an empty ${what}, ${how}`, async (s) => {
       await ready(s);
       await typeText(s, trigger);
       await waitFor(() => s.exec(`return !!document.querySelector(${JSON.stringify(selector)})`), `empty ${what}`);
-      await compose(s, "漢字", after);
-      await sleep(300); // ProseMirror reads the composed text shortly after compositionend
-      // The Markdown, and the blocks (an empty paragraph after it would not show in the
-      // Markdown): one top-level block, holding one textblock with 漢字.
-      const shape = () => s.exec("const d = window.__scrim.editor.view.state.doc; const tb = []; d.descendants((n) => { if (n.isTextblock) { tb.push(n.textContent); return false; } return true; }); return JSON.stringify([d.childCount, d.firstChild.type.name, tb])");
-      const type = { heading: "heading", "list item": "bullet_list", quote: "blockquote" }[what];
-      await waitFor(async () => (await md(s)) === want + "\n" && (await shape()) === JSON.stringify([1, type, ["漢字"]]), `${what} containing 漢字, nothing else`).catch(async (e) => {
+      const replaced = await replay(s, updates, commit);
+      if (replaced.length) throw new Error(`the ${what}'s element was replaced during the composition (after ${replaced.join(", ")})`);
+      await sleep(300); // ProseMirror reads the committed text after compositionend
+      // The Markdown, and the blocks (an empty block left over would not show in it).
+      const shape = () => s.exec("const d = window.__scrim.editor.view.state.doc; const tb = []; d.descendants((n) => { if (n.isTextblock) { tb.push(n.type.name + ':' + n.textContent); return false; } return true; }); return JSON.stringify([d.childCount, d.firstChild.type.name, tb])");
+      const tb = type === "heading" ? "heading" : "paragraph";
+      await waitFor(async () => (await md(s)) === prefix + commit + "\n" && (await shape()) === JSON.stringify([1, type, [`${tb}:${commit}`]]), `${what} holding ${commit}`).catch(async (e) => {
         throw new Error(`${e.message}; markdown ${JSON.stringify(await md(s))}, blocks ${await shape()}`);
       });
     });
   }
 }
+
+test("E-9 (replayed) composition in an empty table cell keeps the table", async (s) => {
+  await ready(s);
+  await ed(s, `let at = -1; view.state.doc.descendants((n, pos) => { if (at < 0 && n.type.name === 'table_cell' && !n.textContent) at = pos; return at < 0; });
+    view.focus(); view.dispatch(view.state.tr.setSelection(view.state.selection.constructor.near(view.state.doc.resolve(at + 1))));`);
+  await waitFor(() => s.exec("const a = document.getSelection().anchorNode; return !!(a && (a.nodeType === 1 ? a : a.parentNode).closest('td, th'))"), "cursor in the empty cell");
+  const before = await md(s);
+  // Here WebKit's replacement is the cell's own element (the rest of the table stays).
+  await replay(s, ["ｋ", "か", "かｎ", "かんｊ", "かんじ", "感じ"], "感じ", "block");
+  await sleep(300);
+  await waitFor(async () => (await md(s)) === before.replace("|   |", "| 感じ |").replace("|  |", "| 感じ |") || (await s.exec("return !!document.querySelector('#write table') && document.querySelector('#write table').textContent.includes('感じ')")), "table with 感じ in the cell").catch(async (e) => {
+    throw new Error(`${e.message}; markdown ${JSON.stringify(await md(s))}`);
+  });
+  if (!(await s.exec("return !!document.querySelector('#write table') && document.querySelectorAll('#write > *').length === 1"))) throw new Error(`table lost: ${JSON.stringify(await md(s))}`);
+}, () => fixture("e9-table.md", "| a | b |\n| - | - |\n| x |   |\n"));
 
 test("E-10 Shift+Enter writes a newline inside the paragraph", async (s) => {
   await ready(s);

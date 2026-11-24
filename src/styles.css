@@ -153,10 +153,13 @@ body.scrim-no-heading-hint #write :is(h1, h2, h3, h4, h5, h6).md-focus::before {
   content: none;
 }
 
+/* Notice bars (22.5, QA-LOG Q-029): the message left-aligned and taking the free space;
+   the action buttons together at the right edge in their order, 8 px apart, the close
+   button last; nothing centered. */
 .scrim-notice {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   padding: 6px 12px;
   background: var(--notice-bg);
   color: var(--notice-fg);
@@ -165,8 +168,10 @@ body.scrim-no-heading-hint #write :is(h1, h2, h3, h4, h5, h6).md-focus::before {
 .scrim-notice[hidden] {
   display: none;
 }
-.scrim-notice span {
+#notice-text {
   flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 .scrim-notice button {
   border: 0;

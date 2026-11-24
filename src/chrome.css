@@ -545,8 +545,11 @@ body.scrim.scrim-frameless > #scrim-sidebar {
 /* ---- notice bar (7.3) ---------------------------------------------------------------- */
 #notice-buttons {
   display: inline-flex;
-  gap: 6px;
-  margin-left: 10px;
+  flex: none;
+  gap: 8px;
+}
+#notice-buttons:empty {
+  display: none;
 }
 .scrim-notice-button {
   font: inherit;
@@ -1085,7 +1088,17 @@ footer button,
   gap: 6px;
   margin-top: 6px;
 }
+.scrim-cz-banner[hidden] {
+  display: none;
+}
+.scrim-cz-banner > span {
+  flex: 1;
+  text-align: left;
+}
 .scrim-cz-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 6px;
   padding: 4px 8px;
   background: var(--notice-bg, #fff6d6);

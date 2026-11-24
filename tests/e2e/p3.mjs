@@ -381,3 +381,22 @@ test("7.1 window size and position are remembered per screen configuration", asy
   // Another window already sits at the remembered spot: the new one cascades.
   if (Math.abs(rect.x - first.x) < 15 && Math.abs(rect.y - first.y) < 15) throw new Error(`new window covers the first one: ${JSON.stringify([first, rect, saved()])}`);
 }, () => fixture("w71.md", "text\n"));
+
+test("Q-029 notice bar: message left, buttons together at the right edge 8 px apart, close last", async (s) => {
+  await ready(s);
+  await s.exec("window.__scrim.notice('Recovered 1 unsaved document.', ['Show', 'Discard']); return true");
+  const r = await s.exec(`const bar = document.getElementById('notice').getBoundingClientRect();
+    const box = (e) => { const b = e.getBoundingClientRect(); return { l: b.left - bar.left, r: bar.right - b.right, w: b.width }; };
+    const text = document.getElementById('notice-text'), buttons = [...document.querySelectorAll('#notice-buttons button'), document.getElementById('notice-close')];
+    const t = document.createRange(); t.selectNodeContents(text); const tr = t.getBoundingClientRect();
+    return { width: bar.width, textLeft: tr.left - bar.left, buttons: buttons.map(box), labels: buttons.map((b) => b.textContent) };`);
+  if (r.textLeft > 16) throw new Error(`message starts ${r.textLeft}px in`);
+  if (JSON.stringify(r.labels) !== JSON.stringify(["Show", "Discard", "×"])) throw new Error(`order ${r.labels}`);
+  const last = r.buttons[r.buttons.length - 1];
+  if (last.r > 16) throw new Error(`close button ${last.r}px from the right edge`);
+  for (let i = 1; i < r.buttons.length; i++) {
+    const between = r.buttons[i].l - (r.width - r.buttons[i - 1].r);
+    if (Math.abs(between - 8) > 1) throw new Error(`gap ${between}px between ${r.labels[i - 1]} and ${r.labels[i]}`);
+  }
+  if (r.buttons[0].l < r.width / 2) throw new Error(`"Show" starts at ${r.buttons[0].l}px of ${r.width}px: not at the right edge`);
+}, () => fixture("q029.md", "text\n"));

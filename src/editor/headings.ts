@@ -60,8 +60,27 @@ function headingsUntouched(tr: Transaction): boolean {
 }
 
 export function createHeadingPlugin(): Plugin {
-  return new Plugin({
+  // Ids are not written during an IME composition: a changed id is a changed attribute,
+  // and ProseMirror replaces the heading element for it, under the input method, on every
+  // composition update (E-9; spec 21, hard part 3). They are written after it ends.
+  let composing = false;
+  return new Plugin<{ list: HeadingInfo[]; rebuilt: boolean }>({
     key: headingKey,
+    props: {
+      handleDOMEvents: {
+        compositionstart() {
+          composing = true;
+          return false;
+        },
+        compositionend(view) {
+          composing = false;
+          window.setTimeout(() => {
+            if (!view.isDestroyed && headingKey.getState(view.state)?.rebuilt) view.dispatch(view.state.tr.setMeta("addToHistory", false));
+          }, 50);
+          return false;
+        },
+      },
+    },
     state: {
       init: (_, state) => build(state.doc),
       apply: (tr, value) => {
@@ -77,7 +96,7 @@ export function createHeadingPlugin(): Plugin {
     },
     appendTransaction(_trs, _old, state) {
       const st = headingKey.getState(state);
-      if (!st?.rebuilt) return null;
+      if (!st?.rebuilt || composing) return null;
       const tr = state.tr;
       for (const h of st.list) if (h.node.attrs.id !== h.id) tr.setNodeAttribute(h.pos, "id", h.id);
       // Even without changes: the meta clears `rebuilt`.

@@ -1321,6 +1321,8 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
 
 // Test hook: lets WebDriver tests read the document and drive the editor.
 (window as unknown as { __scrim: unknown }).__scrim = {
+  /** The notice bar (tests: Q-029 layout). */
+  notice: (text: string | null, labels: string[] = []) => showNotice(text, labels.map((l) => [l, () => {}])),
   editor,
   save,
   recordUpdates,

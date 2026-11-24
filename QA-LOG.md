@@ -446,7 +446,7 @@ only in test builds. X-1 is updated.
 
 ## Q-026: Plan for the P8 performance work after the real-hardware run
 **Asked by:** spec team, from the owner's real-hardware run, 2026-11-22
-**Question:** On real hardware (Ryzen 5 3600, RTX 3070, KDE on Wayland via XWayland,
+**Question:** On real hardware (Ryzen 5 3600, RTX 3070, niri (Wayland), app on X11 through xwayland-satellite,
 debug build, `SCRIM_PERF_STRICT=1`) the results are: PF-1 open 1 MB 6,162 ms (budget
 2,000); E-14 median 19.0 ms, p95 34.0 ms (budget 16); first switch to source mode on
 10,000 lines 789 ms (budget 300); sidebar with 5,000 files 122 ms (passes). Real hardware
@@ -494,7 +494,7 @@ Should viewport-only rendering start? Should the source editor be preloaded to f
 first switch to source mode?
 **Answer (spec team, approved by the project owner, 2026-11-22):**
 
-Owner's machine (Ryzen 5 3600, RTX 3070, KDE on Wayland via XWayland), release build of
+Owner's machine (Ryzen 5 3600, RTX 3070, niri (Wayland), app on X11 through xwayland-satellite), release build of
 eb9d5cd, `SCRIM_PERF_STRICT=1`:
 
 | Measure | Before Q-026 (release) | eb9d5cd | Budget |
@@ -556,7 +556,7 @@ frame, or the second frame itself if no long task follows within 100 ms. This is
 the user can start working, so it is what the budget measures. The budgets themselves
 stay the same.
 
-Results on the owner's machine (Ryzen 5 3600, RTX 3070, KDE on Wayland via XWayland),
+Results on the owner's machine (Ryzen 5 3600, RTX 3070, niri (Wayland), app on X11 through xwayland-satellite),
 release build of c7f07b9, `SCRIM_PERF_STRICT=1`, with the old measurement:
 
 | Measure | Result | Budget |
@@ -570,3 +570,13 @@ release build of c7f07b9, `SCRIM_PERF_STRICT=1`, with the old measurement:
 Leave the post-open stall alone. It is WebKit's own work (first paint of a large DOM, or
 a timed garbage collection), it happens once per open, and the open is under budget
 with it included. Keep the investigation notes in DESIGN.md.
+
+## Q-029: Layout of the notice bar
+**Asked by:** the project owner, from a manual run of cc0dbcb, 2026-11-24
+**Question:** In the "Recovered 1 unsaved document." notice, the "Show" button sits in
+the middle of the bar. Where do a notice's buttons go?
+**Answer (spec team, approved by the project owner, 2026-11-24):**
+
+The message is left-aligned. All action buttons sit together at the right edge, in
+their given order, 8 px apart, with the close button last. Nothing in the bar is
+centered. This applies to every notice bar. See the "Notice bar" row in 22.5.
