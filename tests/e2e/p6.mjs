@@ -4,7 +4,7 @@ import { editorValue, existsSync, fixture, join, sleep, test, waitFor, writeFile
 import { readFileSync, rmSync } from "node:fs";
 
 const js = (s, body) => s.exec(body);
-const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded)"), "editor");
+const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded && window.__scrim.openMs() != null)"), "editor");
 const marked = (s) => js(s, "return [...document.querySelectorAll('#write .md-spell-error')].map((e) => e.textContent)");
 const hasDictionary = existsSync("/usr/share/hunspell/en_US.dic");
 

@@ -4,7 +4,7 @@ import { docs, ed, existsSync, join, readFileSync, saveAsFile, sleep, spawnSync,
 import { mkdirSync } from "node:fs";
 
 const js = (s, body) => s.exec(body);
-const ready = (s) => waitFor(() => js(s, "return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded)"), "editor and theme", 60000);
+const ready = (s) => waitFor(() => js(s, "return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded && window.__scrim.openMs() != null)"), "editor and theme", 60000);
 const settled = (s) =>
   waitFor(() => js(s, "const st = window.__scrim.inlineKey.getState(window.__scrim.editor.view.state); return st.pending === null && !st.touched.length"), "inline structure done", 120000);
 /** Frames until nothing moves: the window follows the viewport in animation frames. */

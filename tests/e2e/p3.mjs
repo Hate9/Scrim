@@ -6,7 +6,7 @@ import {
 } from "./harness.mjs";
 
 const md = editorValue;
-const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && !document.body.classList.contains('scrim-loading') && window.__scrim.editor.view.state.doc)"), "editor");
+const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && !document.body.classList.contains('scrim-loading') && window.__scrim.editor.view.state.doc && window.__scrim.openMs() != null)"), "editor");
 const js = (s, body) => s.exec(body);
 const press = (s, ...keys) => s.chord(...keys);
 const expectMd = async (s, want, what = "markdown") => {

@@ -3,7 +3,7 @@ import { CTRL, SHIFT } from "./webdriver.mjs";
 import { Session } from "./webdriver.mjs";
 import { APP, docs, ed, editorValue, existsSync, fixture, join, readFileSync, readdirSync, sleep, spawnSync, test, typeText, waitFor, writeFileSync } from "./harness.mjs";
 
-const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded)"), "editor and theme");
+const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded && window.__scrim.openMs() != null)"), "editor and theme");
 const js = (s, body) => s.exec(body);
 const press = (s, ...keys) => s.chord(...keys);
 const themesDir = () => join(process.env.SCRIM_CONFIG_DIR, "themes");

@@ -142,14 +142,15 @@ export class StatusBar {
    * Recount in idle time, in slices of at most 8 ms (counts are cached per block, so a
    * slice resumes where the last one stopped). A recount run as a timer could land
    * between a switch to source mode and its first frames, where counting a 10,000-line
-   * source in one go added 130 ms to the switch (QA-LOG Q-027 follow-up).
+   * source in one go added 130 ms to the switch (QA-LOG Q-027 follow-up). Without
+   * `requestIdleCallback` (WebKitGTK), slices are 16 ms apart.
    */
   private recountIdle() {
     if (this.idle) return;
     const w = window as unknown as { requestIdleCallback?: (cb: (d: { timeRemaining(): number }) => void, o?: { timeout: number }) => number };
     const ric = w.requestIdleCallback
       ? (cb: (d: { timeRemaining(): number }) => void) => w.requestIdleCallback!.call(window, cb, { timeout: 1000 })
-      : (cb: (d: { timeRemaining(): number }) => void) => window.setTimeout(() => cb({ timeRemaining: () => 8 }), 50);
+      : (cb: (d: { timeRemaining(): number }) => void) => window.setTimeout(() => cb({ timeRemaining: () => 8 }), 16);
     this.idle = ric((d) => {
       this.idle = 0;
       if (!this.recount(Math.min(8, Math.max(1, d.timeRemaining() - 2)))) this.recountIdle();

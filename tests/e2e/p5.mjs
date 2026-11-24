@@ -11,7 +11,7 @@ process.env.SCRIM_TEST_OPEN = openFile;
 
 const js = (s, body) => s.exec(body);
 const press = (s, ...keys) => s.chord(...keys);
-const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded)"), "editor and theme");
+const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded && window.__scrim.openMs() != null)"), "editor and theme");
 const themesDir = () => join(process.env.SCRIM_CONFIG_DIR, "themes");
 const out = (name) => {
   const d = join(work, "exports");
