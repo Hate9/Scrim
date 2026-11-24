@@ -437,3 +437,13 @@ release build of c7f07b9, `SCRIM_PERF_STRICT=1`, with the old measurement:
 Leave the post-open stall alone. It is WebKit's own work (first paint of a large DOM, or
 a timed garbage collection), it happens once per open, and the open is under budget
 with it included. Keep the investigation notes in DESIGN.md.
+
+## Q-029: Layout of the notice bar
+**Asked by:** the project owner, from a manual run of cc0dbcb, 2026-11-24
+**Question:** In the "Recovered 1 unsaved document." notice, the "Show" button sits in
+the middle of the bar. Where do a notice's buttons go?
+**Answer (spec team, approved by the project owner, 2026-11-24):**
+
+The message is left-aligned. All action buttons sit together at the right edge, in
+their given order, 8 px apart, with the close button last. Nothing in the bar is
+centered. This applies to every notice bar. See the "Notice bar" row in 22.5.
