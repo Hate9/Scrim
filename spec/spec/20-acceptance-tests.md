@@ -249,7 +249,8 @@ implementation team writes to contain at least one instance of every construct i
 - **D-7** Save As to another folder with relative images → the three-way prompt appears;
   "Update image paths" rewrites them correctly.
 - **PF-1** Open a 1 MB file < 2 s; toggle source mode < 300 ms on 10,000 lines; sidebar
-  with 5,000 files < 1 s.
+  with 5,000 files < 1 s. Each time runs from the request until the result has painted
+  and no main-thread task longer than 50 ms is running (QA-LOG Q-028).
 - **P8-1** (Ship) AppImage, .deb, PKGBUILD, and Windows installer each install, launch,
   open a file by double-click / "Open with", and uninstall cleanly; the binary contains
   no HTTP client crate (N-1 CI check).

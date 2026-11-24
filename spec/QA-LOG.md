@@ -406,3 +406,34 @@ first layout).
 2. **Source editor preloading: approved.** Create the source-mode editor in the
    background (idle time after opening) so the first switch costs the same as later
    ones. It must not delay the first frame of the open.
+
+## Q-028: Where PF-1's timers stop
+**Asked by:** implementation, after the owner's real-hardware run of c7f07b9, 2026-11-24
+**Question:** After every open of a large document, WebKit stalls the main thread once
+(about 500 ms on the 1 MB fixture, about 150 ms on 10,000 lines). PF-1 stops its timer at
+the second frame, which sometimes lands before the stall and sometimes after it, so the
+reported open time swings between about 0.9 s and 1.4 s. Should PF-1 wait until the main
+thread is free?
+**Answer (spec team, approved by the project owner, 2026-11-24):**
+
+Yes. A PF-1 timing runs from the request (the open command, or the source-mode toggle)
+until the first frame showing the result has painted **and** no main-thread task longer
+than 50 ms is running. Measure it as the end of the last long task after the second
+frame, or the second frame itself if no long task follows within 100 ms. This is when
+the user can start working, so it is what the budget measures. The budgets themselves
+stay the same.
+
+Results on the owner's machine (Ryzen 5 3600, RTX 3070, KDE on Wayland via XWayland),
+release build of c7f07b9, `SCRIM_PERF_STRICT=1`, with the old measurement:
+
+| Measure | Result | Budget |
+|---|---|---|
+| E-14 p95 (median), 10,000 lines | 8.0 (7.0) ms | 16 ms |
+| Open 1 MB, five runs | 936, 1,393, 1,394, 1,372, 1,363 ms | 2,000 ms |
+| First switch to source mode, in / out | 224 / 43 ms | 300 ms |
+| Later switch to source mode, in / out | 184 / 32 ms | 300 ms |
+| Sidebar, 5,000 files | 134 ms | 1,000 ms |
+
+Leave the post-open stall alone. It is WebKit's own work (first paint of a large DOM, or
+a timed garbage collection), it happens once per open, and the open is under budget
+with it included. Keep the investigation notes in DESIGN.md.
