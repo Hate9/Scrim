@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" alt="" width="96"></p>
+
 # Scrim
 
 A desktop Markdown editor for Linux and Windows that edits the document in its rendered

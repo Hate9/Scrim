@@ -478,6 +478,14 @@ are end-to-end tests in `tests/e2e/p1.mjs`.
   package's files remain. The .deb's desktop file is `Scrim.desktop` (named after the
   product).
 
+- The app icon is the owner's woven-hash mark (a # in PT Serif Bold drawn as woven scrim:
+  the top bar passes over the left stroke and under the right one, the bottom bar the
+  other way), on a paper-coloured tile. Sources: `assets/icon.svg` (tile) and
+  `assets/logo.svg` (mark alone, used in the README); the gaps at the crossings are cut
+  out of the ink with a mask, so whatever is behind shows through; strokes `#26231f`,
+  bars `#34302b`. `node scripts/render-icon.mjs` renders `assets/icon-source.png` and
+  `npx tauri icon` makes the sizes in `src-tauri/icons`.
+
 ### Subscript, superscript, highlight (spec 02)
 
 The inline analyzer (`src/md/inline.ts`, `delimited`) finds `==…==`, `^…^` and `~…~`
