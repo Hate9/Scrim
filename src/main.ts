@@ -43,6 +43,7 @@ import { inlineKey } from "./editor/decorations";
 import { setViewportMode, viewportConfig, viewportKey } from "./editor/viewport";
 import { createEditor, recordUpdates } from "./editor/editor";
 import { traceOn } from "./editor/trace";
+import { settled } from "./app/settle";
 import { Dispatcher, normalizeAccelerator } from "./editor/keys";
 import { AppMenu, shortcutOverrides } from "./app/menu";
 import { menuTree } from "./app/menutree";
@@ -384,9 +385,12 @@ async function init() {
   requestAnimationFrame(() => {
     performance.measure("scrim-until-frame", "scrim-loaded");
     performance.mark("scrim-frame");
-    requestAnimationFrame(() => {
-      performance.measure("scrim-first-frame", "scrim-frame");
-      openMs = performance.now() - t0;
+    // The open ends at the second frame, or at the end of a long task starting within
+    // 100 ms of it (Q-028): first-frame is frame to frame, settle the rest.
+    void settled(1).then(({ frame, end }) => {
+      performance.measure("scrim-first-frame", { start: performance.getEntriesByName("scrim-frame").pop()?.startTime ?? frame, end: frame });
+      performance.measure("scrim-settle", { start: frame, end });
+      openMs = end - t0;
       if (trace) {
         const from = performance.getEntriesByName("scrim-loaded").pop()?.startTime ?? 0;
         openTrace = trace.filter((e) => e.t + e.ms >= from && e.ms >= 2).map((e) => `+${Math.round(e.t - from)} ${e.what} ${Math.round(e.ms)}`);
@@ -1345,6 +1349,8 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   zoomLevel: () => zoomLevel,
   openMs: () => openMs,
   openTrace: () => openTrace,
+  /** PF-1's end point (Q-028): the second frame, or the end of a long task right after. */
+  settled,
 };
 
 void appWindow.listen("scrim://doc-reload", () => void init());

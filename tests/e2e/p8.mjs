@@ -23,10 +23,11 @@ test("PF-1 open a 1 MB file (< 2 s)", async (s) => {
   await waitFor(() => js(s, "return window.__scrim?.openMs?.() != null"), "document open", 60000);
   const openMs = await js(s, "return window.__scrim.openMs()");
   // The open by stage (Q-027): Rust read and block tree, IPC (reply minus Rust), frontend
-  // parse, state, view build, refocus, JS until the first frame, first frame (layout and
-  // paint), and when the theme fonts finished loading (from the page's start).
+  // parse, state, view build, refocus, JS until the first frame, first frame (to the
+  // second frame), settle (a long task starting within 100 ms of the second frame, to its
+  // end; Q-028), and when the theme fonts finished loading (from the page's start).
   await sleep(4000); // fonts, if any are still loading
-  const stages = ["rust-read", "rust-blocks", "ipc", "parse", "make-state", "update-view", "refocus", "first-marks", "serialize", "until-frame", "first-frame", "fonts-loaded"];
+  const stages = ["rust-read", "rust-blocks", "ipc", "parse", "make-state", "update-view", "refocus", "first-marks", "serialize", "until-frame", "first-frame", "settle", "fonts-loaded"];
   const m = await js(s, "return Object.fromEntries(performance.getEntriesByType('measure').filter((m) => m.name.startsWith('scrim-')).map((m) => [m.name.slice(6), Math.round(m.duration)]))");
   console.log("     stages: " + stages.map((k) => `${k} ${m[k] ?? "-"}`).join(", "));
   console.log("     after the load, before the first frame: " + JSON.stringify(await js(s, "return window.__scrim.openTrace()")));
@@ -47,14 +48,16 @@ test("PF-1 toggle source mode on 10,000 lines (< 300 ms)", async (s) => {
   console.log(`     source mode preload: ${pre === null ? "did not run" : `${pre} ms`}`);
   // Each switch by stage: entering = prep (escapes, serialize with the position map, top
   // block), cm-create, show (unhide, body class, focus), scroll; then the rest of the
-  // toggle's JavaScript, and the two frames until it is drawn.
+  // toggle's JavaScript, the two frames until it is drawn, and settle: a long task
+  // starting within 100 ms of the second frame, to its end (Q-028).
   const timeToggle = async (label) => {
     if (process.env.PF_TRACE) await js(s, "window.__tr = window.__scrim.traceOn(true); return true");
+    // Until the second frame and then a free main thread (Q-028).
     const r = await js(s, `const t = performance.now(); return Promise.resolve(window.__scrim.sourceMode.toggle()).then(() => { const j = performance.now();
-      return new Promise((res) => requestAnimationFrame(() => { const f1 = performance.now(); requestAnimationFrame(() => { const f2 = performance.now();
+      return new Promise((res) => requestAnimationFrame(() => { const f1 = performance.now(); window.__scrim.settled(1).then(({ frame: f2, end }) => {
         const last = (n) => { const m = performance.getEntriesByName('scrim-' + n, 'measure').filter((e) => e.startTime >= t).pop(); return m ? Math.round(m.duration) : null; };
-        res({ total: f2 - t, js: Math.round(j - t), frame1: Math.round(f1 - j), frame2: Math.round(f2 - f1), stages: Object.fromEntries(['src-enter-prep', 'src-cm-create', 'src-show', 'src-scroll'].map((n) => [n.slice(4), last(n)]).filter(([, v]) => v !== null)) }); }); })); })`);
-    console.log(`     ${label} stages: ${Object.entries(r.stages).map(([k, v]) => `${k} ${v}`).join(", ")}${Object.keys(r.stages).length ? ", " : ""}js total ${r.js}, frame 1 ${r.frame1}, frame 2 ${r.frame2}`);
+        res({ total: end - t, js: Math.round(j - t), frame1: Math.round(f1 - j), frame2: Math.round(f2 - f1), settle: Math.round(end - f2), stages: Object.fromEntries(['src-enter-prep', 'src-cm-create', 'src-show', 'src-scroll'].map((n) => [n.slice(4), last(n)]).filter(([, v]) => v !== null)) }); }); })); })`);
+    console.log(`     ${label} stages: ${Object.entries(r.stages).map(([k, v]) => `${k} ${v}`).join(", ")}${Object.keys(r.stages).length ? ", " : ""}js total ${r.js}, frame 1 ${r.frame1}, frame 2 ${r.frame2}, settle ${r.settle}`);
     if (process.env.PF_TRACE) console.log("     trace: " + JSON.stringify(await js(s, "const tr = window.__tr; window.__scrim.traceOn(false); const t0 = tr[0]?.t ?? 0; return tr.filter((e) => e.ms >= 2).map((e) => `+${Math.round(e.t - t0)} ${e.what} ${Math.round(e.ms)}`)"), null, 1));
     return r.total;
   };
@@ -73,10 +76,11 @@ test("PF-1 sidebar with 5,000 files (< 1 s)", async (s) => {
   await waitFor(() => js(s, "return window.__scrim?.openMs?.() != null"), "document open");
   await sleep(1500); // let the document's own after-load work finish
   if (process.env.PF_CSS) await js(s, "const st = document.createElement('style'); st.textContent = " + JSON.stringify(process.env.PF_CSS) + "; document.head.appendChild(st); return true");
-  // Until the visible rows are in the DOM and drawn (two frames); a big tree is virtual.
+  // Until the visible rows are in the DOM and drawn (the second frame, or the end of a
+  // long task right after it, Q-028); a big tree is virtual.
   if (process.env.PF_TRACE) await js(s, "window.__tr = window.__scrim.traceOn(true); return true");
   const ms = await js(s, `const t = performance.now(); window.__scrim.sidebar.showFiles(false);
-    return new Promise((r) => { const tick = () => document.querySelectorAll('#file-library .file-tree-node').length >= 20 ? requestAnimationFrame(() => requestAnimationFrame(() => r(performance.now() - t))) : setTimeout(tick, 20); tick(); })`);
+    return new Promise((r) => { const tick = () => document.querySelectorAll('#file-library .file-tree-node').length >= 20 ? window.__scrim.settled().then(({ end }) => r(end - t)) : setTimeout(tick, 20); tick(); })`);
   if (process.env.PF_TRACE) console.log("     trace: " + JSON.stringify(await js(s, "const tr = window.__tr; window.__scrim.traceOn(false); const t0 = tr[0]?.t ?? 0; return tr.filter((e) => e.ms >= 1).map((e) => `+${Math.round(e.t - t0)} ${e.what} ${Math.round(e.ms)}`)"), null, 1));
   budget("sidebar 5,000 files", ms, 1000);
   // The virtual tree draws rows as they scroll into view.

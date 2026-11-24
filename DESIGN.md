@@ -378,6 +378,17 @@ What is left is WebKit's own work for the first paint of a document with tens of
 thousands of elements, or a full collection JavaScriptCore schedules on its own timer;
 neither is ours to remove with a small change. The open is within budget either way.
 
+Where PF-1's timers stop (Q-028): each timing (open, each source-mode switch, and the
+sidebar) runs until the second frame after the result, or the end of the last long task
+(over 50 ms) starting within 100 ms of it (`src/app/settle.ts`: timers chained after the
+frame, a gap over 50 ms between them being a long task). The open's stages print it as
+`settle` (second frame to the end); a switch prints `frame 1`, `frame 2` and `settle`.
+With it the open includes the post-open stall every time (in first-frame when it comes
+before the second frame, in settle when after), and the first background chunk of inline
+decorations, which starts right after the second frame. That chunk is our deferred work
+and a keystroke then would wait for it, so it stays in the measurement rather than being
+pushed out of the 100 ms window.
+
 Placeholders of viewport-only rendering can show their own box (a quote's bar, a code
 block's background) for a frame during fast scrolls before the range catches up; accepted
 for now (Q-027 follow-up).
