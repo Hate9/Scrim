@@ -470,6 +470,13 @@ are end-to-end tests in `tests/e2e/p1.mjs`.
   line) and uninstalls; `~/.config/scrim` stays, as intended. The default `source` needs
   a `v0.1.0` tag, left until a release is tagged. The Windows installers still need their
   P8-1 run.
+- `scripts/check-linux-packages.sh` repeats the Linux part on every CI run (job
+  `packages`): after `tauri build --bundles deb appimage` it checks the .deb's Depends
+  and Recommends, installs it, checks the desktop file (`Exec=scrim %F`, `text/markdown`)
+  and that GIO lists it for `text/markdown`, runs S-1 against `/usr/bin/scrim` and against
+  the AppImage (`APPIMAGE_EXTRACT_AND_RUN=1`), then `dpkg -r` and checks that none of the
+  package's files remain. The .deb's desktop file is `Scrim.desktop` (named after the
+  product).
 
 ### Subscript, superscript, highlight (spec 02)
 
