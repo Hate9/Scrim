@@ -147,6 +147,7 @@ Wireframe: `wireframes/window.svg`, `wireframes/sidebar.svg`.
 | Popovers (link hover, footnote, emoji list, language box list) | background `--color-popover-bg-color` (`#fafafa` light), 1 px `rgba(0,0,0,.15)` border, radius 4 px, shadow `0 2px 8px rgba(0,0,0,.15)`, 13 px text |
 | Table toolbar | 28 px tall row of 24 px icon buttons, background `--bg-color`, 1 px `--table-border-color` border, radius 3 px, sitting 4 px above the table |
 | Language box (code block) | 12 px text input, 120 px wide, bottom-right inside the block, transparent background, muted text until focused |
+| Notice bar (recovered drafts, encoding warnings, other one-line notices) | full width at the top of the editor area, 13 px text; the message is left-aligned, the action buttons sit together at the right edge in their given order, 8 px apart, followed by the close button last; nothing is centered |
 | Animations | none, except 150 ms fades for popovers, the sidebar sliding 200 ms, and typewriter-mode scrolling 100 ms |
 
 ## 22.6 Preferences panel
