@@ -5,7 +5,7 @@ import { mkdirSync, rmSync, statSync } from "node:fs";
 
 const js = (s, body) => s.exec(body);
 const ed = (s, body) => s.exec(`const view = window.__scrim.editor.view; ${body}`);
-const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded && window.__scrim.local)"), "editor");
+const ready = (s) => waitFor(() => s.exec("return !!(window.__scrim && window.__scrim.editor.view.state.doc && window.__scrim.themes.loaded && window.__scrim.local && !document.body.classList.contains('scrim-loading') && window.__scrim.openMs() != null)"), "editor");
 const localFile = () => join(process.env.SCRIM_CONFIG_DIR, "local.json");
 /** Write local.json before the app starts; tests clear it when they end. */
 const withLocal = (local, file) => () => {

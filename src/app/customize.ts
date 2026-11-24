@@ -238,17 +238,19 @@ export class CustomizePane {
     }
     if (tab) this.tab = tab;
     this.renderTabs();
-    this.body.textContent = "";
-    if (this.tab === "snippets") {
-      // Drawn once and kept (focus and caret survive Preferences re-rendering); redrawn
-      // when the data changes underneath.
-      if (!this.snippetsDrawn) this.renderSnippets();
-      this.body.appendChild(this.snippetsTab);
-    } else {
-      const f = this.tab === "css" ? this.css : this.config;
-      this.body.appendChild(f.root);
-      f.view?.requestMeasure();
+    // Drawn once and kept (focus and caret survive Preferences re-rendering); redrawn when
+    // the data changes underneath. Only swapped in when another tab is showing: taking out
+    // and putting back the same tab drops the focus of a field in it without a blur event
+    // (WebKit), which lost a shortcut field's focus (K-5).
+    if (this.tab === "snippets" && !this.snippetsDrawn) this.renderSnippets();
+    const f = this.tab === "css" ? this.css : this.tab === "config" ? this.config : null;
+    const want = f ? f.root : this.snippetsTab;
+    if (this.body.childNodes.length !== 1 || this.body.firstChild !== want) {
+      const a = document.activeElement;
+      this.body.replaceChildren(want);
+      if (a instanceof HTMLElement && a !== document.body && want.contains(a)) a.focus();
     }
+    f?.view?.requestMeasure();
   }
 
   private status(text: string, error = false) {

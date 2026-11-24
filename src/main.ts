@@ -397,7 +397,9 @@ async function init() {
     });
   });
   document.title = d.title;
-  editor.view.focus();
+  // Not away from a field the user is already in (startup can take a moment).
+  const a = document.activeElement;
+  if (!a || a === document.body || editor.view.dom.contains(a)) editor.view.focus();
   if (pendingAnchor) {
     const { jumpToAnchor } = await import("./editor/links");
     jumpToAnchor(editor.view, pendingAnchor);
