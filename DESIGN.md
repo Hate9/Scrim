@@ -326,6 +326,22 @@ moving the rendered range.
 PF-1 prints its stage breakdown before the budget check, so a strict run still reports
 the stages.
 
+Source mode regression (owner's run of f7eb201: first switch 359 ms, was 169 ms). PF-1
+now prints each switch by stage (prep: escapes, serializing with the position map and
+the top block; cm-create; show; scroll; the rest of the toggle's JavaScript; the two
+frames) and whether the idle-time preload ran (it did). An A/B against 3b7f9f3's
+frontend put the extra time in the word count: its recount, debounced after each update,
+landed inside switches and, in source mode, serialized the whole ProseMirror document
+(`editor.markdown()`) and counted that text in one go (about 130 ms here), and the cached
+count's first pass ran as back-to-back timer slices. Recounts now run in idle time (a 50 ms
+timer where WebKitGTK has no `requestIdleCallback`) in slices of at most 8 ms that resume
+where the last stopped; source mode counts CodeMirror's text by line with a per-line
+cache, and follows edits in source mode (it showed the live document's counts before).
+Here: first switch 383–441 to 243–269 ms, later switches 291–307 to 145–203 ms; E-14 and
+the open unchanged. The sidebar's 43 → 133 ms on the owner's machine is not from this:
+3b7f9f3's frontend measures the same here (229–337 ms against 228–263 ms), and almost all
+of it is the folder listing before any frontend work.
+
 Placeholders of viewport-only rendering can show their own box (a quote's bar, a code
 block's background) for a frame during fast scrolls before the range catches up; accepted
 for now (Q-027 follow-up).

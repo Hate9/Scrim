@@ -19,13 +19,14 @@ export function traceOn(on: boolean): TraceEntry[] | null {
   return log;
 }
 
-export function timed<T>(what: string, f: () => T): T {
+/** Run `f`, timed while tracing; `what` may be a function so its label is only built then. */
+export function timed<T>(what: string | (() => string), f: () => T): T {
   if (!log) return f();
   const t = performance.now();
   try {
     return f();
   } finally {
-    log?.push({ t, what, ms: performance.now() - t });
+    log?.push({ t, what: typeof what === "string" ? what : what(), ms: performance.now() - t });
   }
 }
 

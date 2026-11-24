@@ -4,7 +4,7 @@ import { codeIndent } from "../md/style";
 import { history, historyKeymap, defaultKeymap, indentWithTab, redo, undo } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { indentUnit, syntaxHighlighting } from "@codemirror/language";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorState, Compartment, type Text } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { cmAliases } from "../editor/codeview";
 import { TextSelection } from "prosemirror-state";
@@ -75,12 +75,16 @@ export class SourceMode implements SourceSearch {
       }),
     });
     performance.measure("scrim-src-cm-create", "scrim-src-cm");
+    performance.mark("scrim-src-show");
     this.host.hidden = false;
     document.body.classList.add("md-source-mode");
     this.cm.focus();
+    performance.measure("scrim-src-show", "scrim-src-show");
+    performance.mark("scrim-src-scroll");
     const line = this.cm.lineBlockAt(Math.min(topOffset, text.length));
     // CodeMirror measures the lines it scrolls to (estimates would drift on wrapped lines).
     this.cm.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 8 }) });
+    performance.measure("scrim-src-scroll", "scrim-src-scroll");
   }
 
   private extensions(numbers: boolean) {
@@ -97,6 +101,11 @@ export class SourceMode implements SourceSearch {
         if (u.docChanged) this.onDirty();
       }),
     ];
+  }
+
+  /** The source text while source mode is on (counts, 14). */
+  doc(): Text | null {
+    return this.cm ? this.cm.state.doc : null;
   }
 
   private preloaded = false;

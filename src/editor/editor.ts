@@ -248,7 +248,7 @@ export function createEditor(
         groups.mark(tr);
         const state = timed("state apply", () => view.state.apply(tr));
         timed("view update", () => view.updateState(state));
-        updateHooks.forEach((f) => timed(`hook ${String(f).slice(0, 60)}`, () => f(view)));
+        updateHooks.forEach((f) => timed(() => `hook ${String(f).slice(0, 60)}`, () => f(view)));
         if (tr.docChanged && perfLog) perfLog.push(performance.now());
         if (tr.docChanged) {
           // Comparing whole documents is O(n): mark dirty at once, and check for a

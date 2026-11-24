@@ -146,3 +146,39 @@ export function warmCounts(doc: Node, defs: Definitions, opts: EditorOptions, bu
   });
   return done;
 }
+
+/** Counts of a source text by line (words and counted characters never span one): a
+ * recount in source mode reuses the counts of unchanged lines, and resumes where the last
+ * slice stopped. */
+let lineCache = new Map<string, [number, number, number]>();
+let sourceRun: { doc: SourceText; next: number; words: number; chars: number; cn: number; text: boolean } | null = null;
+
+/** What `countSource` needs of CodeMirror's `Text`. */
+export interface SourceText {
+  readonly lines: number;
+  line(n: number): { text: string };
+}
+
+/** `count([{ text, code: false }], lines)` of the source, or null when `budgetMs` ran out
+ * first (the next call continues). */
+export function countSource(doc: SourceText, budgetMs: number): Counts | null {
+  if (!sourceRun || sourceRun.doc !== doc) sourceRun = { doc, next: 1, words: 0, chars: 0, cn: 0, text: false };
+  const run = sourceRun;
+  const end = performance.now() + budgetMs;
+  if (lineCache.size > 4 * doc.lines + 1000) lineCache = new Map();
+  while (run.next <= doc.lines) {
+    const line = doc.line(run.next++).text;
+    let k = lineCache.get(line);
+    if (!k) {
+      k = [countWords(line), chars(line), chars(line.replace(/\s/g, ""))];
+      lineCache.set(line, k);
+    }
+    run.words += k[0];
+    run.chars += k[1];
+    run.cn += k[2];
+    if (!run.text && k[2]) run.text = true;
+    if ((run.next & 127) === 0 && performance.now() > end) return null;
+  }
+  const { words } = run;
+  return { words, chars: run.chars, charsNoSpaces: run.cn, lines: doc.lines, paragraphs: run.text ? 1 : 0, minutes: Math.max(words ? 1 : 0, Math.round(words / 250)) };
+}

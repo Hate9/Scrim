@@ -41,17 +41,31 @@ test("PF-1 toggle source mode on 10,000 lines (< 300 ms)", async (s) => {
   // frames take only a few milliseconds then.
   await waitFor(() => js(s, "const st = window.__scrim.inlineKey.getState(window.__scrim.editor.view.state); return st.pending === null && !st.touched.length"), "inline structure done", 120000);
   await waitFor(() => js(s, "const t = performance.now(); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(performance.now() - t < 200))))"), "idle frames", 120000);
-  const timeToggle = () =>
-    js(s, "const t = performance.now(); return Promise.resolve(window.__scrim.sourceMode.toggle()).then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(performance.now() - t)))))");
+  // Whether the idle-time preload (Q-027) ran before the first switch, and how long it took.
+  const pre = await js(s, "const m = performance.getEntriesByName('scrim-src-preload', 'measure').pop(); return m ? Math.round(m.duration) : null");
+  console.log(`     source mode preload: ${pre === null ? "did not run" : `${pre} ms`}`);
+  // Each switch by stage: entering = prep (escapes, serialize with the position map, top
+  // block), cm-create, show (unhide, body class, focus), scroll; then the rest of the
+  // toggle's JavaScript, and the two frames until it is drawn.
+  const timeToggle = async (label) => {
+    if (process.env.PF_TRACE) await js(s, "window.__tr = window.__scrim.traceOn(true); return true");
+    const r = await js(s, `const t = performance.now(); return Promise.resolve(window.__scrim.sourceMode.toggle()).then(() => { const j = performance.now();
+      return new Promise((res) => requestAnimationFrame(() => { const f1 = performance.now(); requestAnimationFrame(() => { const f2 = performance.now();
+        const last = (n) => { const m = performance.getEntriesByName('scrim-' + n, 'measure').filter((e) => e.startTime >= t).pop(); return m ? Math.round(m.duration) : null; };
+        res({ total: f2 - t, js: Math.round(j - t), frame1: Math.round(f1 - j), frame2: Math.round(f2 - f1), stages: Object.fromEntries(['src-enter-prep', 'src-cm-create', 'src-show', 'src-scroll'].map((n) => [n.slice(4), last(n)]).filter(([, v]) => v !== null)) }); }); })); })`);
+    console.log(`     ${label} stages: ${Object.entries(r.stages).map(([k, v]) => `${k} ${v}`).join(", ")}${Object.keys(r.stages).length ? ", " : ""}js total ${r.js}, frame 1 ${r.frame1}, frame 2 ${r.frame2}`);
+    if (process.env.PF_TRACE) console.log("     trace: " + JSON.stringify(await js(s, "const tr = window.__tr; window.__scrim.traceOn(false); const t0 = tr[0]?.t ?? 0; return tr.filter((e) => e.ms >= 2).map((e) => `+${Math.round(e.t - t0)} ${e.what} ${Math.round(e.ms)}`)"), null, 1));
+    return r.total;
+  };
   // The first switch after opening also pays one-time work (code loading, first
   // serialization); later ones are what the budget is about. Both are reported.
-  budget("first enter source mode (10,000 lines)", await timeToggle(), 300);
+  { const ms = await timeToggle("first enter source mode"); budget("first enter source mode (10,000 lines)", ms, 300); }
   await sleep(500);
-  budget("first leave source mode (10,000 lines)", await timeToggle(), 300);
+  { const ms = await timeToggle("first leave source mode"); budget("first leave source mode (10,000 lines)", ms, 300); }
   await sleep(500);
-  budget("enter source mode (10,000 lines)", await timeToggle(), 300);
+  { const ms = await timeToggle("enter source mode"); budget("enter source mode (10,000 lines)", ms, 300); }
   await sleep(500);
-  budget("leave source mode (10,000 lines)", await timeToggle(), 300);
+  { const ms = await timeToggle("leave source mode"); budget("leave source mode (10,000 lines)", ms, 300); }
 }, () => bigDoc("pf1-10k.md", 10000));
 
 test("PF-1 sidebar with 5,000 files (< 1 s)", async (s) => {
@@ -59,8 +73,10 @@ test("PF-1 sidebar with 5,000 files (< 1 s)", async (s) => {
   await sleep(1500); // let the document's own after-load work finish
   if (process.env.PF_CSS) await js(s, "const st = document.createElement('style'); st.textContent = " + JSON.stringify(process.env.PF_CSS) + "; document.head.appendChild(st); return true");
   // Until the visible rows are in the DOM and drawn (two frames); a big tree is virtual.
+  if (process.env.PF_TRACE) await js(s, "window.__tr = window.__scrim.traceOn(true); return true");
   const ms = await js(s, `const t = performance.now(); window.__scrim.sidebar.showFiles(false);
     return new Promise((r) => { const tick = () => document.querySelectorAll('#file-library .file-tree-node').length >= 20 ? requestAnimationFrame(() => requestAnimationFrame(() => r(performance.now() - t))) : setTimeout(tick, 20); tick(); })`);
+  if (process.env.PF_TRACE) console.log("     trace: " + JSON.stringify(await js(s, "const tr = window.__tr; window.__scrim.traceOn(false); const t0 = tr[0]?.t ?? 0; return tr.filter((e) => e.ms >= 1).map((e) => `+${Math.round(e.t - t0)} ${e.what} ${Math.round(e.ms)}`)"), null, 1));
   budget("sidebar 5,000 files", ms, 1000);
   // The virtual tree draws rows as they scroll into view.
   await js(s, "const l = document.getElementById('file-library'); l.scrollTop = l.scrollHeight; return true");

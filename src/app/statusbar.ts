@@ -2,7 +2,7 @@
 
 import { inlineKey } from "../editor/decorations";
 import type { Editor } from "../editor/editor";
-import { count, countableText, countDocument, warmCounts, type Counts } from "../editor/counts";
+import { count, countableText, countDocument, countSource, warmCounts, type Counts, type SourceText } from "../editor/counts";
 
 type Which = keyof Counts;
 
@@ -34,7 +34,8 @@ export class StatusBar {
       sidebarOpen(): boolean;
       setting<T>(key: string, fallback: T): T;
       setSetting(key: string, value: unknown): void;
-      sourceText(): string | null;
+      /** Source mode's text (CodeMirror's document), or null in live preview. */
+      sourceDoc(): SourceText | null;
       spell: {
         enabled(): boolean;
         available(): boolean;
@@ -127,30 +128,50 @@ export class StatusBar {
   /** Counts update within 300 ms of typing stopping (14). */
   schedule() {
     clearTimeout(this.timer);
-    this.timer = window.setTimeout(() => this.recount(), 250);
+    this.timer = window.setTimeout(() => this.recountIdle(), 250);
   }
 
-  private recount() {
+  private idle = 0;
+
+  /**
+   * Recount in idle time, in slices of at most 8 ms (counts are cached per block, so a
+   * slice resumes where the last one stopped). A recount run as a timer could land
+   * between a switch to source mode and its first frames, where counting a 10,000-line
+   * source in one go added 130 ms to the switch (QA-LOG Q-027 follow-up).
+   */
+  private recountIdle() {
+    if (this.idle) return;
+    const w = window as unknown as { requestIdleCallback?: (cb: (d: { timeRemaining(): number }) => void, o?: { timeout: number }) => number };
+    const ric = w.requestIdleCallback
+      ? (cb: (d: { timeRemaining(): number }) => void) => w.requestIdleCallback!.call(window, cb, { timeout: 1000 })
+      : (cb: (d: { timeRemaining(): number }) => void) => window.setTimeout(() => cb({ timeRemaining: () => 8 }), 50);
+    this.idle = ric((d) => {
+      this.idle = 0;
+      if (!this.recount(Math.min(8, Math.max(1, d.timeRemaining() - 2)))) this.recountIdle();
+    });
+  }
+
+  /** Count for at most `budgetMs` (cached blocks are free); true when the counts are shown. */
+  private recount(budgetMs: number): boolean {
     const state = this.editor.view.state;
     const defs = inlineKey.getState(state)?.defs;
-    if (!defs) return;
+    if (!defs) return true;
     const codeInWords = this.hooks.setting("countCodeInWords", false);
-    const src = this.hooks.sourceText();
+    const src = this.hooks.sourceDoc();
     if (src !== null) {
-      this.total = count([{ text: src, code: false }], src.split(/\r\n?|\n/).length, codeInWords);
+      const t = countSource(src, budgetMs);
+      if (!t) return false;
+      this.total = t;
       this.selected = null;
     } else {
-      // A large document's first count runs in slices between other work.
-      if (!warmCounts(state.doc, defs, this.editor.options, 8)) {
-        this.timer = window.setTimeout(() => this.recount(), 0);
-        return;
-      }
+      if (!warmCounts(state.doc, defs, this.editor.options, budgetMs)) return false;
       const lines = this.editor.markdownLines();
       this.total = countDocument(state.doc, defs, this.editor.options, lines, codeInWords);
       const sel = state.selection;
       this.selected = sel.empty ? null : count(countableText(state.doc, defs, this.editor.options, sel.from, sel.to), state.doc.textBetween(sel.from, sel.to, "\n", "\n").split("\n").length, codeInWords);
     }
     this.render();
+    return true;
   }
 
   private render() {

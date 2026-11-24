@@ -678,6 +678,8 @@ const sourceMode = new SourceMode(
   editor,
   () => {
     if (!editor.isDirty()) void ipc.setDirty(true).then((t) => (document.title = t));
+    // Counts follow source edits too (14).
+    statusBar.schedule();
   },
   () => setting("sourceLineNumbers", false),
 );
@@ -703,7 +705,7 @@ const statusBar = new StatusBar(editor, {
   sidebarOpen: () => sidebar.visible,
   setting,
   setSetting,
-  sourceText: () => (sourceMode.active() ? editor.markdown() : null),
+  sourceDoc: () => sourceMode.doc(),
   spell: {
     enabled: () => spelling.enabled(),
     available: () => spelling.info.available,
