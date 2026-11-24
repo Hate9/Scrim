@@ -57,6 +57,13 @@ export class ThemeLoader {
   }
 
   private last: Promise<void> = Promise.resolve();
+  /** The text faces of the current theme, loading (see `preloadTextFonts`). */
+  private fonts: Promise<unknown> = Promise.resolve();
+
+  /** Resolves when the text faces are in, or after `ms`. */
+  whenFontsLoaded(ms: number): Promise<void> {
+    return Promise.race([this.fonts.then(() => {}, () => {}), new Promise<void>((r) => window.setTimeout(r, ms))]);
+  }
 
   /** Apply the wanted theme; `force` reloads the files even if the theme is unchanged. */
   apply(force = false): Promise<void> {
@@ -92,8 +99,25 @@ export class ThemeLoader {
     // Native title bars follow light/dark only. When the theme follows the system
     // (separate dark theme on), the system already picked; asking would pin it.
     if (!this.setting("useSeparateDarkTheme", false)) void getCurrentWindow().setTheme(isDark ? "dark" : null).catch(() => {});
+    this.fonts = preloadTextFonts();
     for (const f of this.onApplied) f();
   }
+}
+
+/**
+ * Start loading the faces the document's text uses (regular, bold, italic). The browser
+ * loads a face only when laid-out text needs it, which for a large document is after the
+ * view is built; with `font-display: block` (the built-in themes) that text is invisible
+ * until it arrives (QA-LOG Q-028 follow-up: PT Serif landed about 1.4 s into a 1 MB open).
+ * `init` waits for them before building the view: their files are read on the main
+ * thread, which a large load keeps busy.
+ */
+function preloadTextFonts(): Promise<unknown> {
+  const write = document.getElementById("write");
+  if (!write || !document.fonts?.load) return Promise.resolve();
+  const families = getComputedStyle(write).fontFamily.split(",").map((f) => f.trim().replace(/^["']|["']$/g, ""));
+  const faces = [...document.fonts].filter((f) => families.includes(f.family.replace(/^["']|["']$/g, "")) && f.status === "unloaded");
+  return Promise.all(faces.map((face) => face.load().catch(() => {})));
 }
 
 /** Per slot: the newest swap; older ones that finish later remove themselves. */

@@ -422,6 +422,17 @@ Long tasks after the open, each found with traces and cut below 50 ms:
   a full run. Background dispatches first let ProseMirror read pending DOM changes
   (`flushDomFirst`).
 
+Late text font (owner's run of 3d0ba5d: fonts-loaded about 1,400 ms into the open,
+blank before). It is the theme's own text face: PT Serif for paper (regular, italic,
+bold), declared `font-display: block`, so the document's text is invisible until it
+arrives. The browser loads a face only when laid-out text needs it, which for a large
+document is after the view is built, and its file is read on the main thread the load
+keeps busy. Now the faces the editor's text uses are loaded as soon as the theme's sheets
+are in (`preloadTextFonts`), and `init` waits for them (at most 500 ms) before building
+the view. Here fonts-loaded now comes 3–12 ms after the load, and first-frame went from
+about 350 to about 100 ms: the font landing during the first frame had made it lay the
+text out twice.
+
 Placeholders of viewport-only rendering can show their own box (a quote's bar, a code
 block's background) for a frame during fast scrolls before the range catches up; accepted
 for now (Q-027 follow-up).

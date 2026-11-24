@@ -373,6 +373,8 @@ async function init() {
   // anyway): applied after a large load, its sheets and the page's reveal restyled every
   // block, about 500 ms on 1 MB after the first frame (QA-LOG Q-028 follow-up).
   await themes.whenApplied(1500);
+  // ... and its text fonts (bundled files: a few milliseconds while the thread is free).
+  await themes.whenFontsLoaded(500);
   state.fileName = d.fileName;
   state.path = d.path;
   editor.options.docDir = d.path ? dirname(d.path) : null;

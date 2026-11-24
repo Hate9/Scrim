@@ -30,6 +30,9 @@ test("PF-1 open a 1 MB file (< 2 s)", async (s) => {
   const stages = ["rust-read", "rust-blocks", "ipc", "parse", "make-state", "update-view", "refocus", "first-marks", "serialize", "until-frame", "first-frame", "settle", "fonts-loaded"];
   const m = await js(s, "return Object.fromEntries(performance.getEntriesByType('measure').filter((m) => m.name.startsWith('scrim-')).map((m) => [m.name.slice(6), Math.round(m.duration)]))");
   console.log("     stages: " + stages.map((k) => `${k} ${m[k] ?? "-"}`).join(", "));
+  if (process.env.PF_FONTS) console.log("     fonts: " + JSON.stringify(await js(s, `const used = (fam) => [...document.querySelectorAll('#write *, body, #scrim-sidebar *, footer *')].some((e) => getComputedStyle(e).fontFamily.includes(fam) && e.offsetParent);
+      return { faces: [...document.fonts].map((f) => [f.family, f.weight, f.style, f.status, f.display]), theme: window.__scrim.themes.current, write: getComputedStyle(document.querySelector('#write')).fontFamily, body: getComputedStyle(document.body).fontFamily,
+        code: (() => { const c = document.querySelector('#write code, #write .md-fences'); return c ? getComputedStyle(c).fontFamily : null; })(), loadedAt: performance.getEntriesByName('scrim-fonts-loaded').pop()?.duration, openMs: window.__scrim.openMs(), loadedStart: performance.getEntriesByName('scrim-loaded').pop()?.startTime, atLoad: [...document.fonts].map((f) => f.family + ' ' + f.weight + ' ' + f.style + ' ' + f.status) }`)));
   console.log("     after the load, before the first frame: " + JSON.stringify(await js(s, "return window.__scrim.openTrace()")));
   // PF_CHUNKS=1: a trace of the background work 4 s after the open (Q-028 follow-up).
   if (process.env.PF_CHUNKS) {
