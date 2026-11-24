@@ -13,9 +13,14 @@ export interface TraceEntry {
 
 let log: TraceEntry[] | null = null;
 
-export function traceOn(on: boolean): TraceEntry[] | null {
+/** Start (a new log) or stop tracing; `layout` also times layout reads (wrapping DOM
+ * prototypes, so left off for the open's trace in every window). */
+export function traceOn(on: boolean, layout = true): TraceEntry[] | null {
   log = on ? [] : null;
-  if (on) wrapLayout();
+  if (on) {
+    wrapTimers();
+    if (layout) wrapLayout();
+  }
   return log;
 }
 
@@ -89,7 +94,13 @@ function wrapLayout() {
     const get = d.get;
     Object.defineProperty(proto, prop, { ...d, get(this: Element) { return timed(`layout ${prop}`, () => get.call(this)); } });
   }
-  // Timers and idle callbacks, labelled by their first characters.
+}
+
+let timersWrapped = false;
+/** Time timers, idle callbacks and animation frames, labelled by their first characters. */
+function wrapTimers() {
+  if (timersWrapped) return;
+  timersWrapped = true;
   const wrapTimer = (name: "setTimeout" | "requestIdleCallback" | "requestAnimationFrame") => {
     const w = window as unknown as Record<string, (f: (...a: unknown[]) => void, ...r: unknown[]) => number>;
     const orig = w[name];

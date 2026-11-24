@@ -69,7 +69,7 @@ export interface Editor {
   /** Number of source lines (status bar). */
   markdownLines(): number;
   /** Hook for other modules: called after every view update. */
-  onUpdate: ((view: EditorView) => void)[];
+  onUpdate: ((view: EditorView, tr: Transaction) => void)[];
   /** Called after the whole text was loaded or replaced (load, applyText). */
   onReplace: (() => void)[];
 }
@@ -135,7 +135,7 @@ export function createEditor(
   let dirty = false;
   let cleanCheck = 0;
   const groups = typingGroups();
-  const updateHooks: ((view: EditorView) => void)[] = [];
+  const updateHooks: ((view: EditorView, tr: Transaction) => void)[] = [];
   const replaceHooks: (() => void)[] = [];
   /** Set by Mod+Shift+V keydown; the paste event that follows inserts literally. */
   let plainPaste = false;
@@ -248,7 +248,7 @@ export function createEditor(
         groups.mark(tr);
         const state = timed("state apply", () => view.state.apply(tr));
         timed("view update", () => view.updateState(state));
-        updateHooks.forEach((f) => timed(() => `hook ${String(f).slice(0, 60)}`, () => f(view)));
+        updateHooks.forEach((f) => timed(() => `hook ${String(f).slice(0, 60)}`, () => f(view, tr)));
         if (tr.docChanged && perfLog) perfLog.push(performance.now());
         if (tr.docChanged) {
           // Comparing whole documents is O(n): mark dirty at once, and check for a

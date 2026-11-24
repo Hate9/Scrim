@@ -75,7 +75,12 @@ export class StatusBar {
     document.addEventListener("mousedown", (e) => {
       if (!this.langMenu.hidden && !this.langMenu.contains(e.target as Node) && e.target !== this.lang) this.langMenu.hidden = true;
     });
-    editor.onUpdate.push(() => this.schedule());
+    // Text and selection changes; not the background chunks of presentation marks after
+    // a load, which would keep postponing the count (QA-LOG Q-027 follow-up).
+    editor.onUpdate.push((_view, tr) => {
+      if (tr.docChanged || tr.selectionSet) this.schedule();
+    });
+    editor.onReplace.push(() => this.schedule());
     this.schedule();
     this.syncButtons();
   }

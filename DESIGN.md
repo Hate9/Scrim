@@ -342,6 +342,20 @@ the open unchanged. The sidebar's 43 → 133 ms on the owner's machine is not fr
 3b7f9f3's frontend measures the same here (229–337 ms against 228–263 ms), and almost all
 of it is the folder listing before any frontend work.
 
+Bimodal open (owner's run of 9d9e7b5: 1,768–1,800 ms in three runs, 1,175 in one; the
+difference all in until-frame, 380–394 against 65, and first-frame, 576 against 295). The
+open now records a trace from the load to the first frame (timers, plugins and hooks of
+2 ms or more; PF-1 prints it). In every slow run the first background chunk of inline
+decorations, a `setTimeout(0)` queued during the load, ran before the first frame
+(200–225 ms here), and often a second one ran between the two frames: whether a chunk or
+the frame came first decided the outcome. Chunks now start two frames after the update
+that leaves work pending. Here until-frame went from about 220 to 20–26 ms. Chunks
+coming more slowly kept postponing the word count, whose debounce restarted on every
+transaction; it now restarts only for text or selection changes (and after a load).
+What remains of first-frame here (about 550 ms, sometimes 20) has no JavaScript of ours
+in it: a 1 ms ticker stops for about 510 ms just after the first frame's callback, which
+is WebKit's style, layout and paint of the document (or a collection at that moment).
+
 Placeholders of viewport-only rendering can show their own box (a quote's bar, a code
 block's background) for a frame during fast scrolls before the range catches up; accepted
 for now (Q-027 follow-up).

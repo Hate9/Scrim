@@ -340,14 +340,22 @@ export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plu
       return tr.setMeta(PRES_META, true).setMeta("addToHistory", false);
     },
     view: (initialView) => {
-      let scheduled = 0;
+      let scheduled = false;
       const pv = {
         update(view: EditorView) {
           if (scheduled || inlineKey.getState(view.state)?.pending == null) return;
-          scheduled = window.setTimeout(() => {
-            scheduled = 0;
-            if (!view.isDestroyed && inlineKey.getState(view.state)?.pending != null) view.dispatch(view.state.tr.setMeta(chunkMeta, true));
-          }, 0);
+          scheduled = true;
+          // After two frames, not as the next task: a chunk (100–250 ms on a 1 MB
+          // document) queued as a timeout ran before the open's first frame, or between
+          // its two frames, in most of the owner's runs (QA-LOG Q-027 follow-up).
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() =>
+              window.setTimeout(() => {
+                scheduled = false;
+                if (!view.isDestroyed && inlineKey.getState(view.state)?.pending != null) view.dispatch(view.state.tr.setMeta(chunkMeta, true));
+              }, 0),
+            ),
+          );
         },
       };
       pv.update(initialView);

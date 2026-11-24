@@ -349,6 +349,8 @@ function takeTree(d: { text: string; blocks: unknown }) {
 
 /** Time from asking for the document to its first frame (PF-1), for tests. */
 let openMs: number | null = null;
+/** What ran from the end of the load to the first frame, 2 ms or longer (PF-1). */
+let openTrace: string[] | null = null;
 
 async function init() {
   const t0 = performance.now();
@@ -370,6 +372,8 @@ async function init() {
   const eol = EOLS[d.lineEnding ?? d.defaultLineEnding];
   // The block tree is large (about 10 MB of objects for a 1 MB file): nothing may hold it
   // past the parse, or building the view takes 20 times longer (Q-026).
+  // PF-1: what runs between the load and the first frame (owner's runs, Q-027 follow-up).
+  const trace = openTrace === null ? traceOn(true, false) : null;
   editor.load(d.text, !d.path || d.missing, eol, takeTree(d));
   // PF-1 report: the stages of the open (Q-027), as performance measures.
   const rust = d.rustMs;
@@ -383,6 +387,11 @@ async function init() {
     requestAnimationFrame(() => {
       performance.measure("scrim-first-frame", "scrim-frame");
       openMs = performance.now() - t0;
+      if (trace) {
+        const from = performance.getEntriesByName("scrim-loaded").pop()?.startTime ?? 0;
+        openTrace = trace.filter((e) => e.t + e.ms >= from && e.ms >= 2).map((e) => `+${Math.round(e.t - from)} ${e.what} ${Math.round(e.ms)}`);
+        traceOn(false);
+      }
       // Source mode's first switch, prepared once the document is on screen (Q-027).
       whenIdle(() => sourceMode.preload());
     });
@@ -1333,6 +1342,7 @@ window.addEventListener("unhandledrejection", (e) => void ipc.log("error", `unha
   themes,
   zoomLevel: () => zoomLevel,
   openMs: () => openMs,
+  openTrace: () => openTrace,
 };
 
 void appWindow.listen("scrim://doc-reload", () => void init());
