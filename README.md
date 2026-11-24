@@ -5,11 +5,12 @@
 A desktop Markdown editor for Linux and Windows that edits the document in its rendered
 form, showing Markdown syntax only where the cursor is. Built with Tauri 2.
 
-Status: **P8 (performance, coverage, packaging)**, the last phase. All features of the
-specification are in: live-preview editing with byte-exact round trips, rich blocks, the
-workspace, themes, preferences, export (HTML, PDF, pandoc formats), spell check, snippets
-and custom tags. What remains is listed under "Open items" below. See
-`spec/spec/00-overview.md` for the phases.
+Status: **1.0.0**. All features of the specification are in: live-preview editing with
+byte-exact round trips, rich blocks, the workspace, themes, preferences, export (HTML,
+PDF, pandoc formats), spell check, snippets and custom tags. On Linux every acceptance
+test passes, including the performance budgets and the manual ones on real hardware.
+Windows is built and unit-tested in CI but not yet run on a Windows machine; its checks
+are listed under "Open items" below. See `spec/spec/00-overview.md` for the phases.
 
 ## Background
 

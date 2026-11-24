@@ -467,8 +467,8 @@ are end-to-end tests in `tests/e2e/p1.mjs`.
   line.
 - P8-1 on Arch (owner, 2026-11-22): the PKGBUILD package built from a checkout with
   `_srcdir` installs, appears in the launcher, opens files (launcher, Open With, command
-  line) and uninstalls; `~/.config/scrim` stays, as intended. The default `source` needs
-  a `v0.1.0` tag, left until a release is tagged. The Windows installers still need their
+  line) and uninstalls; `~/.config/scrim` stays, as intended. The default `source`
+  builds the `v$pkgver` tag (`v1.0.0`). The Windows installers still need their
   P8-1 run.
 - `scripts/check-linux-packages.sh` repeats the Linux part on every CI run (job
   `packages`): after `tauri build --bundles deb appimage` it checks the .deb's Depends

@@ -1,7 +1,7 @@
 # Arch Linux package for Scrim, built from a tagged source release (spec 00).
 # Build: makepkg -si   (in this folder; set _srcdir=/path/to/checkout to build a local tree)
 pkgname=scrim
-pkgver=0.1.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="Live-preview Markdown editor"
 arch=('x86_64')
