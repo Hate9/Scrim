@@ -5,6 +5,8 @@
 // run at most once per keypress. Clipboard and undo keys are never handled here: the
 // webview fires the DOM events and ProseMirror handles them (rule 2).
 
+import { composingKey } from "./composition";
+
 const US_PUNCT: Record<string, string> = {
   Backquote: "`",
   Minus: "-",
@@ -235,7 +237,7 @@ export class Dispatcher {
     target.addEventListener(
       "keydown",
       (e) => {
-        if (e.isComposing || e.keyCode === 229) return;
+        if (composingKey(e)) return;
         // Browser shortcuts that must never reach the webview (rule 4).
         if (e.key === "F5" || (e.ctrlKey && !e.shiftKey && (e.key === "r" || e.key === "R"))) {
           e.preventDefault();

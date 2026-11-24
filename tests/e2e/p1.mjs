@@ -120,6 +120,45 @@ test("E-8 undo an input rule restores the typed trigger", async (s) => {
   await waitFor(() => s.exec("return document.querySelector('#write p').textContent === ''"), "empty paragraph");
 });
 
+// E-9 is manual (a real IME). This replays what the editor sees when an input method
+// commits in an empty heading, list item or quote: compositionstart, the composed text in
+// the DOM, the commit Enter (keyCode 229 before compositionend, or a plain Enter 30 ms
+// after it, once ProseMirror has ended the composition), compositionend. The Enter must not run Enter's
+// command (which turned the empty heading back into a paragraph).
+const compose = (s, text, enterAfterEnd) =>
+  s.exec(`const v = window.__scrim.editor.view, dom = v.dom, text = ${JSON.stringify(text)};
+    const key = (code) => { const e = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }); Object.defineProperty(e, 'keyCode', { get: () => code }); dom.dispatchEvent(e); };
+    dom.dispatchEvent(new CompositionEvent('compositionstart', { data: '', bubbles: true }));
+    const sel = document.getSelection(), r = sel.getRangeAt(0), t = document.createTextNode(text);
+    r.insertNode(t); sel.collapse(t, text.length);
+    dom.dispatchEvent(new CompositionEvent('compositionupdate', { data: text, bubbles: true }));
+    if (!${enterAfterEnd}) key(229);
+    dom.dispatchEvent(new CompositionEvent('compositionend', { data: text, bubbles: true }));
+    // After: once ProseMirror has ended the composition (it does 20 ms after the event).
+    return new Promise((r) => (${enterAfterEnd} ? setTimeout(() => { key(13); r(true); }, 30) : r(true)));`);
+for (const [what, trigger, selector, want] of [
+  ["heading", "# ", "#write h1", "# 漢字"],
+  ["list item", "- ", "#write li", "- 漢字"],
+  ["quote", "> ", "#write blockquote p", "> 漢字"],
+]) {
+  for (const after of [false, true]) {
+    test(`E-9 (simulated) committing a composition in an empty ${what}, Enter ${after ? "after" : "before"} compositionend`, async (s) => {
+      await ready(s);
+      await typeText(s, trigger);
+      await waitFor(() => s.exec(`return !!document.querySelector(${JSON.stringify(selector)})`), `empty ${what}`);
+      await compose(s, "漢字", after);
+      await sleep(300); // ProseMirror reads the composed text shortly after compositionend
+      // The Markdown, and the blocks (an empty paragraph after it would not show in the
+      // Markdown): one top-level block, holding one textblock with 漢字.
+      const shape = () => s.exec("const d = window.__scrim.editor.view.state.doc; const tb = []; d.descendants((n) => { if (n.isTextblock) { tb.push(n.textContent); return false; } return true; }); return JSON.stringify([d.childCount, d.firstChild.type.name, tb])");
+      const type = { heading: "heading", "list item": "bullet_list", quote: "blockquote" }[what];
+      await waitFor(async () => (await md(s)) === want + "\n" && (await shape()) === JSON.stringify([1, type, ["漢字"]]), `${what} containing 漢字, nothing else`).catch(async (e) => {
+        throw new Error(`${e.message}; markdown ${JSON.stringify(await md(s))}, blocks ${await shape()}`);
+      });
+    });
+  }
+}
+
 test("E-10 Shift+Enter writes a newline inside the paragraph", async (s) => {
   await ready(s);
   await typeText(s, "one");

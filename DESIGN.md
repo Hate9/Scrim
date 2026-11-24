@@ -1164,6 +1164,21 @@ its literal Markdown inline source. Deviations and details:
   `#Heading`, any-number list interruption): with the preferences window (P4).
 - Escapes in setext heading lines and ATX closing-`#` ambiguity: paragraphs only so far.
 - E-9 (IME) is manual; E-18 and E-19 need P3's find bar and source mode.
+- Keys of a composition (E-9, owner's run of c782662 with fcitx5 and Mozc: the Enter
+  that commits 漢字 in an empty heading turned the heading back into a paragraph).
+  ProseMirror 1.43 runs its keymaps for keydown even while composing (it skips keys only
+  on Android and iOS), and WebKitGTK sends the commit key with `key: "Enter"` and keyCode
+  229, sometimes with `isComposing` false. The editor's own `handleDOMEvents.keydown`
+  (ahead of every plugin) returns true for `composingKey` (`src/editor/composition.ts`:
+  `isComposing`, keyCode 229, `key: "Process"`, between compositionstart and
+  compositionend, or an Enter within 60 ms after compositionend), which skips
+  ProseMirror's key handling (keymaps, Enter, Backspace, Tab, auto-pair, emoji and table
+  keys) without preventDefault, so the input method still commits; the app's shortcut
+  dispatcher uses the same test. The simulated E-9 tests (p1) replay the composition
+  events with the commit Enter before compositionend and 30 ms after it, in an empty
+  heading, list item and quote, and check the blocks as well as the Markdown (an empty
+  paragraph left after the block does not show in the Markdown); without the guard all
+  six fail with an extra empty block.
 
 ### Performance status
 

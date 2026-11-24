@@ -1,6 +1,7 @@
 // The live-preview editor: ProseMirror view over the Markdown document model.
 
 import { timed, tracePlugins } from "./trace";
+import { composingKey } from "./composition";
 import type { Root } from "mdast";
 import { createFindPlugin } from "./find";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
@@ -277,6 +278,12 @@ export function createEditor(
         return handlePaste(v, event, options, plain, hooks.images);
       },
       handleDOMEvents: {
+        // Before any key handler (keymaps, Enter, Backspace, Tab, auto-pair, emoji and
+        // table keys): a key of a composition is the input method's. Returning true skips
+        // ProseMirror's key handling without preventDefault, so the commit still happens.
+        keydown(v, event) {
+          return composingKey(event, v.composing);
+        },
         dblclick(_v, event) {
           // Double-click on an image opens it in the system viewer (4.8).
           const img = (event.target as HTMLElement).closest?.(".md-image img") as HTMLImageElement | null;
