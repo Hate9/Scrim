@@ -16,6 +16,7 @@
 // Documents under VIRTUAL_MIN_BLOCKS top-level blocks render whole, exactly as before.
 
 import { DOMSerializer, type Node, type Schema } from "prosemirror-model";
+import { flushDomFirst } from "./domflush";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView, type NodeView, type NodeViewConstructor } from "prosemirror-view";
 
@@ -150,6 +151,46 @@ export function setViewportMode(view: EditorView, on: boolean) {
     switching = false;
   }
   redrawAll(view);
+}
+
+/**
+ * Run a view update keeping the first block in view where it is. ProseMirror does this
+ * itself on every update that touches the selection, by probing `elementFromPoint` down
+ * the editor; with 15,000 top-level blocks each probe costs about 3 ms in WebKitGTK, which
+ * made any dispatch on a 1 MB document take 70–90 ms (QA-LOG Q-028 follow-up). In
+ * viewport-only mode that probe is switched off (ProseMirror skips it when the editor's
+ * `style.overflowAnchor` is set) and the block is found by binary search instead.
+ * Transactions that scroll to the selection are left to ProseMirror.
+ */
+export function keepScroll(view: EditorView, tr: Transaction, update: () => void): void {
+  const dom = view.dom as HTMLElement;
+  const style = dom.style as unknown as Record<string, string | undefined>;
+  const on = !!viewportKey.getState(view.state)?.on;
+  if (on !== (style.overflowAnchor != null)) {
+    if (on) style.overflowAnchor = "auto";
+    else if ("overflowAnchor" in CSSStyleDeclaration.prototype) dom.style.removeProperty("overflow-anchor");
+    else delete style.overflowAnchor;
+  }
+  const scroller = on && !tr.scrolledIntoView ? (dom.closest("content") as HTMLElement | null) : null;
+  const kids = dom.children;
+  if (!scroller || kids.length !== view.state.doc.childCount || !kids.length) return update();
+  const top = scroller.getBoundingClientRect().top;
+  let lo = 0;
+  let hi = kids.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (kids[mid].getBoundingClientRect().bottom > top) hi = mid;
+    else lo = mid + 1;
+  }
+  const pos = viewportKey.getState(view.state)!.starts[lo] ?? 0;
+  const before = kids[lo].getBoundingClientRect().top;
+  update();
+  const mapped = tr.mapping.mapResult(pos, 1);
+  if (mapped.deleted) return;
+  const el = view.nodeDOM(mapped.pos) as HTMLElement | null;
+  if (!el?.getBoundingClientRect) return;
+  const after = el.getBoundingClientRect().top;
+  if (after !== before) scroller.scrollTop += after - before;
 }
 
 /** Set while `setViewportMode` redraws itself (the controller does not have to). */
@@ -464,6 +505,9 @@ class ViewportController {
     const st = viewportKey.getState(view.state)!;
     const anchorPos = st.starts[Math.min(anchorIndex, st.starts.length - 1)];
     const before = els[Math.min(anchorIndex, els.length - 1)].getBoundingClientRect().top;
+    // A scroll can come with a selection the browser made (Ctrl+Shift+End scrolls to
+    // the end): read it before this dispatch writes the older one back.
+    flushDomFirst(view);
     view.dispatch(view.state.tr.setMeta(WINDOW_META, { from, to }).setMeta("addToHistory", false));
     const dom = view.nodeDOM(anchorPos) as HTMLElement | null;
     if (dom) {

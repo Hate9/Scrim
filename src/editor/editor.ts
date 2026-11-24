@@ -37,7 +37,7 @@ import { createNormalizePlugin } from "./normalize";
 import { arrowCommand, createRevealPlugin } from "./reveal";
 import { createSpellPlugin, type SpellHooks } from "./spell";
 import { createSmartPlugin } from "./smart";
-import { createViewportPlugin, viewportNodeViews } from "./viewport";
+import { keepScroll, createViewportPlugin, viewportNodeViews } from "./viewport";
 import { codeNodeViews, createCodeSelectionPlugin, type CodeViewHooks } from "./codeview";
 import { blockNodeViews, createBlocksPlugin, escapeFootnote, tocEnter } from "./blocks";
 import { cellBreak, cellEnter, cellTextInput, createTablePlugin, deleteRow, insertRowBelow, nextCell } from "./tables";
@@ -247,7 +247,7 @@ export function createEditor(
       dispatchTransaction(tr: Transaction) {
         groups.mark(tr);
         const state = timed("state apply", () => view.state.apply(tr));
-        timed("view update", () => view.updateState(state));
+        timed("view update", () => keepScroll(view, tr, () => view.updateState(state)));
         updateHooks.forEach((f) => timed(() => `hook ${String(f).slice(0, 60)}`, () => f(view, tr)));
         if (tr.docChanged && perfLog) perfLog.push(performance.now());
         if (tr.docChanged) {

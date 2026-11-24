@@ -19,6 +19,7 @@ import { documentDefinitions, elementsOf, isProse, type EditorOptions } from "./
 import { isStructural } from "./normalize";
 import { sanitizeAttrs } from "./sanitize";
 import { schema } from "../md/schema";
+import { flushDomFirst } from "./domflush";
 import { PRES_META, presSegments, type PresSegment, type PresSpec } from "./pres";
 
 export { PRES_META };
@@ -36,6 +37,10 @@ export interface InlineDecoState {
 /** Textblocks decorated synchronously at load; the rest follow in idle chunks. */
 const INITIAL_BLOCKS = 150;
 const CHUNK_BLOCKS = 300;
+/** Analysis time per background slice. Marking and redrawing the same blocks take about
+ * as long again each, so a slice stays near 15 ms: no task after an open runs long enough
+ * to hold up a keystroke (a 300-block chunk was 250–400 ms on 1 MB; QA-LOG Q-028). */
+const SLICE_MS = 4;
 
 export const inlineKey = new PluginKey<InlineDecoState>("scrim-inline");
 
@@ -206,17 +211,19 @@ function syncMarks(tr: Transaction, node: Node, pos: number, defs: Definitions, 
   return true;
 }
 
-/** Decorations for up to `limit` textblocks starting at `from`; returns where it stopped. */
-function blocksFrom(doc: Node, from: number, limit: number, defs: Definitions, opts: EditorOptions, hooks: RenderHooks) {
+/** Decorations for up to `limit` textblocks starting at `from`, or as many as take
+ * `budgetMs` (at least one); returns where it stopped. */
+function blocksFrom(doc: Node, from: number, limit: number, defs: Definitions, opts: EditorOptions, hooks: RenderHooks, budgetMs = Infinity) {
   const decos: Decoration[] = [];
   const ranges: [number, number][] = [];
   let count = 0;
   let next: number | null = null;
+  const end = performance.now() + budgetMs;
   doc.nodesBetween(from, doc.content.size, (node, pos) => {
     if (next !== null) return false;
     if (!node.isTextblock) return pos + node.nodeSize > from;
     if (pos < from) return false;
-    if (count >= limit) {
+    if (count >= limit || (count && performance.now() > end)) {
       next = pos;
       return false;
     }
@@ -284,7 +291,7 @@ export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plu
       apply(tr, value, _old, state: EditorState) {
         if (tr.getMeta(rebuildMeta)) return initialState(state.doc, documentDefinitions(state.doc), opts, hooks);
         if (tr.getMeta(chunkMeta) && value.pending !== null && !tr.docChanged) {
-          const { decos, ranges, next } = blocksFrom(state.doc, value.pending, CHUNK_BLOCKS, value.defs, opts, hooks);
+          const { decos, ranges, next } = blocksFrom(state.doc, value.pending, CHUNK_BLOCKS, value.defs, opts, hooks, SLICE_MS);
           let set = value.set;
           for (const [a, b] of ranges) set = set.remove(set.find(a, b));
           return { defs: value.defs, set: set.add(state.doc, decos), pending: next, touched: [...value.touched, ...ranges] };
@@ -341,21 +348,25 @@ export function createInlinePlugin(opts: EditorOptions, hooks: RenderHooks): Plu
     },
     view: (initialView) => {
       let scheduled = false;
+      let chained = false;
+      const run = (view: EditorView) => {
+        scheduled = false;
+        if (view.isDestroyed || inlineKey.getState(view.state)?.pending == null) return;
+        chained = true;
+        flushDomFirst(view);
+        if (inlineKey.getState(view.state)?.pending != null) view.dispatch(view.state.tr.setMeta(chunkMeta, true));
+        chained = false;
+      };
       const pv = {
         update(view: EditorView) {
           if (scheduled || inlineKey.getState(view.state)?.pending == null) return;
           scheduled = true;
-          // After two frames, not as the next task: a chunk (100–250 ms on a 1 MB
-          // document) queued as a timeout ran before the open's first frame, or between
-          // its two frames, in most of the owner's runs (QA-LOG Q-027 follow-up).
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() =>
-              window.setTimeout(() => {
-                scheduled = false;
-                if (!view.isDestroyed && inlineKey.getState(view.state)?.pending != null) view.dispatch(view.state.tr.setMeta(chunkMeta, true));
-              }, 0),
-            ),
-          );
+          // One slice after another as separate tasks, so input and frames come in
+          // between. The first after a load or an edit waits two frames: a slice queued
+          // as a timeout ran before the open's first frame in most of the owner's runs
+          // (QA-LOG Q-027 follow-up).
+          if (chained) window.setTimeout(() => run(view), 0);
+          else requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(() => run(view), 0)));
         },
       };
       pv.update(initialView);

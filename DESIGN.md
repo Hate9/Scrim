@@ -389,6 +389,39 @@ decorations, which starts right after the second frame. That chunk is our deferr
 and a keystroke then would wait for it, so it stays in the measurement rather than being
 pushed out of the 100 ms window.
 
+The post-open stall, found (owner's run of 6ad1245: settle 417–468 ms after a first-frame
+of 475–488). The notes above ruled out our JavaScript and a pending layout at the end of
+the load; the cause was what made the layout dirty afterwards. `init` started the
+theme's stylesheets and then built the 1 MB view at once, so the sheets landed after the
+load: applying them, and the page's reveal (`body.scrim-loading` hides every child of
+`<body>` until the theme is in), restyled and laid out every block, and the "first
+frame" PF-1 timed was a frame of a page still hidden. Now `init` waits for the theme (at
+most the 1.5 s the reveal waits anyway) before building the view, and the font-size
+`<style>` is moved behind the theme's sheets only when it is not last already (moving a
+sheet restyles the document, which every reload did). first-frame is now the first
+layout and paint of the visible page (about 300 ms here, in every run).
+
+Long tasks after the open, each found with traces and cut below 50 ms:
+
+- Background decoration chunks: 300 blocks per task (250–400 ms on 1 MB). Each slice now
+  analyzes blocks for 4 ms (`SLICE_MS`), so a slice with its marking and view update is
+  about 20 ms here; slices run as separate tasks (the first one after a load or an edit
+  two frames later).
+- Every view update on a large document: ProseMirror keeps the scroll position by
+  probing `elementFromPoint` down the editor (`storeScrollPos`), about 3 ms per probe with
+  15,000 top-level blocks: a selection change took 81 ms, a typed character 96 ms. In
+  viewport-only mode `keepScroll` switches that off (ProseMirror skips it when
+  `style.overflowAnchor` is set) and keeps the first block in view in place itself, found
+  by binary search: 17 and 33 ms.
+- Spell check: one run collected the words of everything dirty (the whole document after
+  an open, 60 ms on 10,000 lines). Runs now take 8 ms of blocks each and continue at once;
+  the checked parts are subtracted from the dirty ranges.
+- With background work in many short dispatches, one could land between the browser
+  changing the DOM selection (a native Ctrl+Shift+End, a Shift+click) and ProseMirror
+  reading it, and wrote the older selection back: Q-026's select-all test failed once in
+  a full run. Background dispatches first let ProseMirror read pending DOM changes
+  (`flushDomFirst`).
+
 Placeholders of viewport-only rendering can show their own box (a quote's bar, a code
 block's background) for a frame during fast scrolls before the range catches up; accepted
 for now (Q-027 follow-up).

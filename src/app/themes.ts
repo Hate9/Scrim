@@ -56,8 +56,21 @@ export class ThemeLoader {
     return `${themeFileUrl(this.dir, file)}?v=${this.version}`;
   }
 
+  private last: Promise<void> = Promise.resolve();
+
   /** Apply the wanted theme; `force` reloads the files even if the theme is unchanged. */
-  async apply(force = false) {
+  apply(force = false): Promise<void> {
+    const p = this.applyNow(force);
+    this.last = p;
+    return p;
+  }
+
+  /** Resolves when the latest apply is done, or after `ms`. */
+  whenApplied(ms: number): Promise<void> {
+    return Promise.race([this.last.catch(() => {}), new Promise<void>((r) => window.setTimeout(r, ms))]);
+  }
+
+  private async applyNow(force: boolean) {
     if (!this.dir) await this.refreshList();
     const id = this.wanted();
     const hrefs = id ? [this.url(`${id}.css`), this.url("base.user.css"), this.url(`${id}.user.css`)] : ["", this.url("base.user.css"), ""];

@@ -31,6 +31,12 @@ test("PF-1 open a 1 MB file (< 2 s)", async (s) => {
   const m = await js(s, "return Object.fromEntries(performance.getEntriesByType('measure').filter((m) => m.name.startsWith('scrim-')).map((m) => [m.name.slice(6), Math.round(m.duration)]))");
   console.log("     stages: " + stages.map((k) => `${k} ${m[k] ?? "-"}`).join(", "));
   console.log("     after the load, before the first frame: " + JSON.stringify(await js(s, "return window.__scrim.openTrace()")));
+  // PF_CHUNKS=1: a trace of the background work 4 s after the open (Q-028 follow-up).
+  if (process.env.PF_CHUNKS) {
+    await js(s, "window.__tr = window.__scrim.traceOn(true, false); return true");
+    await sleep(2500);
+    console.log("     chunk trace: " + JSON.stringify(await js(s, "const tr = window.__tr; window.__scrim.traceOn(false); const t0 = tr[0]?.t ?? 0; return tr.filter((e) => e.ms >= 1).slice(0, 60).map((e) => `+${Math.round(e.t - t0)} ${e.what.slice(0, 50)} ${Math.round(e.ms)}`)"), null, 1));
+  }
   // After the breakdown: with SCRIM_PERF_STRICT=1 the budget check throws.
   budget("open 1 MB", openMs, 2000);
   const size = await js(s, "return window.__scrim.editor.markdown().length");

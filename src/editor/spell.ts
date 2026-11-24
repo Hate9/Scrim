@@ -8,6 +8,7 @@ import type { Node } from "prosemirror-model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { PRES_META } from "./pres";
+import { flushDomFirst } from "./domflush";
 
 export interface SpellConfig {
   enabled: boolean;
@@ -46,7 +47,7 @@ const SPELL_META = "scrim-spell";
 
 type Meta =
   | { type: "config"; config: SpellConfig }
-  | { type: "result"; textVersion: number; ranges: [number, number][]; bad: Word[] }
+  | { type: "result"; textVersion: number; ranges: [number, number][]; done: [number, number][]; bad: Word[] }
   | { type: "ignore"; word: string }
   | { type: "recheck" };
 
@@ -94,6 +95,26 @@ export function blockWords(node: Node, pos: number): Word[] {
   });
   flush();
   return out;
+}
+
+/** Time per spell-check run for collecting words (Q-027 follow-up). */
+const SLICE_MS = 8;
+
+/** The parts of `ranges` outside every range of `cut` (empty parts dropped). */
+export function subtract(ranges: [number, number][], cut: [number, number][]): [number, number][] {
+  let out = ranges;
+  for (const [c, d] of cut) {
+    const next: [number, number][] = [];
+    for (const [a, b] of out) {
+      if (d <= a || c >= b) next.push([a, b]);
+      else {
+        if (a < c) next.push([a, c]);
+        if (d < b) next.push([d, b]);
+      }
+    }
+    out = next;
+  }
+  return out.filter(([a, b]) => b > a);
 }
 
 function proseBlocksIn(doc: Node, from: number, to: number, f: (node: Node, pos: number) => void) {
@@ -194,7 +215,7 @@ export function createSpellPlugin(hooks: SpellHooks): Plugin<SpellState> {
             .map((w) => Decoration.inline(w.from, w.to, { class: "md-spell-error" }, { word: w.word }));
           decos = decos.add(state.doc, add);
           // Ranges checked are clean unless changed since (they were mapped above).
-          dirty = dirty.filter(([a, b]) => !meta.ranges.some(([c, d]) => c <= a && b <= d));
+          dirty = subtract(dirty, meta.done);
         }
         if (!config.enabled || !config.lang) decos = DecorationSet.empty;
         return { config, decos, dirty, ignored, typing, textVersion };
@@ -212,6 +233,10 @@ export function createSpellPlugin(hooks: SpellHooks): Plugin<SpellState> {
     view(view) {
       let timer = 0;
       let running = false;
+      /** The last run checked only part of what is dirty: the next one starts at once,
+       * unless the text changed since (typing keeps the 300 ms pause). */
+      let more = false;
+      let ranAt = -1;
       const run = async () => {
         timer = 0;
         const st = spellKey.getState(view.state);
@@ -225,19 +250,38 @@ export function createSpellPlugin(hooks: SpellHooks): Plugin<SpellState> {
         const words: Word[] = [];
         const ranges: [number, number][] = [];
         const seen = new Set<number>();
+        /** What this run checked of the dirty ranges (blocks found in them go in `ranges`). */
+        const done: [number, number][] = [];
+        // At most SLICE_MS of blocks per run (a whole 10,000-line document took one 60 ms
+        // task); the rest stays dirty and the next run follows at once (Q-028 follow-up).
+        const end = performance.now() + SLICE_MS;
+        let partial = false;
         for (const [a, b] of st.dirty) {
+          let stopAt: number | null = null;
           proseBlocksIn(state.doc, a, b, (node, pos) => {
-            if (seen.has(pos)) return;
+            if (stopAt !== null || seen.has(pos)) return;
+            if (words.length && performance.now() > end) {
+              stopAt = pos;
+              return;
+            }
             seen.add(pos);
             ranges.push([pos, pos + node.nodeSize]);
             words.push(...blockWords(node, pos));
           });
+          done.push([a, stopAt ?? b]);
+          if (stopAt !== null) {
+            partial = true;
+            break;
+          }
         }
+        more = partial;
+        ranAt = st.textVersion;
         const unique = [...new Set(words.map((w) => w.word))];
         try {
           const bad = new Set((unique.length ? await hooks.check(st.config.lang, unique) : []).map((i) => unique[i]));
           if (!view.isDestroyed) {
-            const meta: Meta = { type: "result", textVersion: st.textVersion, ranges, bad: words.filter((w) => bad.has(w.word)) };
+            flushDomFirst(view);
+            const meta: Meta = { type: "result", textVersion: st.textVersion, ranges, done: [...done, ...ranges], bad: words.filter((w) => bad.has(w.word)) };
             view.dispatch(view.state.tr.setMeta(SPELL_META, meta).setMeta("addToHistory", false));
           }
         } catch {
@@ -251,7 +295,7 @@ export function createSpellPlugin(hooks: SpellHooks): Plugin<SpellState> {
           const st = spellKey.getState(v.state);
           if (!st?.config.enabled || !st.dirty.length) return;
           clearTimeout(timer);
-          timer = window.setTimeout(run, 300);
+          timer = window.setTimeout(run, more && st.textVersion === ranAt ? 0 : 300);
         },
         destroy() {
           clearTimeout(timer);

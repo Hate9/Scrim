@@ -330,7 +330,9 @@ function applySettings(next: Record<string, unknown>) {
   }
   const fontCss = typeof size === "number" && size >= 12 && size <= 24 ? `#write, #scrim-source { font-size: ${size}px; }` : "";
   fs.textContent = fontCss;
-  if (typeof themes !== "undefined") void themes.apply().then(() => document.head.appendChild(fs!));
+  // After the theme's sheets, so the font size wins. Moved only when it is not last
+  // already: moving a stylesheet restyles the whole document (Q-028 follow-up).
+  if (typeof themes !== "undefined") void themes.apply().then(() => { if (document.head.lastElementChild !== fs) document.head.appendChild(fs!); });
   settingsApplied = true;
 }
 
@@ -367,6 +369,10 @@ async function init() {
     document.head.prepend(meta);
   }
   applySettings((d.settings ?? {}) as Record<string, unknown>);
+  // The theme in before the document is built (at most the 1.5 s the page waits for it
+  // anyway): applied after a large load, its sheets and the page's reveal restyled every
+  // block, about 500 ms on 1 MB after the first frame (QA-LOG Q-028 follow-up).
+  await themes.whenApplied(1500);
   state.fileName = d.fileName;
   state.path = d.path;
   editor.options.docDir = d.path ? dirname(d.path) : null;

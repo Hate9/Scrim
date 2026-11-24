@@ -33,3 +33,13 @@ describe("what spell check reads (13)", () => {
     expect(checkable("x2")).toBe(false);
   });
 });
+
+import { subtract } from "./spell";
+describe("subtract (Q-027 follow-up: partial spell runs)", () => {
+  it("cuts checked ranges out of dirty ones", () => {
+    expect(subtract([[0, 100]], [[0, 40]])).toEqual([[40, 100]]);
+    expect(subtract([[0, 100], [120, 130]], [[10, 20], [125, 140]])).toEqual([[0, 10], [20, 100], [120, 125]]);
+    expect(subtract([[5, 5]], [])).toEqual([]);
+    expect(subtract([[0, 50]], [[0, 50]])).toEqual([]);
+  });
+});
