@@ -356,6 +356,28 @@ What remains of first-frame here (about 550 ms, sometimes 20) has no JavaScript 
 in it: a 1 ms ticker stops for about 510 ms just after the first frame's callback, which
 is WebKit's style, layout and paint of the document (or a collection at that moment).
 
+The remaining first-frame stall (owner's run of c7f07b9: about 486 ms in 4 of 5 runs, 8 ms
+in the fifth), looked at with temporary probes:
+
+- It happens on every open: a 1 ms ticker started at the first frame stops for about
+  480–520 ms each time. In the "fast" runs the second frame callback simply ran before
+  the stall, so first-frame missed it. The fast numbers are the measurement racing the
+  stall, not an open without it.
+- It scales with the document: about 500 ms for the 1 MB fixture, about 150 ms for 10,000
+  lines, none for a one-line document. It happens once; typing frames do not pay it
+  (E-14 p95 8 ms).
+- None of our JavaScript runs in it (traced timers, plugins, hooks; ProseMirror's DOM
+  observer flush timed separately: nothing). Style and layout are already clean when
+  the load ends (forcing both then takes 0 ms, and does not change the stall).
+- Not the render layers of `position: relative` headings, list items and code blocks
+  among the placeholders: making placeholders `position: static` changed nothing.
+- No ordinary collection is pending at the end of the load: allocating 600,000 small
+  objects there runs at normal speed (no step over 7 ms), and the stall still follows.
+
+What is left is WebKit's own work for the first paint of a document with tens of
+thousands of elements, or a full collection JavaScriptCore schedules on its own timer;
+neither is ours to remove with a small change. The open is within budget either way.
+
 Placeholders of viewport-only rendering can show their own box (a quote's bar, a code
 block's background) for a frame during fast scrolls before the range catches up; accepted
 for now (Q-027 follow-up).
