@@ -7,12 +7,17 @@
   <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#fbfaf6"/><stop offset="1" stop-color="#e9e6dd"/>
   </linearGradient>
-  <clipPath id="iclip"><rect x="0" y="125" width="210" height="85"/></clipPath>
+  <clipPath id="iclip"><rect x="0" y="105" width="210" height="105"/></clipPath><clipPath id="ibar"><path d="m 126.57031,121.23242 -55.222654,3.91992 -28.903731,-1.7617 -5.294278,17.83336 34.305431,1.96545 55.123052,-3.91211 26.20969,1.94666 6.13022,-17.83336 z"/></clipPath>
 <mask id="igaps" maskUnits="userSpaceOnUse" x="0" y="0" width="210" height="210">
   <rect width="210" height="210" fill="#fff"/>
   <g stroke="#000" stroke-width="3.4" stroke-linejoin="round" paint-order="stroke" fill="#fff">
-    <path d="M 87.863257,23.635306 49.131434,186.36469 H 68.915315 L 107.36849,23.635306 Z"/><path d="m 85.292969,66.859375 -28.916734,1.916617 -5.294278,17.833358 34.078199,-1.712866 53.408204,3.869141 28.15177,-2.156275 6.13022,-17.833358 -34.2234,1.946664 z"/><path d="M 142.19927,23.635306 103.46744,186.36469 h 19.50524 L 161.7045,23.635306 Z"/><path d="m 126.57031,121.23242 -55.222654,3.91992 -28.903731,-1.7617 -5.294278,17.83336 34.305431,1.96545 55.123052,-3.91211 26.20969,1.94666 6.13022,-17.83336 z"/><path clip-path="url(#iclip)" d="M 68.497345,105 49.131432,186.36469 H 68.915313 L 88.00258,105 Z"/>
+    <path d="M 87.863257,23.635306 49.131434,186.36469 H 68.915315 L 107.36849,23.635306 Z"/><path d="m 85.292969,66.859375 -28.916734,1.916617 -5.294278,17.833358 34.078199,-1.712866 53.408204,3.869141 28.15177,-2.156275 6.13022,-17.833358 -34.2234,1.946664 z"/><path d="M 142.19927,23.635306 103.46744,186.36469 h 19.50524 L 161.7045,23.635306 Z"/><path d="m 126.57031,121.23242 -55.222654,3.91992 -28.903731,-1.7617 -5.294278,17.83336 34.305431,1.96545 55.123052,-3.91211 26.20969,1.94666 6.13022,-17.83336 z"/>
   </g>
+  <!-- The left stroke passes over the bottom bar: its gap is cut only inside the bar, then
+       its fill restores the stroke where the bar's own gap crossed it. -->
+  <path d="M 68.497345,105 49.131432,186.36469 H 68.915313 L 88.00258,105 Z" fill="none" stroke="#000" stroke-width="3.4" stroke-linejoin="round" clip-path="url(#ibar)"/>
+  <path d="M 68.497345,105 49.131432,186.36469 H 68.915313 L 88.00258,105 Z" fill="#fff" clip-path="url(#iclip)"/>
+
 </mask>
 </defs>
 <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#tile)"/>
