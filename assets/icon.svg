@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<!-- Scrim's icon: the owner's woven-hash mark (a # in PT Serif Bold, drawn as woven
+     scrim: the top bar passes over the left stroke and under the right one, the bottom
+     bar the other way) on a paper-coloured tile. The gaps at the crossings are cut out
+     of the ink with a mask, so the tile shows through them. -->
+<defs>
+  <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fbfaf6"/><stop offset="1" stop-color="#e9e6dd"/>
+  </linearGradient>
+  <clipPath id="iclip"><rect x="0" y="125" width="210" height="85"/></clipPath>
+<mask id="igaps" maskUnits="userSpaceOnUse" x="0" y="0" width="210" height="210">
+  <rect width="210" height="210" fill="#fff"/>
+  <g stroke="#000" stroke-width="3.4" stroke-linejoin="round" paint-order="stroke" fill="#fff">
+    <path d="M 87.863257,23.635306 49.131434,186.36469 H 68.915315 L 107.36849,23.635306 Z"/><path d="m 85.292969,66.859375 -28.916734,1.916617 -5.294278,17.833358 34.078199,-1.712866 53.408204,3.869141 28.15177,-2.156275 6.13022,-17.833358 -34.2234,1.946664 z"/><path d="M 142.19927,23.635306 103.46744,186.36469 h 19.50524 L 161.7045,23.635306 Z"/><path d="m 126.57031,121.23242 -55.222654,3.91992 -28.903731,-1.7617 -5.294278,17.83336 34.305431,1.96545 55.123052,-3.91211 26.20969,1.94666 6.13022,-17.83336 z"/><path clip-path="url(#iclip)" d="M 68.497345,105 49.131432,186.36469 H 68.915313 L 88.00258,105 Z"/>
+  </g>
+</mask>
+</defs>
+<rect x="64" y="64" width="896" height="896" rx="200" fill="url(#tile)"/>
+<rect x="66" y="66" width="892" height="892" rx="198" fill="none" stroke="#000" stroke-opacity="0.08" stroke-width="4"/>
+<g transform="translate(512 512) scale(3.55) translate(-104.4 -105)">
+  <g mask="url(#igaps)"><path fill="#26231f" d="M 87.863257,23.635306 49.131434,186.36469 H 68.915315 L 107.36849,23.635306 Z"/><path fill="#34302b" d="m 85.292969,66.859375 -28.916734,1.916617 -5.294278,17.833358 34.078199,-1.712866 53.408204,3.869141 28.15177,-2.156275 6.13022,-17.833358 -34.2234,1.946664 z"/><path fill="#26231f" d="M 142.19927,23.635306 103.46744,186.36469 h 19.50524 L 161.7045,23.635306 Z"/><path fill="#34302b" d="m 126.57031,121.23242 -55.222654,3.91992 -28.903731,-1.7617 -5.294278,17.83336 34.305431,1.96545 55.123052,-3.91211 26.20969,1.94666 6.13022,-17.83336 z"/><path fill="#26231f" clip-path="url(#iclip)" d="M 68.497345,105 49.131432,186.36469 H 68.915313 L 88.00258,105 Z"/></g>
+</g>
+</svg>
