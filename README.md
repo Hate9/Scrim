@@ -29,8 +29,10 @@ developers. Its behavior is modeled on Typora's, from a written specification
 - **Performance budgets on real hardware (QA-LOG Q-011, Q-026, Q-027).** E-14 and PF-1
   are reported, not enforced, in CI; the owner runs them on real hardware with
   `SCRIM_PERF_STRICT=1 scripts/e2e.sh` (`SCRIM_APP=target/release/scrim` for a release
-  build). Latest numbers, the open's stages, and the viewport-only rendering they
-  measure: DESIGN.md, "P8: performance and coverage".
+  build). All four pass on the owner's Linux machine (3d0ba5d, 2026-11-24: open 1 MB
+  1.47–1.56 s, E-14 p95 9–10 ms, source mode 198–229 / 160 ms, sidebar 124 ms); P8
+  performance is accepted on Linux. Numbers, the open's stages, and the viewport-only
+  rendering they measure: DESIGN.md, "P8: performance and coverage".
 - **Settings with platform limits.** Cursor blink on Windows (WebView2 has no switch;
   the system setting applies). `global:` shortcuts need X11 or Windows (Wayland has no
   global key grabs; the failure is shown and logged). The UI exists only in English, so
@@ -51,8 +53,10 @@ developers. Its behavior is modeled on Typora's, from a written specification
   importing them, need it installed (Help: Installing Pandoc).
 - **Spell check on Windows** (Windows Spell Checking API) compiles but has not been run
   on Windows; L-4 is a manual test.
-- **Manual tests.** E-9 (IME with Japanese input) and L-4 (a Windows language) need a
-  person.
+- **Manual tests.** E-9 (IME with Japanese input) passed on Linux (owner, fd2e0c2,
+  2026-11-24: fcitx5 with Mozc; empty heading, list item and quote, and inside strong);
+  simulated E-9 tests replay its event sequence in CI. L-4 (a Windows language) and
+  E-9 on Windows still need a person.
 
 ## Documents
 

@@ -1179,7 +1179,9 @@ its literal Markdown inline source. Deviations and details:
 - Highlight, sub- and superscript extensions (default off) and strict mode off (lenient
   `#Heading`, any-number list interruption): with the preferences window (P4).
 - Escapes in setext heading lines and ATX closing-`#` ambiguity: paragraphs only so far.
-- E-9 (IME) is manual; E-18 and E-19 need P3's find bar and source mode.
+- E-9 (IME) is manual: passed on Linux on fd2e0c2 (owner, 2026-11-24, niri, Scrim on X11
+  through xwayland-satellite, fcitx5 with Mozc). E-18 and E-19 need P3's find bar and
+  source mode.
 - Keys of a composition (E-9, owner's run of c782662 with fcitx5 and Mozc: the Enter
   that commits 漢字 in an empty heading turned the heading back into a paragraph).
   ProseMirror 1.43 runs its keymaps for keydown even while composing (it skips keys only
